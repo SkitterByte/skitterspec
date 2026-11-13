@@ -367,9 +367,17 @@ through to a documented conservative default; see the field notes below.
   // blocks when the commits are ALSO unmerged into the base branch — a branch
   // already landed on base tears down (and its branch is deleted) without
   // --force, even with no remote.
+  //
+  // `projectBoundary` (default true): a session works on the project it was
+  // started in. The project-guard hook refuses a write, a git change or a
+  // skitterspec lifecycle command aimed at ANOTHER skitterspec project (a
+  // checkout with specs/.core/); reads and every other program pass. The user
+  // lifts it for one session with /allow-project <name>; false turns it off
+  // for this project. Its sibling `mainIsLandingZone` is the main guard's switch.
   "guards": {
     "refuseTeardownIfDirty": true,
-    "refuseTeardownIfUnpushed": true
+    "refuseTeardownIfUnpushed": true,
+    "projectBoundary": true
   },
 
   // What teardown cleans up beyond this machine. Nothing publishes a spec

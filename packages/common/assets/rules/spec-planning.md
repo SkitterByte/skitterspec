@@ -21,6 +21,7 @@ and lifecycle stay consistent. Each sets a status on the spec header
 | `/spec-complete` | Verify all phases done + tests green; land + tear down | `Complete` | `specs/complete/` |
 | `/spec-cancel` | Record progress, stamp a reason on the header; tear down | `Cancelled` | `specs/cancelled/` |
 | `/spec-tada` | A ta-da list — recap what you did in Claude Code over a window, across every project, by project then spec, ending in a standup. Read-only | (unchanged) | (unchanged) |
+| `/spec-todo` | The morning half — where each project was left on the last working day, what is waiting on you, what to pick up first. Read-only | (unchanged) | (unchanged) |
 | `/spec-init` | Bootstrap/repair this workflow in a project (idempotent) | — | — |
 
 **Skills vs commands.** The table above lists **skills** — Claude reads them and
@@ -84,6 +85,17 @@ by a branch that happens to contain it — a spec branch cut this afternoon
 contains all of this morning. It is model-invocable, because "what did I do
 today?" should reach it.
 
+**It leads with the wins, and it acts on nothing outside home.** The digest
+marks a completed bug, hotfix or incident as `★ saved bacon` and any other
+completed spec or a cut release as `★ win`, so the evening answer to *did I get
+anything done?* opens with the evidence. It also marks the project the run
+started from as `(here)`, and the report's closing `Next` — the line a reader
+copies — names only that project's work: other projects' next steps are
+suggestions in their own sections. **`/spec-todo`** is the morning half
+(`skitterspec todo`): the last day with any activity, up to 14 days back, each
+open spec where it was left, the verdicts waiting and gates armed, and today
+so far — home first, and listed even when nothing happened there.
+
 **A report covers one category.** `project.category` in `env.config.json`
 decides which projects share a report — only those with the category of the
 repo it runs from, and an uncategorised project is in nobody's but its own
@@ -130,6 +142,21 @@ like the exception and is not one — it bootstraps a repo with no
 the guard, and only a person can type it. That asymmetry is the same line
 `/spec-reviewed` draws, and `spec-planning.md` already records that prose alone
 did not hold it once.
+
+**`/allow-project` is its twin, for the other direction.** The main guard
+stops work landing where it should not happen; `.claude/hooks/project-guard.cjs`
+stops a session doing work that is **not its project's**. A session belongs to
+the project it was started in, and a report read across projects once ended on
+another repo's `/spec-complete` — which the session ran, `cd`-ing over there to
+do it. So a write, a `git` change or a `skitterspec` lifecycle command aimed at
+another skitterspec project (a checkout with `specs/.core/`) is refused, while
+reads (`git log`, `skitterspec tada`) and every other program pass. Home is the
+project the hook is installed in, never the session's cwd, because after a `cd`
+the cwd is the thing being judged. `skitterspec spec-env project
+<check|allow|status>` is the engine, `guards.projectBoundary` turns it off, and
+it fails open on every cannot-tell. `/allow-project <name>` lifts it for one
+session, and it is user-only for `/allow-main`'s reason: Claude must not be
+able to lift a guard aimed at Claude.
 
 **`/spec-skip` is the fifth command**, and it is user-only for `/allow-main`'s
 reason rather than the mild one: it lifts the review gate, which is a guard

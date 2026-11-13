@@ -23,9 +23,15 @@ every phase. **`skitterspec status`** lists what is in flight across worktrees.
 At the end of the day, **`/spec-tada`** is the ta-da list: what you did across
 every project, grouped by spec — what landed, what was explored, what is still
 in flight — ending in a three-line standup (`skitterspec tada` is the engine).
-It covers the projects that share this one's `project.category`;
+It covers the projects that share this one's `project.category`, leads with
+the day's wins, and names only this project's work as the thing to do next;
 **`skitterspec project`** shows and sets the name and category, and
-`/spec-init` asks for both.
+`/spec-init` asks for both. In the morning, **`/spec-todo`** answers the other
+question: where each project was left on your last working day, what is
+waiting on you, and what to pick up first. Both read across projects, and
+neither acts on one: a session works on the project it was started in, and a
+hook refuses its writes and lifecycle commands anywhere else until you type
+`/allow-project <name>`.
 
 **Handing the review back.** The page takes marks: tick `✓ accept` per file as
 you read, note anything against a line or a whole file, answer the questions a

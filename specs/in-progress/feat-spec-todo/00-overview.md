@@ -167,7 +167,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | Home-scoped ta-da, with wins | ✅ | [01-home-scope-and-wins.md](01-home-scope-and-wins.md) |
 | 2 | `/spec-todo` — where you left off | ✅ | [02-spec-todo.md](02-spec-todo.md) |
 | 3 | The project guard and `/allow-project` | ✅ | [03-project-guard.md](03-project-guard.md) |
-| 4 | Docs and rules | ⬜ | [04-docs.md](04-docs.md) |
+| 4 | Docs and rules | ✅ | [04-docs.md](04-docs.md) |
 
 ## Open questions
 
@@ -209,3 +209,12 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   - Pulled forward because the docs tests require them: the `/allow-project`
     rows in the READMEs and index, the `spec-env project` row in reference
     and `--help`, and `project` in the verb lists.
+- 2026-11-13 — Phase 4:
+  - `index` and `reference` were re-read against the three `feat(live)`
+    commits since their last stamp as well as this spec's, and both stamps
+    were bumped. `linear` only had its skill count changed here and keeps its
+    old stamp, because the other commits since then were not re-read.
+  - This repo's own `/allow-project` command and project-guard hook arrive
+    with the next `skitterspec update`, like every installed copy here. The
+    `/spec-todo` skill is linked into `.claude/skills/` now, as `spec-tada`
+    is.
