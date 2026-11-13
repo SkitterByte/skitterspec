@@ -6,7 +6,8 @@
  * recap costs. Pure.
  *
  * Line markers carry the kind, so the skill can tell them apart without
- * labels: `*` a lifecycle move, `+` a commit, `-` a prompt.
+ * labels: `*` a lifecycle move, `+` a commit, `-` a prompt, `★` a win. The
+ * project the run started from is marked `(here)`.
  */
 
 function formatTada(digest) {
@@ -15,10 +16,11 @@ function formatTada(digest) {
   const out = [`ta-da: ${w.label || `${w.since} → ${w.until}`}${scope}`]
   if (digest.projects.length === 0) out.push('  nothing in this window.')
   for (const p of digest.projects) {
-    out.push('', `${p.name}${p.repo ? `  (${p.repo})` : '  (not a git repo)'}`)
+    out.push('', `${p.name}${p.here ? ' (here)' : ''}${p.repo ? `  (${p.repo})` : '  (not a git repo)'}`)
     for (const g of p.groups) {
       const head = g.spec ? `${g.spec}${g.ticket ? ` [${g.ticket.id}]` : ''}` : `${g.branch || '(no branch)'} — no spec`
       out.push(`  ${head}`)
+      for (const w of g.wins || []) out.push(`    ★ ${w.kind === 'saved-bacon' ? 'saved bacon' : 'win'}: ${w.what}`)
       for (const e of g.events) out.push(`    * ${e.kind === 'phase-done' ? `phase ${e.phase} done` : e.kind}`)
       for (const c of g.commits) out.push(`    + ${c.sha} ${c.subject}`)
       const sessions = g.sessions.length

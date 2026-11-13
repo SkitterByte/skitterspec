@@ -93,6 +93,13 @@ function groupHtml(g) {
     ? `<span class="spec">${escapeHtml(g.spec)}</span>${ticketHtml(g.ticket)}`
     : `<span class="branch">${escapeHtml(g.branch || '(no branch)')}</span> <span class="muted">no spec</span>`
   const parts = [`<h4>${head}</h4>`]
+  if (g.wins && g.wins.length) {
+    parts.push(
+      `<div class="chips">${g.wins
+        .map((w) => `<span class="chip win">★ ${w.kind === 'saved-bacon' ? 'saved bacon' : 'win'}: ${escapeHtml(w.what)}</span>`)
+        .join('')}</div>`,
+    )
+  }
   if (g.events.length) {
     parts.push(`<div class="chips">${g.events.map((e) => `<span class="chip">${escapeHtml(eventText(e))}</span>`).join('')}</div>`)
   }
@@ -140,7 +147,7 @@ function renderTadaPage(digest, { recap = null, title = 'Ta-da', project = null,
   const projects = digest.projects
     .map(
       (p) =>
-        `<article class="project"><h3>${escapeHtml(p.name)} <span class="muted">${escapeHtml(p.repo || 'not a git repo')}</span></h3>\n` +
+        `<article class="project"><h3>${escapeHtml(p.name)}${p.here ? ' <span class="chip">here</span>' : ''} <span class="muted">${escapeHtml(p.repo || 'not a git repo')}</span></h3>\n` +
         `${p.groups.map(groupHtml).join('\n') || '<p class="muted">nothing here</p>'}</article>`,
     )
     .join('\n')
@@ -187,6 +194,7 @@ code { font: 0.88em ui-monospace, "SF Mono", Menlo, monospace; overflow-wrap: an
 .group { background: var(--panel); border-radius: 8px; padding: 12px 14px; margin: 10px 0; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
 .chip { background: var(--chip-bg); color: var(--chip-fg); border-radius: 999px; padding: 1px 10px; font-size: 0.85em; }
+.chip.win { background: var(--accent); color: var(--bg, #fff); }
 .ticket { font-weight: normal; font-size: 0.9em; }
 ul { padding-left: 1.2em; margin: 6px 0; }
 .commits, .prompts { list-style: none; padding-left: 0; }

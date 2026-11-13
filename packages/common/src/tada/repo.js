@@ -69,6 +69,7 @@ function readRepoFacts({ repo, git, config, window }) {
   }
 
   const show = (ref, p) => git(['show', `${ref}:${p}`])
+  const tags = tagsBySha(git)
   const onBase = onBaseIn(git, base, span)
   const commits = []
   const events = []
@@ -84,7 +85,7 @@ function readRepoFacts({ repo, git, config, window }) {
     // Where a commit with no spec is reported: the base branch when it is
     // there, else the first branch holding it.
     const branch = landed ? base : branches[0] || null
-    commits.push({ sha: c.sha.slice(0, SHORT), at: c.at, subject: c.subject, spec, branch, refs: c.refs })
+    commits.push({ sha: c.sha.slice(0, SHORT), at: c.at, subject: c.subject, spec, branch, refs: c.refs, ...(tags.has(c.sha) ? { tags: tags.get(c.sha) } : {}) })
     if (skitterspec) {
       for (const e of lifecycleEvents(c, show)) events.push({ ...e, sha: c.sha.slice(0, SHORT), at: c.at })
     }
@@ -99,4 +100,23 @@ function readRepoFacts({ repo, git, config, window }) {
   return { name, category: projectCategory(config), skitterspec, base, toSpec, ticket, commits, events, notes }
 }
 
-module.exports = { readRepoFacts }
+/**
+ * Every tag, keyed by the commit it names — an annotated tag through the
+ * commit it peels to. One read for the repo, not one per commit. A failed read
+ * is no tags at all: a release missing from the wins is a quieter error than a
+ * report that fails to print.
+ */
+function tagsBySha(git) {
+  const out = git(['for-each-ref', '--format=%(objectname) %(*objectname) %(refname:short)', 'refs/tags']) || ''
+  const map = new Map()
+  for (const line of out.split('\n')) {
+    const [obj, peeled, name] = line.split(' ')
+    if (!name) continue
+    const sha = peeled || obj
+    if (!map.has(sha)) map.set(sha, [])
+    map.get(sha).push(name)
+  }
+  return map
+}
+
+module.exports = { readRepoFacts, tagsBySha }

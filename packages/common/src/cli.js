@@ -817,6 +817,7 @@ async function tadaCommand(argv) {
     root: defaultRoot(),
     window,
     here: flags.here ? process.cwd() : null,
+    home: process.cwd(),
     category: flags.all ? null : runningCategory(process.cwd()),
     chat: flags.chat,
     facts: (repo) => {

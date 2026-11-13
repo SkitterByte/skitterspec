@@ -164,7 +164,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Home-scoped ta-da, with wins | ⬜ | [01-home-scope-and-wins.md](01-home-scope-and-wins.md) |
+| 1 | Home-scoped ta-da, with wins | ✅ | [01-home-scope-and-wins.md](01-home-scope-and-wins.md) |
 | 2 | `/spec-todo` — where you left off | ⬜ | [02-spec-todo.md](02-spec-todo.md) |
 | 3 | The project guard and `/allow-project` | ⬜ | [03-project-guard.md](03-project-guard.md) |
 | 4 | Docs and rules | ⬜ | [04-docs.md](04-docs.md) |
@@ -177,3 +177,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 - 2026-11-13 — Spec created. Prompted by a skitterspec session acting on an
   ereqs spec that `/spec-tada`'s `Next` row had named.
+- 2026-11-13 — Phase 1: a "release" is any tag on one of the window's
+  commits, annotated or lightweight. Git cannot tell a release tag from any
+  other, and a project's tag naming is its own. The served page shows the same
+  wins as chips and marks the home project. A home project with no activity in
+  the window is not listed, so the recap's `Next` reads `nothing in flight
+  here`; phase 2's todo is where its open specs show.

@@ -69,6 +69,15 @@ do not paste it anywhere else, and never publish it.
 
 ## 2. Write the recap
 
+**Open with the wins.** The evening question this answers is usually *did I
+get anything done?*, and the answer is nearly always more than it felt like.
+Before the projects, a short **Wins** list from the digest's `★` lines:
+`★ saved bacon` (a bug, hotfix or incident finished — something was broken and
+now is not) first, then `★ win` (a spec completed, a release cut). You may
+promote **one** more from the prompts — a long fight with one problem that
+ended in a fix, say — and only with its evidence in the same line. Never
+invent one, and leave the section out on a day with none.
+
 One section per project, then one entry per group. A group headed by a spec
 (`feat-orders [#12]`) is that spec's work wherever it happened — its branch, its
 worktree, or a commit on the base naming it. A group headed `<branch> — no spec`
@@ -88,6 +97,14 @@ For each group, say what applies and skip what does not:
 - **In flight** — the `in flight:` line: where the spec stands and its next
   action, as the engine wrote it.
 
+**Only the `(here)` project's next actions are commands.** The project marked
+`(here)` is the one this session was started in, and it is the only one this
+session acts on. For every other project, say where it stands as a suggestion
+in its own section — *"ereqs has chore-perf-alerts ready to complete"* — never
+as a bare `/spec-…` command. A command at the bottom of a report is what gets
+copied and run, and running it from here means working on another repo from a
+session that does not belong to it.
+
 Name a spec by its folder and its ticket exactly as the digest gives them. Keep
 each entry to a line or two; a project with only in-flight rows gets one line
 listing them.
@@ -95,9 +112,13 @@ listing them.
 Then the **standup** — three lines, no more:
 
 - **Done:** the work that landed or moved, across every project.
-- **Next:** the in-flight next actions that matter most.
-- **Blockers:** a verdict waiting, a gate armed, a wait unmet — or `none`.
-  Only what the digest shows; never invent one.
+- **Next:** the `(here)` project's in-flight next actions that matter most —
+  or `nothing in flight here`.
+- **Blockers:** the `(here)` project's — a verdict waiting, a gate armed, a
+  wait unmet — or `none`. Only what the digest shows; never invent one.
+
+**A quiet today points at the morning.** Run with no window flag and nothing
+in it, say once in `Notes` that `/spec-todo` answers *where did I leave off*.
 
 ## 3. The page — only when asked
 
@@ -147,7 +168,8 @@ what is specific here.
 page's tiers (or its `file://` path) when one was rendered. `Notes` carries the digest's own closing
 lines (`cannot tell`, torn-down worktrees counted elsewhere) and, when no page
 was asked for, that `--page` renders one. `Next` is the one
-in-flight action the standup put first, or `nothing in flight`.
+in-flight action the standup put first — the `(here)` project's, never
+another's — or `nothing in flight here`.
 
 **`Follow-ups` is always `none` here.** This skill reports work; anything it
 notices belongs to the spec it is about.

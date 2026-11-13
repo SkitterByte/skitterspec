@@ -15,6 +15,7 @@ const path = require('node:path')
 const { execFileSync } = require('node:child_process')
 
 const { listTranscripts, readSession, trimPrompts } = require('./transcripts.js')
+const { splitPrefix } = require('../env/resolve.js')
 
 /**
  * The repo a cwd belongs to, through the shared git dir — which every worktree
@@ -59,8 +60,11 @@ function memo(fn) {
  *   - `chat`    keep every prompt, no-spec ones included (`--chat`)
  *   - `category` the running project's category: only projects carrying the
  *               same one are reported. Null reports every project.
+ *   - `home`    the cwd the run started from; the project it belongs to is
+ *               stamped `here`, so a recap can keep its closing advice to the
+ *               work this session owns. Null, or outside any repo, stamps none.
  */
-async function buildDigest({ root, window, here = null, repoOf = gitRepoOf, facts = null, openFor = null, category = null, chat = false }) {
+async function buildDigest({ root, window, here = null, home = null, repoOf = gitRepoOf, facts = null, openFor = null, category = null, chat = false }) {
   const resolve = memo(repoOf)
   const notes = []
   const refolded = new Set()
@@ -133,6 +137,10 @@ async function buildDigest({ root, window, here = null, repoOf = gitRepoOf, fact
     list = list.filter((p) => p.key === key)
   }
 
+  // Matched by repo, so a run from one of its worktrees is still home. A home
+  // outside any repo stamps nothing: there is no project to have been run from.
+  const homeRepo = home ? resolve(path.isAbsolute(home) ? home : path.resolve(home)).repo || null : null
+
   const want = category ? fold(category) : null
   const reported = list
     .map((p) => ({ p, f: p.repo && facts ? facts(p.repo) : null }))
@@ -145,6 +153,7 @@ async function buildDigest({ root, window, here = null, repoOf = gitRepoOf, fact
       return {
         repo: p.repo,
         name: (f && f.name) || p.name,
+        ...(homeRepo && p.repo === homeRepo ? { here: true } : {}),
         ...(f && f.category ? { category: f.category } : {}),
         git: p.git,
         skitterspec: Boolean(f && f.skitterspec),
@@ -225,7 +234,17 @@ function groupsOf(p, f, open, { chat = false } = {}) {
       g.commits.sort(byTime)
       g.events.sort(byTime)
       const ticket = g.spec && f ? f.ticket(g.spec) || refTicket(g.commits) : null
-      return { spec: g.spec, branch: g.branch, ...(ticket ? { ticket } : {}), sessions: g.sessions, commits: g.commits, events: g.events, inFlight: g.inFlight }
+      const wins = winsOf(g)
+      return {
+        spec: g.spec,
+        branch: g.branch,
+        ...(ticket ? { ticket } : {}),
+        sessions: g.sessions,
+        commits: g.commits,
+        events: g.events,
+        ...(wins.length ? { wins } : {}),
+        inFlight: g.inFlight,
+      }
     })
     .sort((a, b) => {
       // Activity first, in the order it happened; a spec that is only open —
@@ -237,6 +256,26 @@ function groupsOf(p, f, open, { chat = false } = {}) {
       if (tb === null) return -1
       return ta < tb ? -1 : 1
     })
+}
+
+// The kinds whose completion means something was broken and now is not.
+const RESCUES = new Set(['bug', 'hotfix', 'incident'])
+
+/**
+ * The group's wins, as facts rather than judgement: a completed bug, hotfix or
+ * incident is `saved-bacon`; any other completed spec, and a tag cut on one of
+ * the window's commits, is a `win`. Read off the spec's folder prefix — the
+ * kind's positive signal — and the tags git holds, so the same day always
+ * reads the same. A cancelled spec and a finished phase are progress, not wins.
+ */
+function winsOf(g) {
+  const wins = []
+  for (const e of g.events) {
+    if (e.kind !== 'completed') continue
+    wins.push({ kind: RESCUES.has(splitPrefix(e.spec).type) ? 'saved-bacon' : 'win', what: `${e.spec} completed`, at: e.at })
+  }
+  for (const c of g.commits) for (const t of c.tags || []) wins.push({ kind: 'win', what: `${t} cut`, at: c.at })
+  return wins
 }
 
 // Stable on a tie — a rebased run shares one committer second, and its order
