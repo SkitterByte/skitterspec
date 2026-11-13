@@ -251,6 +251,10 @@ const DEFAULT_CONFIG = Object.freeze({
     refuseTeardownIfDirty: true,
     refuseTeardownIfUnpushed: true,
     mainIsLandingZone: true,
+    // A session acts on the project it was started in: writes and lifecycle
+    // commands aimed at another skitterspec project are refused
+    // (`env/projectguard.js`). On by default, like the main guard.
+    projectBoundary: true,
   }),
   // Teardown cleanup beyond this machine. `deleteRemoteBranch` decides what
   // `spec-env down` does about a branch the USER published by hand — nothing
@@ -734,6 +738,7 @@ function mergeConfig(base, parsed) {
     assign(base.guards, parsed.guards, 'refuseTeardownIfDirty', 'boolean')
     assign(base.guards, parsed.guards, 'refuseTeardownIfUnpushed', 'boolean')
     assign(base.guards, parsed.guards, 'mainIsLandingZone', 'boolean')
+    assign(base.guards, parsed.guards, 'projectBoundary', 'boolean')
   }
 
   // An unrecognised policy falls through to the default rather than erroring or

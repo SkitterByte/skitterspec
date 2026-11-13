@@ -185,12 +185,14 @@ test('the command publishes only a page the engine names, and is per spec', () =
 // too, and belongs for the same shape of reason: it is the REVIEW GATE's exit —
 // the same `spec-env review skip "<reason>"` that always existed, at an address
 // a person will type — and not a tier toggle. `spec-epic` did too: it re-shows an
-// epic's next actions and its page, which is a read, not a tier.
+// epic's next actions and its page, which is a read, not a tier. `allow-project`
+// did too: it is the PROJECT guard's exit, `allow-main`'s twin.
 test('STAYS SILENT: no command was shipped for the tier nobody touches', () => {
   const dir = path.dirname(COMMAND)
   const shipped = fs.readdirSync(dir).sort()
   assert.deepStrictEqual(shipped, [
     'allow-main.md',
+    'allow-project.md',
     'spec-connect.md',
     'spec-epic.md',
     'spec-live.md',

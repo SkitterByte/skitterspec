@@ -166,7 +166,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Home-scoped ta-da, with wins | ✅ | [01-home-scope-and-wins.md](01-home-scope-and-wins.md) |
 | 2 | `/spec-todo` — where you left off | ✅ | [02-spec-todo.md](02-spec-todo.md) |
-| 3 | The project guard and `/allow-project` | ⬜ | [03-project-guard.md](03-project-guard.md) |
+| 3 | The project guard and `/allow-project` | ✅ | [03-project-guard.md](03-project-guard.md) |
 | 4 | Docs and rules | ⬜ | [04-docs.md](04-docs.md) |
 
 ## Open questions
@@ -197,3 +197,15 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
     the README tables, the index chip, the reference row and the linear
     page's skill count moved here from phase 4. Phase 4 keeps the rules,
     CLAUDE.md and the `verified:` bumps.
+- 2026-11-13 — Phase 3:
+  - The hook takes home from `CLAUDE_PROJECT_DIR`, or failing that its own
+    install location, and never from the session's cwd. The cwd is what gets
+    judged, and after a `cd` it is the other project.
+  - One settings entry matches both the write tools and Bash. An entry is
+    recognised as ours by its script, so two entries sharing one script would
+    collide.
+  - For speed, the hook skips the engine for a Bash line that never mentions
+    `git` or `skitterspec`, and for a write inside the home checkout.
+  - Pulled forward because the docs tests require them: the `/allow-project`
+    rows in the READMEs and index, the `spec-env project` row in reference
+    and `--help`, and `project` in the verb lists.

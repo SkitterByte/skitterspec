@@ -36,6 +36,7 @@ demand, host dev servers on reserved ports — and everything below.
 | `/spec-live` | Check one spec out in the primary checkout, so your running server reloads it |
 | `/spec-remote-review` | Permit (or forbid) reviewing from off your network |
 | `/allow-main` | Allow writes on the base branch for this session — yours to run, never Claude's |
+| `/allow-project` | Let this session work on another skitterspec project — yours to run, never Claude's |
 | `/spec-skip` | Move on from a phase without a verdict, reason recorded — yours to run, never Claude's |
 | `/spec-epic` | What every member of an epic needs next, in which tab, and the epic page |
 <!-- commands:end -->

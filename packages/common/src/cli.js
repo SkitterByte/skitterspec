@@ -48,6 +48,7 @@ const SPEC_ENV_VERBS = Object.freeze([
   'base',
   'nospec',
   'main',
+  'project',
 ])
 const { forkMatch, planBaseReport } = require('./env/base.js')
 const {
@@ -215,6 +216,13 @@ const { ROUTE: TADA_ROUTE, tadaQuery, recapKey: tadaRecapKey, recapPath: tadaRec
 const { defaultRoot, knownDirs } = require('./tada/transcripts.js')
 const { setProjectKeys } = require('./env/projectedit.js')
 const { buildDigest, gitRepoOf } = require('./tada/digest.js')
+const {
+  readAllows: readProjectAllows,
+  checkPath: checkProjectPath,
+  checkCommand: checkProjectCommand,
+  recordLift: recordProjectLift,
+  clearLift: clearProjectLift,
+} = require('./env/projectguard.js')
 const { readRepoFacts } = require('./tada/repo.js')
 const { formatTada } = require('./tada/format.js')
 const { LOOKBACK_DAYS, activityTimes, lastActiveDay, readBlockers, buildTodo, formatTodo } = require('./tada/todo.js')
@@ -290,6 +298,10 @@ Usage:
                                 main <check|allow|status>
                                                   the main guard — is a write about to land
                                                   on the base branch? (/allow-main lifts it)
+                                project <check|allow|status>
+                                                  the project guard — is a write or a lifecycle
+                                                  command aimed at another skitterspec project?
+                                                  (/allow-project <name> lifts it)
                                 down <spec>       tear down (guards; --keep-volumes, --force)
                                 prune             reap orphaned test-DB volumes (--older-than <days>)
                                 dev up <spec>     start host dev servers on the spec's ports
@@ -1521,6 +1533,88 @@ function specEnvUpCheckout(dir, config, spec) {
  * `allow` and `status` are for a person. `allow` is reached only through
  * `/allow-main`, which is user-only — a guard the model can lift is decoration.
  */
+/**
+ * `spec-env project <check|allow|status>` — the project guard's engine
+ * (`env/projectguard.js`). `dir` is home: the project the session belongs to,
+ * anchored on its primary checkout like every subcommand.
+ *
+ * `check` is the hook's question — `--path <file>` for a write, `--command
+ * <line> --cwd <dir>` for a shell command — and prints a refusal on stdout with
+ * exit 1, or nothing with exit 0. `allow <name|path> [off]` is `/allow-project`.
+ */
+function specEnvProject(dir, config, positional, flags = {}) {
+  const action = positional[0] || 'status'
+  const sessionId = flags.session || process.env.CLAUDE_CODE_SESSION_ID || null
+  const enabled = !(config.guards && config.guards.projectBoundary === false)
+
+  if (action === 'check') {
+    if (!enabled) return
+    const allows = readProjectAllows(dir, config)
+    const cwd = flags.cwd ? path.resolve(flags.cwd) : dir
+    let verdict = { refuse: false }
+    if (typeof flags.command === 'string') {
+      verdict = checkProjectCommand({ home: dir, cwd, command: flags.command, gitAt: gitReader, allows, sessionId })
+    } else if (flags.path) {
+      verdict = checkProjectPath({ home: dir, target: path.resolve(cwd, flags.path), gitAt: gitReader, allows, sessionId })
+    }
+    if (!verdict.refuse) return
+    process.stdout.write(`spec-env project: ${verdict.reason}\n`)
+    process.exitCode = 1
+    return
+  }
+
+  if (action === 'allow') {
+    const what = positional[1]
+    if (!what) {
+      process.stdout.write('Usage: skitterspec spec-env project allow <name|path> [off]\n')
+      process.exitCode = 1
+      return
+    }
+    if (flags.off || positional[2] === 'off') {
+      const n = clearProjectLift(dir, config, what)
+      process.stdout.write(
+        n ? `spec-env project: ${what} is guarded again.\n` : `spec-env project: nothing to clear — ${what} was already guarded.\n`,
+      )
+      return
+    }
+    const lift = recordProjectLift(dir, config, { what, sessionId, gitAt: gitReader, at: new Date().toISOString() })
+    if (lift.error) {
+      process.stdout.write(`spec-env project: ${lift.error}\n`)
+      process.exitCode = 1
+      return
+    }
+    const scope =
+      lift.scope === 'session'
+        ? 'this session only — it lapses when the session ends'
+        : `this repo until cleared — no session id available, so \`/allow-project ${lift.name} off\` is what ends it`
+    process.stdout.write(`spec-env project: this session may work on ${lift.name} (${scope}).\n`)
+    return
+  }
+
+  if (action === 'status') {
+    const lifts = readProjectAllows(dir, config)
+    const st = { state: enabled ? 'guarded' : 'off', lifts }
+    if (flags.json) {
+      process.stdout.write(JSON.stringify(st, null, 2) + '\n')
+      return
+    }
+    if (!enabled) {
+      process.stdout.write('spec-env project: off for this project (guards.projectBoundary is false).\n')
+      return
+    }
+    const mine = lifts.filter((l) => l.scope === 'repo' || (sessionId && l.session === sessionId))
+    process.stdout.write(
+      mine.length
+        ? `spec-env project: guarded, with ${mine.map((l) => l.name).join(', ')} lifted for ${mine.some((l) => l.scope === 'repo') ? 'this repo' : 'this session'}.\n`
+        : 'spec-env project: guarded — this session works on this project only.\n',
+    )
+    return
+  }
+
+  process.stdout.write('Usage: skitterspec spec-env project <check|allow|status>\n')
+  process.exitCode = 1
+}
+
 function specEnvMain(dir, config, positional, flags = {}, present = true, invokedFrom = dir) {
   const action = positional[0] || 'status'
   const sessionId = flags.session || process.env.CLAUDE_CODE_SESSION_ID || null
@@ -7755,6 +7849,8 @@ async function specEnv(rest) {
     else if (args[i] === '--from') flags.from = args[++i]
     else if (args[i] === '--session') flags.session = args[++i]
     else if (args[i] === '--path') flags.path = args[++i]
+    else if (args[i] === '--cwd') flags.cwd = args[++i]
+    else if (args[i] === '--command') flags.command = args[++i] ?? ''
     else if (args[i] === '--assert-primary-clean') flags.assertPrimaryClean = true
     else positional.push(args[i])
   }
@@ -7839,6 +7935,9 @@ async function specEnv(rest) {
       break
     case 'main':
       specEnvMain(dir, config, positional, flags, present, invokedFrom)
+      break
+    case 'project':
+      specEnvProject(dir, config, positional, flags)
       break
     case 'down':
       specEnvDown(dir, config, positional[0], flags)

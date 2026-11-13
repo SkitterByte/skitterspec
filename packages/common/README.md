@@ -46,6 +46,7 @@ the operator can run them.
 | `/spec-live` | Check one spec out in the primary checkout, so a running dev server reloads it |
 | `/spec-remote-review` | Permit (or forbid) publishing a review for a reader off the network |
 | `/allow-main` | Allow writes on the base branch for this session — yours to run, never Claude's |
+| `/allow-project` | Let this session work on another skitterspec project — yours to run, never Claude's |
 | `/spec-skip` | Move on from a phase without a verdict, reason recorded — yours to run, never Claude's |
 | `/spec-epic` | What every member of an epic needs next, in which tab, and the epic page |
 

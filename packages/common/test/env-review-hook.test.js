@@ -281,13 +281,14 @@ test('it registers into a settings file that does not exist yet', () => {
   try {
     assert.strictEqual(ensureReviewGateHook(dir).reason, 'created')
     const written = JSON.parse(fs.readFileSync(path.join(dir, '.claude', 'settings.json'), 'utf8'))
-    // BOTH hooks this package ships. They guard different moments — a commit,
-    // and the first write — so they take different matchers and are separate
-    // entries rather than one.
-    assert.strictEqual(written.hooks.PreToolUse.length, 2)
+    // EVERY hook this package ships. They guard different moments — a commit,
+    // the first write, work aimed at another project — so they take different
+    // matchers and are separate entries rather than one.
+    assert.strictEqual(written.hooks.PreToolUse.length, 3)
     const byMatcher = Object.fromEntries(written.hooks.PreToolUse.map((e) => [e.matcher, e]))
     assert.ok(byMatcher.Bash, 'the review gate, on Bash')
     assert.ok(byMatcher['Edit|Write|NotebookEdit|MultiEdit'], 'the main guard, on the write tools')
+    assert.ok(byMatcher['Edit|Write|NotebookEdit|MultiEdit|Bash'], 'the project guard, on both')
     for (const entry of written.hooks.PreToolUse) {
       // Portable across machines and worktrees — never an absolute path.
       assert.match(entry.hooks[0].command, /\$\{CLAUDE_PROJECT_DIR\}/)
@@ -313,7 +314,7 @@ test('it merges without disturbing anything already in the file', () => {
     const written = JSON.parse(fs.readFileSync(path.join(dir, '.claude', 'settings.json'), 'utf8'))
     assert.deepStrictEqual(written.permissions.allow, ['Bash(pnpm test)'], 'their permissions survive')
     assert.strictEqual(written.hooks.PostToolUse.length, 1, 'their other hooks survive')
-    assert.strictEqual(written.hooks.PreToolUse.length, 2, 'both of ours, and nothing else')
+    assert.strictEqual(written.hooks.PreToolUse.length, 3, 'all of ours, and nothing else')
   } finally {
     fs.rmSync(dir, { recursive: true, force: true })
   }
@@ -325,7 +326,7 @@ test('re-running registers nothing a second time', () => {
     ensureReviewGateHook(dir)
     assert.strictEqual(ensureReviewGateHook(dir).reason, 'present')
     const written = JSON.parse(fs.readFileSync(path.join(dir, '.claude', 'settings.json'), 'utf8'))
-    assert.strictEqual(written.hooks.PreToolUse.length, 2, 'neither was added twice')
+    assert.strictEqual(written.hooks.PreToolUse.length, 3, 'none was added twice')
   } finally {
     fs.rmSync(dir, { recursive: true, force: true })
   }

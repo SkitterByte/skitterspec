@@ -72,6 +72,16 @@ const HOOKS = [
     matcher: 'Edit|Write|NotebookEdit|MultiEdit',
     timeout: HOOK_TIMEOUT,
   },
+  {
+    // Refuses a write, or a git/engine command, aimed at ANOTHER skitterspec
+    // project: a session acts on the project it was started in. Both kinds of
+    // tool, so one entry with both matchers rather than two entries sharing a
+    // script — a script is how an entry is recognised as ours.
+    key: 'project-guard',
+    stem: '.claude/hooks/project-guard',
+    matcher: 'Edit|Write|NotebookEdit|MultiEdit|Bash',
+    timeout: HOOK_TIMEOUT,
+  },
 ].map((h) => ({ ...h, script: `${h.stem}.cjs`, re: hookStemRe(h.stem) }))
 
 function isObject(value) {
