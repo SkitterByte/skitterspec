@@ -151,3 +151,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-11-16 — Phase 1: the shared decider lives in a new
   `src/env/triggered.js` (`planTriggered`); `afterLandFor` is now a thin
   caller. Planners take the range as ctx `changedFiles`, as integrate does.
+- 2026-11-16 — Completed; all phases done, tests green.
