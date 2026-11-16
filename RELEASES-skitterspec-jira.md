@@ -5,6 +5,22 @@ What's new for users of skitterspec-jira. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 2.11.0 — 16 Nov 2026
+
+**Highlights:** A new /spec-todo answers the morning question: where each project was left on your last working day, what is still open, what is waiting on you, and what to pick up first.
+
+### Guard
+- **New** — A session can no longer write to, commit in, or run lifecycle commands against a different skitterspec project by accident. /allow-project lifts it for the session when you mean it.
+
+### Live
+- **New** — /spec-live can now run your own commands, such as an install or a codegen, when a spec goes live and again when it is handed back, each only when the switch changed the files it names.
+
+### Tada
+- **New** — The ta-da list now opens with the day's wins, calling out the bugs and hotfixes you fixed, and its closing next step only ever names work in the project you ran it from.
+
+### Todo
+- **New** — A new /spec-todo answers the morning question: where each project was left on your last working day, what is still open, what is waiting on you, and what to pick up first.
+
 ## 2.10.0 — 12 Nov 2026
 
 ### Live
