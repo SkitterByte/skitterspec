@@ -139,7 +139,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Config and planner: `live.afterSwitch` decided per switch | ✅ | [01-config-and-planner.md](01-config-and-planner.md) |
-| 2 | Run and report on take and release; docs | ⬜ | [02-run-and-report.md](02-run-and-report.md) |
+| 2 | Run and report on take and release; docs | ✅ | [02-run-and-report.md](02-run-and-report.md) |
 
 ## Open questions
 

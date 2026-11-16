@@ -105,6 +105,7 @@ const {
   liveStateFor,
   liveStateLine,
   planRelease,
+  runAfterSwitch,
   planAbort,
 } = require('./env/live.js')
 const { ensureWorktreeDirTrusted } = require('./env/trust.js')
@@ -7423,8 +7424,12 @@ async function specEnvLiveTake(dir, config, specArg, flags = {}) {
 
   // Diff onto...branch to spot migration / dependency changes (best-effort) —
   // against the target the rebase will replay over, so both read the same commits.
+  // `changedFiles` keeps the difference the two checks above can ignore: a
+  // diff git would not answer is null (unknown), which runs `afterSwitch`'s
+  // conditional entries rather than skipping them.
   const changed = primaryGit(['diff', '--name-only', `${onto}...${spec.branch}`])
   const files = changed ? changed.split('\n').filter(Boolean) : []
+  const changedFiles = changed === null ? null : files
   const depsHit = depsChanged(files, config.setupTriggers)
 
   // Verify-only: probe the declared canonical (frontPort) ports of the HOT dev
@@ -7456,6 +7461,7 @@ async function specEnvLiveTake(dir, config, specArg, flags = {}) {
     restartApps,
     migrationsHit: migrationsHit(files, config.live.migrations),
     depsChanged: depsHit,
+    changedFiles,
     holder: primaryGit(['config', 'user.name']) || 'unknown',
     heldSince: new Date().toISOString(),
   })
@@ -7533,6 +7539,9 @@ async function specEnvLiveTake(dir, config, specArg, flags = {}) {
   out.push(`  primary:   now on ${receipt.branch} (was ${base} @ ${receipt.baseMainCommit.slice(0, 7)})`)
   out.push(`  worktree:  ${spec.worktreePath} (detached — branch handed to the primary checkout)`)
   if (onto !== base) out.push(`  rebased:   onto ${onto} (PR landing — the remote base)`)
+  // After the receipt, so a failed command leaves a switch that `release` and
+  // `status` both know about — the switch stands either way.
+  out.push(...runAfterSwitch(plan.afterSwitch).lines)
   for (const w of plan.warnings) out.push(`  ! ${w}`)
   out.push('')
   out.push('  Test at your canonical URL; release with: /spec-live main')
@@ -7564,6 +7573,10 @@ async function specEnvLiveRelease(dir, config, specArg) {
   const status = primaryGit(['status', '--porcelain'])
   const clean = status !== null && status.length === 0
   const worktreeExists = fs.existsSync(spec.worktreePath)
+  // The files take brought in, read before the checkout moves HEAD: the switch
+  // back reverts the same set. null when git would not say — unknown, not empty.
+  const changed = primaryGit(['diff', '--name-only', `${base}...${spec.branch}`])
+  const changedFiles = changed === null ? null : changed.split('\n').filter(Boolean)
 
   const plan = planRelease(spec, config, {
     primary,
@@ -7572,6 +7585,7 @@ async function specEnvLiveRelease(dir, config, specArg) {
     clean,
     worktreeExists,
     restartApps: config.dev.filter((d) => d.reload === 'restart').map((d) => d.name),
+    changedFiles,
   })
 
   if (plan.noop) {
@@ -7594,6 +7608,7 @@ async function specEnvLiveRelease(dir, config, specArg) {
   process.stdout.write(
     `spec-env live release: ${spec.folder} released — primary back on ${base}, ` +
       `${spec.branch} re-isolated to its worktree.\n` +
+      runAfterSwitch(plan.afterSwitch).lines.map((l) => `${l}\n`).join('') +
       plan.warnings.map((w) => `  ! ${w}\n`).join(''),
   )
 }

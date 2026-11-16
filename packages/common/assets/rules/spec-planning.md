@@ -276,6 +276,10 @@ thumb: **live overlay is the light default for *testing* a code-only spec** — 
 is not how work gets started, and no lifecycle skill invokes it; it *refuses*
 stateful ones (`Stack: worktree + docker`, or a branch touching migrations) — keep
 `/spec-connect` + a Docker stack for those, and for genuinely parallel testing.
+`live.afterSwitch` is the switch's counterpart of `afterLand` — the same
+`{ run, when }` entries, run in the primary checkout after take and again after
+release, so a changed lockfile or schema is caught up both ways. The engine runs
+them itself, since `/spec-live` has no turn to run anything after it.
 Beneath it, `skitterspec spec-env live <take|release|abort|status>` is the engine.
 
 **Authoring a spec is work, so it happens off the base branch too (`/spec`).**

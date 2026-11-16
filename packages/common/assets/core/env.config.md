@@ -415,8 +415,26 @@ through to a documented conservative default; see the field notes below.
   // Under `land.strategy: "pr"` take fetches and rebases onto
   // `<land.remote>/<base>`, since local base moves only when you pull; a
   // failed fetch falls back to local base and says so.
+  //
+  // `afterSwitch` is `afterLand`'s grammar — a string, `{ "run", "when" }`, or
+  // `{ "setup": true }` — run in the PRIMARY checkout after `live take` checks
+  // the branch out, and again after `live release` switches back. Both decide
+  // `when` against the same files (what the branch changes from base), since
+  // release reverts what take brought in. Unlike `afterLand` the ENGINE runs
+  // these, because `/spec-live` and the page's live action have no caller turn
+  // to run anything after them: output is captured, the first failure stops the
+  // list with the tail of its output, and the switch is never undone.
+  // A separate list, not `afterLand`, because `afterLand` may hold a data
+  // migration, which must never run for a branch that has not landed:
+  //
+  //   "afterSwitch": [{ "setup": true }]
+  //
+  // [] (or absent) = none, and take and release print what they always did. It
+  // does not replace the "restart your dev server" warning — an install is not
+  // a restart.
   "live": {
-    "migrations": []
+    "migrations": [],
+    "afterSwitch": []
   },
 
   // Hotfix landing (`spec-env hotfix land` / `/spec-complete` on a Type: Hotfix

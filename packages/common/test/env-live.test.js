@@ -453,3 +453,66 @@ test('planAbort refuses with no receipt but the primary off base', () => {
   assert.strictEqual(plan.blocked, true)
   assert.match(plan.reason, /no live receipt/)
 })
+
+// --- runAfterSwitch -------------------------------------------------------
+
+const { runAfterSwitch } = require('../src/env/live.js')
+
+function fakeSpawn(results) {
+  const calls = []
+  const spawn = (cmd, opts) => {
+    calls.push({ cmd, cwd: opts.cwd, shell: opts.shell })
+    return results[cmd] || { status: 0, stdout: '', stderr: '' }
+  }
+  return { spawn, calls }
+}
+
+test('runAfterSwitch prints nothing and runs nothing for an empty plan', () => {
+  const { spawn, calls } = fakeSpawn({})
+  assert.deepStrictEqual(runAfterSwitch({ cwd: null, commands: [], entries: [], range: [] }, spawn), {
+    lines: [],
+    failed: false,
+  })
+  assert.deepStrictEqual(calls, [])
+})
+
+test('runAfterSwitch runs the non-skipped entries in the plan cwd, through the shell', () => {
+  const plan = planTake(SPEC, SWITCH, okCtx({ changedFiles: ['prisma/schema.prisma'] }))
+  const { spawn, calls } = fakeSpawn({})
+  const { lines, failed } = runAfterSwitch(plan.afterSwitch, spawn)
+  assert.strictEqual(failed, false)
+  assert.deepStrictEqual(calls, [
+    { cmd: 'pnpm gen', cwd: '/repo', shell: true },
+    { cmd: 'echo always', cwd: '/repo', shell: true },
+  ])
+  assert.deepStrictEqual(lines, [
+    '  after switch (in /repo):',
+    '    ran:  pnpm gen       # prisma/schema.prisma changed',
+    '    ran:  echo always',
+    '  skipped (nothing in the switch matched):',
+    '    pnpm install   # when pnpm-lock.yaml',
+  ])
+})
+
+test('runAfterSwitch says when the range is unknown, and when nothing is left to run', () => {
+  const unknown = runAfterSwitch(planTake(SPEC, SWITCH, okCtx({ changedFiles: null })).afterSwitch, fakeSpawn({}).spawn)
+  assert.ok(unknown.lines.includes('    ran:  pnpm install   # range unknown'))
+  assert.ok(unknown.lines.some((l) => /changed files are unknown here/.test(l)))
+  const onlyConditional = { live: { afterSwitch: [{ run: 'pnpm gen', when: ['x'] }] } }
+  const none = runAfterSwitch(planTake(SPEC, onlyConditional, okCtx({ changedFiles: [] })).afterSwitch)
+  assert.strictEqual(none.lines[0], '  after switch (in /repo): nothing to run.')
+})
+
+test('runAfterSwitch stops at the first failure with the tail of its output', () => {
+  const noisy = Array.from({ length: 30 }, (_, i) => `line ${i}`).join('\n')
+  const { spawn, calls } = fakeSpawn({ 'pnpm gen': { status: 2, stdout: noisy, stderr: 'ERR boom\n' } })
+  const plan = planTake(SPEC, SWITCH, okCtx({ changedFiles: ['prisma/schema.prisma'] }))
+  const { lines, failed } = runAfterSwitch(plan.afterSwitch, spawn)
+  assert.strictEqual(failed, true)
+  assert.deepStrictEqual(calls.map((c) => c.cmd), ['pnpm gen'])
+  assert.ok(lines.includes('  ! after switch: pnpm gen failed (exit 2) — the switch stands; fix it in /repo'))
+  assert.ok(lines.includes('      ERR boom'))
+  assert.ok(!lines.includes('      line 10')) // only the last 20 lines
+  assert.ok(lines.includes('      line 11'))
+  assert.ok(lines.includes('    not run:  echo always'))
+})

@@ -18,6 +18,7 @@
 
 const fs = require('node:fs')
 const path = require('node:path')
+const { spawnSync } = require('node:child_process')
 const { globToRegExp } = require('./glob.js')
 const { shellPath } = require('./project.js')
 const { planTriggered, noTriggered } = require('./triggered.js')
@@ -525,7 +526,86 @@ function planAbort(config, ctx) {
   return { ...result, commands, clears: true, branch }
 }
 
+// --- after-switch runner --------------------------------------------------
+
+// How much of a failed command's output to show — enough to see why, not a
+// whole install log in a report that is relayed verbatim.
+const FAIL_TAIL = 20
+
+/**
+ * Run a plan's `afterSwitch` commands in order, in its `cwd` (the primary
+ * checkout), and return the lines that report them. The ENGINE runs these,
+ * unlike `afterLand`: `/spec-live` and the page's live action are pre-executed
+ * with no caller turn to run anything after them.
+ *
+ * Output is CAPTURED, not streamed — the report is relayed verbatim, so a full
+ * install log would bury it. Only a failure shows output, and only its tail.
+ *
+ * STOPS AT THE FIRST FAILURE AND NEVER UNDOES THE SWITCH. Rolling the branch
+ * back over a failed install would hide the cause and swap one broken tree for
+ * another; the operator is told what failed and what did not run.
+ *
+ * An empty list returns no lines at all, so a project without the key prints
+ * exactly what it printed before the key existed.
+ *
+ * @param {object} afterSwitch  a planner's `afterSwitch` ({ cwd, commands, entries, range })
+ * @param {function} [spawn]    spawnSync-shaped, injectable for tests
+ * @returns {{ lines: string[], failed: boolean }}
+ */
+function runAfterSwitch(afterSwitch, spawn = spawnSync) {
+  const entries = afterSwitch && Array.isArray(afterSwitch.entries) ? afterSwitch.entries : []
+  if (!entries.length) return { lines: [], failed: false }
+  const cwd = afterSwitch.cwd
+  const toRun = entries.filter((e) => e.decision !== 'skipped')
+  const skipped = entries.filter((e) => e.decision === 'skipped')
+  const width = Math.max(...entries.map((e) => e.run.length))
+  // A shell COMMENT for the reason, as `afterLand` prints it, so a line copied
+  // out of the report is still one command.
+  const why = (e) =>
+    e.decision === 'matched' ? `   # ${e.matched} changed` : e.decision === 'unknown' ? '   # range unknown' : ''
+  const lines = []
+  let failed = false
+
+  if (!toRun.length) {
+    lines.push(`  after switch (in ${cwd}): nothing to run.`)
+  } else {
+    lines.push(`  after switch (in ${cwd}):`)
+    for (let i = 0; i < toRun.length; i++) {
+      const e = toRun[i]
+      const res = spawn(e.run, {
+        cwd,
+        shell: true,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        encoding: 'utf8',
+        maxBuffer: 64 * 1024 * 1024,
+      })
+      if (!res.error && res.status === 0) {
+        lines.push(`    ran:  ${why(e) ? e.run.padEnd(width) + why(e) : e.run}`)
+        continue
+      }
+      failed = true
+      const status = res.error ? res.error.message : res.signal ? `signal ${res.signal}` : `exit ${res.status}`
+      lines.push(`  ! after switch: ${e.run} failed (${status}) — the switch stands; fix it in ${cwd}`)
+      // Joined on a newline: stdout without a trailing one would otherwise run
+      // its last line into stderr's first.
+      const output = `${res.stdout || ''}\n${res.stderr || ''}`.split('\n').filter((l) => l.trim())
+      for (const l of output.slice(-FAIL_TAIL)) lines.push(`      ${l}`)
+      for (const rest of toRun.slice(i + 1)) lines.push(`    not run:  ${rest.run}`)
+      break
+    }
+  }
+  if (toRun.some((e) => e.decision === 'unknown')) {
+    lines.push("  the switch's changed files are unknown here, so the conditional entries run.")
+  }
+  if (skipped.length) {
+    lines.push('  skipped (nothing in the switch matched):')
+    for (const e of skipped) lines.push(`    ${e.run.padEnd(width)}   # when ${e.when.join(', ')}`)
+  }
+  return { lines, failed }
+}
+
 module.exports = {
+  runAfterSwitch,
   receiptPath,
   renderReceipt,
   readReceipt,

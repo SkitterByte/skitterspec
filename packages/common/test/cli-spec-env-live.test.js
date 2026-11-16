@@ -718,3 +718,83 @@ test('STAYS SILENT: --json does not change the text form it sits beside', async 
     cleanup(dir)
   }
 })
+
+// --- live.afterSwitch -----------------------------------------------------
+
+// Set live.afterSwitch on the scaffold's committed config, keeping the tree
+// clean. Commands write under the gitignored .spec-env/, so they leave the
+// primary checkout clean enough for release to proceed.
+function setAfterSwitch(dir, afterSwitch) {
+  const configPath = path.join(dir, 'specs', '.core', 'env.config.json')
+  const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
+  config.live = { afterSwitch }
+  fs.writeFileSync(configPath, JSON.stringify(config, null, 2))
+  git(dir, 'commit', '-q', '-am', 'afterSwitch config')
+}
+
+const ranLog = (dir) => {
+  const file = path.join(dir, '.spec-env', 'ran.log')
+  return fs.existsSync(file) ? fs.readFileSync(file, 'utf-8').split('\n').filter(Boolean) : []
+}
+
+test('live take runs a matched afterSwitch command in the primary, and skips the rest', async () => {
+  const { dir } = scaffoldRepoWithSpecWorktree()
+  try {
+    setAfterSwitch(dir, [
+      { run: 'mkdir -p .spec-env && echo "$(git branch --show-current)" >> .spec-env/ran.log', when: 'change.txt' },
+      { run: 'echo never >> .spec-env/ran.log', when: 'prisma/schema.prisma' },
+    ])
+    const out = await runQuiet(['spec-env', 'live', 'take', 'feat-x', '--dir', dir])
+    assert.match(out, /after switch \(in .*\):/)
+    assert.match(out, /ran: {2}mkdir -p .*# change\.txt changed/)
+    assert.match(out, /skipped \(nothing in the switch matched\):\n {4}echo never .*# when prisma\/schema\.prisma/)
+    // Ran AFTER the checkout, in the primary checkout — so it saw the branch.
+    assert.deepStrictEqual(ranLog(dir), ['feat/x'])
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('live take stops at a failing afterSwitch command and leaves the switch standing', async () => {
+  const { dir } = scaffoldRepoWithSpecWorktree()
+  try {
+    setAfterSwitch(dir, ['echo boom-output; exit 3', 'mkdir -p .spec-env && echo second >> .spec-env/ran.log'])
+    const out = await runQuiet(['spec-env', 'live', 'take', 'feat-x', '--dir', dir])
+    assert.match(out, /! after switch: echo boom-output; exit 3 failed \(exit 3\) — the switch stands/)
+    assert.match(out, /\n {6}boom-output\n/)
+    assert.match(out, /not run: {2}mkdir -p \.spec-env/)
+    assert.deepStrictEqual(ranLog(dir), [])
+    assert.strictEqual(git(dir, 'symbolic-ref', '--short', 'HEAD'), 'feat/x')
+    assert.ok(fs.existsSync(path.join(dir, '.spec-env', 'live.json')))
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('live release runs afterSwitch against the same files, after switching back', async () => {
+  const { dir } = scaffoldRepoWithSpecWorktree()
+  try {
+    setAfterSwitch(dir, [
+      { run: 'mkdir -p .spec-env && echo "$(git branch --show-current)" >> .spec-env/ran.log', when: ['change.txt'] },
+    ])
+    await runQuiet(['spec-env', 'live', 'take', 'feat-x', '--dir', dir])
+    const out = await runQuiet(['spec-env', 'live', 'release', '--dir', dir])
+    assert.match(out, /feat-x released — primary back on main/)
+    assert.match(out, /ran: {2}mkdir -p .*# change\.txt changed/)
+    assert.deepStrictEqual(ranLog(dir), ['feat/x', 'main'])
+  } finally {
+    cleanup(dir)
+  }
+})
+
+// STAYS SILENT: no key configured → no after-switch section on either verb.
+test('stays silent: with no afterSwitch configured, take and release print no section', async () => {
+  const { dir } = scaffoldRepoWithSpecWorktree()
+  try {
+    const take = await runQuiet(['spec-env', 'live', 'take', 'feat-x', '--dir', dir])
+    const release = await runQuiet(['spec-env', 'live', 'release', '--dir', dir])
+    assert.doesNotMatch(take + release, /after switch|nothing in the switch matched/)
+  } finally {
+    cleanup(dir)
+  }
+})
