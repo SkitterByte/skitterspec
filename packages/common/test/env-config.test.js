@@ -523,6 +523,34 @@ test('afterLand { setup: true } with no triggered setup entries expands to nothi
   assert.deepStrictEqual(loadEnvConfig(dir).config.afterLand, [])
 })
 
+test('live.afterSwitch defaults to an empty array (absent → opt-out)', () => {
+  const dir = tmpDir()
+  assert.deepStrictEqual(loadEnvConfig(dir).config.live.afterSwitch, [])
+  writeEnvConfig(dir, { live: { migrations: ['db/**'] } })
+  assert.deepStrictEqual(loadEnvConfig(dir).config.live.afterSwitch, [])
+})
+
+test('live.afterSwitch takes afterLand\'s grammar, { setup: true } included', () => {
+  const dir = tmpDir()
+  writeEnvConfig(dir, {
+    setup: [{ run: 'pnpm install --frozen-lockfile', when: 'pnpm-lock.yaml' }, 'pnpm build'],
+    live: {
+      afterSwitch: [{ setup: true }, { run: 'pnpm gen', when: 'schema.graphql' }, ' echo hi ', { run: 'x', when: [] }],
+    },
+  })
+  assert.deepStrictEqual(loadEnvConfig(dir).config.live.afterSwitch, [
+    { run: 'pnpm install --frozen-lockfile', when: ['pnpm-lock.yaml'] },
+    { run: 'pnpm gen', when: ['schema.graphql'] },
+    { run: 'echo hi', when: null },
+  ])
+})
+
+test('live.afterSwitch of the wrong type is ignored (keeps the default [])', () => {
+  const dir = tmpDir()
+  writeEnvConfig(dir, { live: { afterSwitch: 'pnpm install' } })
+  assert.deepStrictEqual(loadEnvConfig(dir).config.live.afterSwitch, [])
+})
+
 test('afterLand of the wrong type is ignored (keeps the default [])', () => {
   const dir = tmpDir()
   writeEnvConfig(dir, { afterLand: 'pnpm db:data-migration' })

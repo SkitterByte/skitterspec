@@ -49,8 +49,10 @@
  *               // (push + pull request; base moves when the host merges)
  *     guards:   { refuseTeardownIfDirty, refuseTeardownIfUnpushed },
  *     teardown: { deleteRemoteBranch },
- *     live:     { migrations: [ "glob", ... ] }  // migration globs → `live take`
+ *     live:     { migrations: [ "glob", ... ],  // migration globs → `live take`
  *               // refuses a branch that changes them (code-only v1)
+ *                 afterSwitch: [ "cmd" | { run, when } | { setup: true }, ... ] }
+ *               // run in the primary checkout after `live take`/`release`
  *     hotfix:   { bump, cherryPickMain, targets, releaseWith, releaseBranch, tag }
  *               // `hotfix land`: patch-bump the deploy tag, also cherry-pick
  *               // onto the base branch (main), and onto any extra base tags in
@@ -332,7 +334,10 @@ const DEFAULT_CONFIG = Object.freeze({
   // Live overlay (`spec-env live`). `migrations` is a list of globs marking
   // migration files; a branch that changes any of them is treated as stateful and
   // `live take` refuses it (code-only v1). Default: none (nothing is stateful).
-  live: Object.freeze({ migrations: Object.freeze([]) }),
+  // `afterSwitch` is `afterLand`'s grammar, run in the primary checkout after a
+  // take or a release — a separate list because `afterLand` may hold a data
+  // migration, which must never run for a branch that has not landed.
+  live: Object.freeze({ migrations: Object.freeze([]), afterSwitch: Object.freeze([]) }),
   // Hotfix landing (`spec-env hotfix land`). `bump` is the version-bump strategy
   // for the new deploy tag: "patch" (X.Y.Z -> X.Y.(Z+1)) or "hotfix-suffix"
   // (X.Y.Z -> X.Y.Z-hotfix.N). The loader keeps whatever string it is given and
@@ -427,7 +432,7 @@ function defaults() {
     guards: { ...DEFAULT_CONFIG.guards },
     teardown: { ...DEFAULT_CONFIG.teardown },
     review: { ...DEFAULT_CONFIG.review, reviewers: [] },
-    live: { migrations: [] },
+    live: { migrations: [], afterSwitch: [] },
     hotfix: { ...DEFAULT_CONFIG.hotfix, targets: [] },
   }
 }
@@ -824,6 +829,12 @@ function mergeConfig(base, parsed) {
 
   if (isObject(parsed.live) && Array.isArray(parsed.live.migrations)) {
     base.live.migrations = normalizeFileList(parsed.live.migrations)
+  }
+
+  // `afterLand`'s grammar and normaliser, `{ setup: true }` included — read
+  // after `setup`, which the shorthand expands from.
+  if (isObject(parsed.live) && Array.isArray(parsed.live.afterSwitch)) {
+    base.live.afterSwitch = normalizeAfterLand(parsed.live.afterSwitch, base.setupTriggers)
   }
 
   if (isObject(parsed.hotfix)) {

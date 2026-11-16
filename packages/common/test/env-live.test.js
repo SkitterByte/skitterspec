@@ -327,6 +327,76 @@ test('planRelease omits the re-isolate step when the worktree is gone', () => {
   assert.deepStrictEqual(plan.commands, ['git -C /repo checkout main'])
 })
 
+// --- afterSwitch ----------------------------------------------------------
+
+const SWITCH = {
+  live: {
+    afterSwitch: [
+      { run: 'pnpm install', when: ['pnpm-lock.yaml'] },
+      { run: 'pnpm gen', when: ['prisma/schema.prisma'] },
+      { run: 'echo always', when: null },
+    ],
+  },
+}
+
+test('planTake decides afterSwitch against the changed files, run in the primary', () => {
+  const plan = planTake(SPEC, SWITCH, okCtx({ changedFiles: ['prisma/schema.prisma', 'src/a.js'] }))
+  assert.strictEqual(plan.afterSwitch.cwd, '/repo')
+  assert.deepStrictEqual(plan.afterSwitch.commands, ['pnpm gen', 'echo always'])
+  assert.deepStrictEqual(
+    plan.afterSwitch.entries.map((e) => [e.run, e.decision, e.matched]),
+    [
+      ['pnpm install', 'skipped', null],
+      ['pnpm gen', 'matched', 'prisma/schema.prisma'],
+      ['echo always', 'always', null],
+    ],
+  )
+})
+
+test('planTake runs every conditional entry when the range is unknown', () => {
+  const plan = planTake(SPEC, SWITCH, okCtx({ changedFiles: null }))
+  assert.strictEqual(plan.afterSwitch.range, null)
+  assert.deepStrictEqual(plan.afterSwitch.commands, ['pnpm install', 'pnpm gen', 'echo always'])
+  assert.ok(plan.afterSwitch.entries.slice(0, 2).every((e) => e.decision === 'unknown'))
+})
+
+test('planTake skips every conditional entry on an empty known range', () => {
+  const plan = planTake(SPEC, SWITCH, okCtx({ changedFiles: [] }))
+  assert.deepStrictEqual(plan.afterSwitch.commands, ['echo always'])
+})
+
+test('planTake carries an empty afterSwitch on a refusal — nothing switched', () => {
+  const plan = planTake(SPEC, SWITCH, okCtx({ clean: false, changedFiles: ['pnpm-lock.yaml'] }))
+  assert.strictEqual(plan.blocked, true)
+  assert.deepStrictEqual(plan.afterSwitch, { cwd: null, commands: [], entries: [], range: null })
+})
+
+test('planRelease decides afterSwitch against the same files, run in the primary', () => {
+  const plan = planRelease(SPEC, SWITCH, relCtx({ changedFiles: ['pnpm-lock.yaml'] }))
+  assert.strictEqual(plan.afterSwitch.cwd, '/repo')
+  assert.deepStrictEqual(plan.afterSwitch.commands, ['pnpm install', 'echo always'])
+})
+
+test('planRelease carries an empty afterSwitch when nothing is live or it refuses', () => {
+  const empty = { cwd: null, commands: [], entries: [], range: null }
+  const noop = planRelease(SPEC, SWITCH, relCtx({ primary: { onBase: true, branch: 'main', baseBranch: 'main' } }))
+  assert.deepStrictEqual(noop.afterSwitch, empty)
+  assert.deepStrictEqual(planRelease(SPEC, SWITCH, relCtx({ clean: false })).afterSwitch, empty)
+})
+
+// STAYS SILENT: a project with no `live.afterSwitch` gets an empty list and a
+// plan otherwise identical to the one it got before the key existed.
+test('afterSwitch unset → empty, and every other plan field unchanged', () => {
+  const empty = { cwd: null, commands: [], entries: [], range: [] }
+  const ctx = okCtx({ changedFiles: [], depsChanged: true })
+  const take = planTake(SPEC, {}, ctx)
+  assert.deepStrictEqual(take.afterSwitch, empty)
+  const { afterSwitch: _a, ...takeRest } = take
+  const { afterSwitch: _b, ...takeWithLive } = planTake(SPEC, { live: { afterSwitch: [] } }, ctx)
+  assert.deepStrictEqual(takeRest, takeWithLive)
+  assert.deepStrictEqual(planRelease(SPEC, {}, relCtx({ changedFiles: [] })).afterSwitch, empty)
+})
+
 // --- planAbort ------------------------------------------------------------
 
 const RECEIPT = {

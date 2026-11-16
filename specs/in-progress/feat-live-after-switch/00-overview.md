@@ -138,7 +138,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Config and planner: `live.afterSwitch` decided per switch | ⬜ | [01-config-and-planner.md](01-config-and-planner.md) |
+| 1 | Config and planner: `live.afterSwitch` decided per switch | ✅ | [01-config-and-planner.md](01-config-and-planner.md) |
 | 2 | Run and report on take and release; docs | ⬜ | [02-run-and-report.md](02-run-and-report.md) |
 
 ## Open questions
@@ -148,3 +148,6 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-11-16 — Spec created.
+- 2026-11-16 — Phase 1: the shared decider lives in a new
+  `src/env/triggered.js` (`planTriggered`); `afterLandFor` is now a thin
+  caller. Planners take the range as ctx `changedFiles`, as integrate does.

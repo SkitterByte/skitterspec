@@ -20,6 +20,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 const { globToRegExp } = require('./glob.js')
 const { shellPath } = require('./project.js')
+const { planTriggered, noTriggered } = require('./triggered.js')
 
 const REQUIRED = ['spec', 'branch', 'holder', 'heldSince', 'baseMainCommit']
 
@@ -215,6 +216,15 @@ function restartReminders(names, when) {
   return names.map((name) => `restart ${name} ${when} — it does not hot-reload`)
 }
 
+// `live.afterSwitch` decided for one switch, to run in the primary checkout.
+// Anything but a list in `changedFiles` is an unknown range — a caller that
+// did not supply it said nothing about what changed.
+function afterSwitchFor(config, c) {
+  const raw = config && config.live ? config.live.afterSwitch : []
+  const range = Array.isArray(c.changedFiles) ? c.changedFiles : null
+  return planTriggered(raw, c.primaryPath, range)
+}
+
 // --- take planner ---------------------------------------------------------
 
 /**
@@ -245,9 +255,14 @@ function restartReminders(names, when) {
  *                  probed, each named in a restart reminder instead
  *   migrationsHit  boolean — the branch diff touches configured migration globs
  *   depsChanged    boolean — the branch diff touches a lockfile/manifest (→ warn)
+ *   changedFiles   string[] — the files `onto...branch` changes, or anything
+ *                  else (null) when git would not say: decides `afterSwitch`
  *   holder,heldSince receipt provenance (injected by the CLI; no Date.now here)
  *
- * @returns {object} { blocked, reason, commands, warnings, receipt, base, branch, worktreePath }
+ * @returns {object} { blocked, reason, commands, warnings, receipt, base, branch,
+ *   worktreePath, afterSwitch } — `afterSwitch` is `config.live.afterSwitch`
+ *   decided against `changedFiles`, to run in the primary checkout after the
+ *   checkout; empty on a refusal, since nothing switched.
  */
 function planTake(spec, config, ctx) {
   const c = ctx || {}
@@ -263,6 +278,7 @@ function planTake(spec, config, ctx) {
     onto: c.rebaseOnto || base,
     branch,
     worktreePath: spec.worktreePath,
+    afterSwitch: noTriggered(),
   }
   /**
    * A refusal, and — only where one exists — the way out of it.
@@ -385,6 +401,7 @@ function planTake(spec, config, ctx) {
       `git -C ${shellPath(c.primaryPath)} checkout ${branch}`,
     ],
     warnings,
+    afterSwitch: afterSwitchFor(config, c),
     receipt: {
       spec: spec.folder,
       branch,
@@ -405,8 +422,12 @@ function planTake(spec, config, ctx) {
  * In the branch-switch model `take` never moves the base ref, so release is just
  * `checkout base` (frees the branch) then re-attach it to the worktree — no reset.
  *
- * ctx: { primary:{onBase,branch}, primaryPath, base, clean, worktreeExists, restartApps }
- * @returns {object} { blocked, noop, reason, commands, warnings, clears, base, branch, worktreePath }
+ * ctx: { primary:{onBase,branch}, primaryPath, base, clean, worktreeExists, restartApps,
+ *        changedFiles }
+ * `changedFiles` is `base...branch` — the same files take brought in, which the
+ * switch back reverts, so `afterSwitch` is decided against the same set.
+ * @returns {object} { blocked, noop, reason, commands, warnings, clears, base, branch,
+ *   worktreePath, afterSwitch }
  */
 function planRelease(spec, config, ctx) {
   const c = ctx || {}
@@ -422,6 +443,7 @@ function planRelease(spec, config, ctx) {
     base,
     branch,
     worktreePath: spec.worktreePath,
+    afterSwitch: noTriggered(),
   }
 
   // Nothing live — the primary checkout is already on base.
@@ -448,7 +470,7 @@ function planRelease(spec, config, ctx) {
   const commands = [`git -C ${shellPath(c.primaryPath)} checkout ${base}`]
   if (c.worktreeExists) commands.push(`git -C ${shellPath(spec.worktreePath)} switch ${branch}`)
   const warnings = restartReminders(Array.isArray(c.restartApps) ? c.restartApps : [], `on ${base}`)
-  return { ...result, commands, warnings, clears: true }
+  return { ...result, commands, warnings, clears: true, afterSwitch: afterSwitchFor(config, c) }
 }
 
 // --- abort planner --------------------------------------------------------

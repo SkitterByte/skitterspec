@@ -1,6 +1,6 @@
 'use strict'
 
-const { globToRegExp } = require('./glob.js')
+const { planTriggered, noTriggered } = require('./triggered.js')
 const { shellPath } = require('./project.js')
 
 /**
@@ -293,39 +293,10 @@ function planIntegrateDocs(spec, config, ctx) {
 // The after-land half of a plan: `config.afterLand`, to run in `cwd` (the
 // primary checkout, standing on base) once the land commands have succeeded.
 // A blocked plan carries the empty form — nothing landed, so nothing follows.
-//
-// `range` is the files the land changes: a list (possibly empty) when known,
-// null when it is not. Each entry gets a decision — `always` (no `when`),
-// `matched` (with the first path that hit), `skipped`, or `unknown` — and
-// `commands` is every entry but the skipped ones, in config order.
-//
-// AN UNKNOWN RANGE RUNS THE CONDITIONAL ENTRIES. A land made elsewhere, or a
-// diff git would not answer, says nothing about what changed, and only one
-// reading is harmless: a redundant generate costs seconds, a skipped one leaves
-// the base red with nothing pointing at why (`.claude/rules/negative-checks.md`
-// rule 4). An EMPTY known range is not unknown — a land whose commits touch no
-// files is healthy, and it skips them.
+// The decisions, and why an unknown range runs the conditional entries, live
+// in `planTriggered` (`./triggered.js`), shared with `live.afterSwitch`.
 function afterLandFor(config, cwd, range = null) {
-  const raw = (config && Array.isArray(config.afterLand)) ? config.afterLand : []
-  const entries = raw.map((e) => decide(asEntry(e), range))
-  const commands = entries.filter((e) => e.decision !== 'skipped').map((e) => e.run)
-  return { cwd: entries.length ? cwd : null, commands, entries, range }
-}
-
-function decide(entry, range) {
-  if (!entry.when) return { ...entry, decision: 'always', matched: null }
-  if (range === null) return { ...entry, decision: 'unknown', matched: null }
-  const res = entry.when.map(globToRegExp)
-  const matched = range.find((f) => res.some((r) => r.test(f)))
-  return matched === undefined
-    ? { ...entry, decision: 'skipped', matched: null }
-    : { ...entry, decision: 'matched', matched }
-}
-
-// Normalised config holds `{ run, when }`; a pure caller may still hand over
-// the plain string an entry is written as.
-function asEntry(entry) {
-  return typeof entry === 'string' ? { run: entry, when: null } : { run: entry.run, when: entry.when || null }
+  return planTriggered(config && config.afterLand, cwd, range)
 }
 
 // `changedFiles` from a planner's ctx, with anything that is not a list read as
@@ -335,7 +306,7 @@ function rangeOf(ctx) {
 }
 
 function noAfterLand() {
-  return { cwd: null, commands: [], entries: [], range: null }
+  return noTriggered()
 }
 
 module.exports = { planIntegrate, planIntegrateCheckout, planIntegratePr, planIntegrateDocs, afterLandFor, rangeOf }
