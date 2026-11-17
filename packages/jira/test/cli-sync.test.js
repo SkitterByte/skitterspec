@@ -979,3 +979,30 @@ test('list keeps a member under its Epic row and hides a subtask', async () => {
   assert.match(lines[at('PROJ-41')], /^ {4}PROJ-41/)
   assert.strictEqual(at('PROJ-42'), -1)
 })
+
+// --- PR-mode completion: --hold-state / --send-held -------------------------------
+// spec bug-pr-complete-snapshot-on-base; the engine half is covered in provider-kit.
+
+test('--hold-state with --send-held is refused before any write', async () => {
+  const dir = repoWithSpec({ identifier: 'PROJ-5' })
+  const adapter = fakeAdapter()
+  const r = await run(['apply', 'feat-demo', '--send-held', '--hold-state'], dir, { adapter })
+  assert.strictEqual(r.code, 1)
+  assert.match(r.out, /two runs, not one/)
+})
+
+test('--send-held needs no --plan, and --all refuses both flags', async () => {
+  const dir = repoWithSpec({ identifier: 'PROJ-5' })
+  const bulk = await run(['apply', '--all', 'complete', '--send-held'], dir, { adapter: fakeAdapter() })
+  assert.strictEqual(bulk.code, 1)
+  assert.match(bulk.out, /one spec at a time/)
+  const bare = await run(['apply', 'feat-demo'], dir, { adapter: fakeAdapter() })
+  assert.match(bare.out, /pass --plan <file>/)
+})
+
+test('record --held writes the snapshot', async () => {
+  const dir = repoWithSpec({ identifier: 'PROJ-5' })
+  const r = await run(['record', 'feat-demo', '--held'], dir)
+  assert.strictEqual(r.code, 0, r.out)
+  assert.match(r.out, /snapshot written/)
+})

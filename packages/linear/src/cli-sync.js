@@ -138,7 +138,7 @@ async function specSyncBoard(dir, config, specArg, flags, out) {
 const specSyncWhoami = (dir, config, flags, out) => assignment.whoami(dir, config, flags, out)
 const specSyncUsers = (dir, config, query, flags, out) => assignment.users(dir, config, query, flags, out)
 const { readAllStdin, promptHidden } = require('@skitterbyte/skitterspec-provider-kit/src/prompt.js')
-const { applySpecPlan } = require('@skitterbyte/skitterspec-provider-kit/src/apply.js')
+const { applySpecPlan, heldFlags, heldOverMcp } = require('@skitterbyte/skitterspec-provider-kit/src/apply.js')
 
 // Spec resolution, listing and lint reporting come from the provider kit
 // (`src/specs.js`), keyed by this provider's `config.fields`. `linkedIdentifier`
@@ -432,11 +432,14 @@ function specSyncStamp(dir, config, specArg, flags, out) {
 
 // `spec-sync record <spec>` — write the last-pushed snapshot from the CURRENT
 // files. The skill calls this AFTER applying the plan and stamping new ids.
-function specSyncRecord(dir, config, specArg, out) {
+function specSyncRecord(dir, config, specArg, flags, out) {
   const snapshotDir = resolveOrExit(specArg, dir, out)
   if (!snapshotDir) return 1
   const identifier = specIdentifier(snapshotDir, config)
-  const file = recordPush({ dir, snapshotDir, identifier, config })
+  // --held: the hand-applied twin of `apply --hold-state` — the state was left
+  // out on purpose, and is recorded as sent so run 2 rewrites nothing.
+  const sent = flags && flags.held ? { issue: true, subIssues: new Set() } : null
+  const file = recordPush({ dir, snapshotDir, identifier, config, sent })
   out.write(`spec-sync record: snapshot written → ${path.relative(dir, file).split(path.sep).join('/')}\n`)
 }
 
@@ -2309,7 +2312,20 @@ function specKindOf(snapshotDir) {
   return 'feature'
 }
 
-async function applyOneSpec({ dir, config, snapshotDir, plan, adapter, teamId, project, states, forceNew = false, out = null }) {
+async function applyOneSpec({
+  dir,
+  config,
+  snapshotDir,
+  plan,
+  adapter,
+  teamId,
+  project,
+  states,
+  forceNew = false,
+  holdState = false,
+  sendHeld = false,
+  out = null,
+}) {
   const kind = specKindOf(snapshotDir)
   // Per-kind state resolution: statesByKind[kind] overlays states inside
   // stateIdFor, and a bucket overridden to null resolves to no transition.
@@ -2424,7 +2440,7 @@ async function applyOneSpec({ dir, config, snapshotDir, plan, adapter, teamId, p
       }))
     },
   }
-  return applySpecPlan({ dir, config, snapshotDir, plan, adapter, ops, forceNew })
+  return applySpecPlan({ dir, config, snapshotDir, plan, adapter, ops, forceNew, holdState, sendHeld, program: 'spec-sync' })
 }
 
 
@@ -2460,6 +2476,11 @@ async function applyOneSpec({ dir, config, snapshotDir, plan, adapter, teamId, p
  */
 async function specSyncApply(dir, config, specArg, flags, out) {
   const bulk = flags.all != null
+  const held = heldFlags(flags, 'spec-sync')
+  if (held.error) {
+    out.write(held.error + '\n')
+    return 1
+  }
   if (bulk && !BUCKETS.includes(flags.all)) {
     out.write(`spec-sync apply: --all ${flags.all} is not a bucket (${BUCKETS.join('|')})\n`)
     return 1
@@ -2470,7 +2491,11 @@ async function specSyncApply(dir, config, specArg, flags, out) {
   if (!bulk) {
     snapshotDir = resolveOrExit(specArg, dir, out)
     if (!snapshotDir) return 1
-    if (!flags.plan) {
+    if (!flags.plan && held.sendHeld) {
+      // --send-held computes its own. After the merge it is normally empty, and
+      // that empty plan is what tells apply that run 1 held the state.
+      plan = push({ dir, snapshotDir, identifier: specIdentifier(snapshotDir, config), config }).plan
+    } else if (!flags.plan) {
       out.write(
         'spec-sync apply: refusing to run without --plan <file>.\n' +
           '  Get one with: skitterspec spec-sync plan <spec> --json > plan.json\n' +
@@ -2478,11 +2503,13 @@ async function specSyncApply(dir, config, specArg, flags, out) {
       )
       return 1
     }
-    try {
-      plan = JSON.parse(fs.readFileSync(flags.plan, 'utf-8'))
-    } catch (error) {
-      out.write(`spec-sync apply: cannot read --plan ${flags.plan}: ${error.message}\n`)
-      return 1
+    if (flags.plan) {
+      try {
+        plan = JSON.parse(fs.readFileSync(flags.plan, 'utf-8'))
+      } catch (error) {
+        out.write(`spec-sync apply: cannot read --plan ${flags.plan}: ${error.message}\n`)
+        return 1
+      }
     }
 
     // A pre-9.0 mirror reads as unlinked, so its plan is all-creates and applying
@@ -2494,7 +2521,7 @@ async function specSyncApply(dir, config, specArg, flags, out) {
       )
       return 1
     }
-    if (isEmptyPlan(plan)) {
+    if (!held.sendHeld && isEmptyPlan(plan)) {
       out.write('spec-sync apply: nothing to apply — the mirror is up to date.\n')
       return 0
     }
@@ -2523,6 +2550,7 @@ async function specSyncApply(dir, config, specArg, flags, out) {
         '  apply the plan over MCP as /spec-push describes, then run:',
         '    skitterspec spec-sync stamp <spec> --issue … [--sub <ref>=… …]',
         '    skitterspec spec-sync record <spec>',
+        ...[heldOverMcp(held, 'spec-sync')].filter(Boolean),
       ].join('\n') + '\n',
     )
     return 0
@@ -2543,7 +2571,18 @@ async function specSyncApply(dir, config, specArg, flags, out) {
     out.write(`spec-sync apply: ${error.message}\n`)
     return 1
   }
-  const shared = { dir, config, adapter, teamId, project: flags.project, states, forceNew: flags.forceNew, out }
+  const shared = {
+    dir,
+    config,
+    adapter,
+    teamId,
+    project: flags.project,
+    states,
+    forceNew: flags.forceNew,
+    holdState: held.holdState,
+    sendHeld: held.sendHeld,
+    out,
+  }
 
   if (!bulk) {
     const lines = ['spec-sync apply: transport = api']
@@ -3426,6 +3465,9 @@ async function specSync(rest, io = {}) {
     // Distinct from `--force`, deliberately. That one overrides other guards;
     // this one says "the duplicate title is real, create a second issue".
     else if (args[i] === '--force-new') flags.forceNew = true
+    else if (args[i] === '--hold-state') flags.holdState = true
+    else if (args[i] === '--send-held') flags.sendHeld = true
+    else if (args[i] === '--held') flags.held = true
     else if (args[i] === '--yes') flags.yes = true
     else if (args[i] === '--check-remote') flags.remoteCheck = true
     else if (args[i] === '--stdin') flags.stdin = true
@@ -3548,7 +3590,7 @@ async function specSync(rest, io = {}) {
     case 'stamp':
       return specSyncStamp(dir, config, positional[0], flags, out)
     case 'record':
-      return specSyncRecord(dir, config, positional[0], out) || 0
+      return specSyncRecord(dir, config, positional[0], flags, out) || 0
     case 'status':
       return specSyncStatus(dir, config, positional[0], flags, out) || 0
     case 'projects':
@@ -3604,6 +3646,7 @@ async function specSync(rest, io = {}) {
         '       skitterspec spec-sync users [<name-or-email>] [--limit N] [--cursor C] [--json]\n' +
         '       skitterspec spec-sync assign <spec> --to <id> [--name N] [--if-unassigned] | --release [--json]\n' +
         '       skitterspec spec-sync apply <spec> --plan <file> [--via api|mcp] [--project id] [--json]\n' +
+        '       skitterspec spec-sync apply <spec> --hold-state | --send-held   (PR-mode completion)\n' +
         '       skitterspec spec-sync apply --all <bucket> [--via api|mcp] [--json]\n' +
         '       skitterspec spec-sync verify <spec> --stored <file>\n' +
         '       skitterspec spec-sync splice <spec> --live <file> [--phase <ref>]\n' +

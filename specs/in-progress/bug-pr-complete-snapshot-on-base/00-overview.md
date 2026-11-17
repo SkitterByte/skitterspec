@@ -109,7 +109,7 @@ cd packages/provider-kit && node --test test/apply-held-state.test.js
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Engine: hold and send the completion state | ✅ | [01-engine-held-state.md](01-engine-held-state.md) |
-| 2 | Provider CLIs: `--hold-state` / `--send-held` | ⬜ | [02-provider-flags.md](02-provider-flags.md) |
+| 2 | Provider CLIs: `--hold-state` / `--send-held` | ✅ | [02-provider-flags.md](02-provider-flags.md) |
 | 3 | Skill, seams and docs | ⬜ | [03-skill-seams-docs.md](03-skill-seams-docs.md) |
 
 ## Open questions
@@ -123,3 +123,6 @@ cd packages/provider-kit && node --test test/apply-held-state.test.js
 - 2026-11-17 — Phase 1 fixed: `applySpecPlan` takes `holdState` / `sendHeld`;
   red test green, 5077 + all package suites pass. Assignee not held (Decision 2
   narrowed).
+- 2026-11-17 — Phase 2: flags wired through `kit.heldFlags` / `kit.heldOverMcp`
+  on all four providers, plus `record --held`. Jira turned out to use the shared
+  apply too. MCP prints a note rather than a reshaped plan.

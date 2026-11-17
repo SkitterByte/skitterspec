@@ -958,3 +958,30 @@ test('issue and incident specs mint with their labelsByKind entries', async () =
     assert.deepStrictEqual(create.input.labelIds, [label === 'Ops' ? 'lbl-ops' : 'lbl-inc'], folder)
   }
 })
+
+// --- PR-mode completion: --hold-state / --send-held -------------------------------
+// spec bug-pr-complete-snapshot-on-base; the engine half is covered in provider-kit.
+
+test('--hold-state with --send-held is refused before any write', async () => {
+  const dir = fixtureRepo()
+  const r = await run(['apply', 'feat-applied', '--send-held', '--hold-state'], dir, { adapter: fakeLinear() })
+  assert.strictEqual(r.code, 1)
+  assert.match(r.out, /two runs, not one/)
+})
+
+test('--send-held needs no --plan; a bare apply still refuses without one', async () => {
+  const dir = fixtureRepo()
+  const bare = await run(['apply', 'feat-applied'], dir, { adapter: fakeLinear() })
+  assert.strictEqual(bare.code, 1)
+  assert.match(bare.out, /refusing to run without --plan/)
+  const held = await run(['apply', 'feat-applied', '--send-held', '--via', 'mcp'], dir)
+  assert.strictEqual(held.code, 0, held.out)
+  assert.match(held.out, /--send-held: if `plan` is empty/)
+})
+
+test('record --held writes the snapshot', async () => {
+  const dir = fixtureRepo()
+  const r = await run(['record', 'feat-applied', '--held'], dir)
+  assert.strictEqual(r.code, 0, r.out)
+  assert.match(r.out, /snapshot written/)
+})

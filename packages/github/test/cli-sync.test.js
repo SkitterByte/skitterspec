@@ -1089,3 +1089,37 @@ test('record --keep-sub-issue holds an unfinished retire for the next push', asy
   assert.ok(kept.includes('#41'), 'the unfinished retire is remembered')
   assert.ok(!kept.includes('#40'), 'and nothing else unclaimed is')
 })
+
+// --- PR-mode completion: --hold-state / --send-held -------------------------------
+// spec bug-pr-complete-snapshot-on-base. Run 1 commits the snapshot to ride the
+// PR without moving the issue; run 2 moves it and must leave that file alone.
+
+test('--hold-state leaves the issue open, --send-held closes it and rewrites nothing', async () => {
+  const dir = repoWithSpec()
+  const adapter = fakeAdapter()
+  assert.strictEqual((await run(['apply', 'feat-demo', '--plan', await planFile(dir)], dir, { adapter })).code, 0)
+  fs.mkdirSync(path.join(dir, 'specs', 'complete'), { recursive: true })
+  fs.renameSync(path.join(dir, 'specs', 'in-progress', 'feat-demo'), path.join(dir, 'specs', 'complete', 'feat-demo'))
+  const snapshot = path.join(dir, 'specs', '.core', 'github-base', '#101.base.json')
+
+  const one = await run(['apply', 'feat-demo', '--plan', await planFile(dir), '--hold-state'], dir, { adapter })
+  assert.strictEqual(one.code, 0, one.out)
+  assert.match(one.out, /state held: #101 → complete waits for the merge/)
+  assert.strictEqual(adapter.issues.get('101').state.name, 'In Progress')
+  assert.strictEqual(adapter.issues.get('101').open, true)
+  const committed = fs.readFileSync(snapshot, 'utf-8')
+
+  const two = await run(['apply', 'feat-demo', '--send-held'], dir, { adapter })
+  assert.strictEqual(two.code, 0, two.out)
+  assert.strictEqual(adapter.issues.get('101').state.name, 'Done')
+  assert.strictEqual(fs.readFileSync(snapshot, 'utf-8'), committed)
+})
+
+test('--hold-state with --send-held is refused before any write', async () => {
+  const dir = repoWithSpec({ identifier: '#5' })
+  const adapter = fakeAdapter()
+  const r = await run(['apply', 'feat-demo', '--send-held', '--hold-state'], dir, { adapter })
+  assert.strictEqual(r.code, 1)
+  assert.match(r.out, /two runs, not one/)
+  assert.deepStrictEqual(adapter.calls, [])
+})

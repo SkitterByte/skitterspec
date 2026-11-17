@@ -352,4 +352,41 @@ function resolvePhaseFileIn(snapshotDir, ref) {
   return listPhaseFiles(snapshotDir).find((f) => f.replace(/\.md$/, '') === want) || null
 }
 
-module.exports = { applySpecPlan }
+/**
+ * `--hold-state` / `--send-held` as every provider's `apply` reads them: one
+ * spec, one of the two, never both. Returns `{ holdState, sendHeld }`, or
+ * `{ error }` for the provider to print and exit 1 on.
+ */
+function heldFlags(flags, program) {
+  const holdState = !!(flags && flags.holdState)
+  const sendHeld = !!(flags && flags.sendHeld)
+  if (holdState && sendHeld) return { error: `${program} apply: --hold-state and --send-held are two runs, not one` }
+  if ((holdState || sendHeld) && flags.all != null) {
+    return { error: `${program} apply --all: --hold-state and --send-held act on one spec at a time` }
+  }
+  return { holdState, sendHeld }
+}
+
+/**
+ * What the MCP transport adds to its "nothing written" note, so the hand-applied
+ * push ends with the same snapshot the API path would record. Null when neither
+ * flag is set.
+ */
+function heldOverMcp({ holdState, sendHeld }, program) {
+  if (holdState) {
+    return (
+      "  --hold-state: apply the plan WITHOUT the spec issue's state, then record with\n" +
+      `  \`${program} record <spec> --held\` — run 2 sends the state after the merge.`
+    )
+  }
+  if (sendHeld) {
+    return (
+      "  --send-held: if `plan` is empty, send the spec issue's state alone and record\n" +
+      '  nothing — the merged snapshot already says it. If it is not, run 1 held\n' +
+      '  nothing: apply it whole and record as usual.'
+    )
+  }
+  return null
+}
+
+module.exports = { applySpecPlan, heldFlags, heldOverMcp }

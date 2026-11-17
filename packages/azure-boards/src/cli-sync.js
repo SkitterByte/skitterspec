@@ -655,8 +655,13 @@ function companionCoverageNote(dir, config, snapshotDir, out) {
 }
 
 async function specSyncApply(dir, config, specArg, flags, out, err) {
-  if (!flags.plan && !flags.all) {
+  if (!flags.plan && !flags.all && !flags.sendHeld) {
     out.write(`${PROGRAM} apply: pass --plan <file> (from \`plan --json\`), or --all <bucket>\n`)
+    return 1
+  }
+  const held = kit.heldFlags(flags, PROGRAM)
+  if (held.error) {
+    out.write(held.error + '\n')
     return 1
   }
   const cred = apiAdapterFor(config, flags)
@@ -672,6 +677,8 @@ async function specSyncApply(dir, config, specArg, flags, out, err) {
         '  create/update/add_child), then stamp the returned ids with\n' +
         '  `spec-sync stamp` and record with `spec-sync record`.\n',
     )
+    const heldNote = kit.heldOverMcp(held, PROGRAM)
+    if (heldNote) out.write(heldNote + '\n')
     return 0
   }
   if (!cred.ok) {
@@ -688,6 +695,8 @@ async function specSyncApply(dir, config, specArg, flags, out, err) {
       adapter: cred.adapter,
       ops: applyOps({ adapter: cred.adapter, config, out, kind: specKindOf(snapshotDir), snapshotDir }),
       forceNew: !!flags.forceNew,
+      holdState: held.holdState,
+      sendHeld: held.sendHeld,
       program: PROGRAM,
     })
 
@@ -724,13 +733,19 @@ async function specSyncApply(dir, config, specArg, flags, out, err) {
   const snapshotDir = resolveOrExit(specArg, dir, out)
   if (!snapshotDir) return 1
   let plan
-  try {
-    plan = JSON.parse(fs.readFileSync(flags.plan, 'utf-8'))
-  } catch (error) {
-    out.write(`${PROGRAM} apply: cannot read --plan: ${error.message}\n`)
-    return 1
+  if (!flags.plan) {
+    // --send-held computes its own. After the merge it is normally empty, and
+    // that empty plan is what tells apply that run 1 held the state.
+    plan = push({ dir, snapshotDir, identifier: specIdentifier(snapshotDir, config), config }).plan
+  } else {
+    try {
+      plan = JSON.parse(fs.readFileSync(flags.plan, 'utf-8'))
+    } catch (error) {
+      out.write(`${PROGRAM} apply: cannot read --plan: ${error.message}\n`)
+      return 1
+    }
   }
-  if (isEmptyPlan(plan)) {
+  if (!held.sendHeld && isEmptyPlan(plan)) {
     out.write(`${PROGRAM} apply: empty plan — nothing to do\n`)
     return 0
   }
@@ -823,10 +838,13 @@ async function specSyncStamp(dir, config, specArg, flags, out) {
   return 0
 }
 
-function specSyncRecord(dir, config, specArg, out) {
+function specSyncRecord(dir, config, specArg, flags, out) {
   const snapshotDir = resolveOrExit(specArg, dir, out)
   if (!snapshotDir) return 1
-  const file = recordPush({ dir, snapshotDir, identifier: specIdentifier(snapshotDir, config), config })
+  // --held: the hand-applied twin of `apply --hold-state` — the state was left
+  // out on purpose, and is recorded as sent so run 2 rewrites nothing.
+  const sent = flags && flags.held ? { issue: true, subIssues: new Set() } : null
+  const file = recordPush({ dir, snapshotDir, identifier: specIdentifier(snapshotDir, config), config, sent })
   out.write(`${PROGRAM} record: snapshot written — ${path.relative(dir, file).split(path.sep).join('/')}\n`)
   return 0
 }
@@ -1786,10 +1804,11 @@ const USAGE = `Usage: skitterspec-azure-boards spec-sync <subcommand>
   normalize <spec>                       print the local projection as JSON
   plan <spec> --workspace-states <f>     what a push would change (dry, JSON)
   apply <spec> --plan <f> | --all <b>    apply a plan over the API
+  apply <spec> --hold-state | --send-held  PR-mode completion: hold Done for run 2, then send it
   restate <spec> | --all <b>             resend child states to today's map (dry)
     [--parents] [--apply]                include the spec item; write the moves
   stamp <spec> --issue AB#n [--sub r=n]  write returned ids into the spec
-  record <spec>                          write the last-pushed snapshot
+  record <spec> [--held]                 write the last-pushed snapshot
   status <spec> [--remote <f>]           read-only drift report
   verify <spec> --stored <f>             compare a read-back against the repo
   splice <spec> --live <f> [--phase <ref>]  the body to write over MCP (summary mode)
@@ -1867,7 +1886,7 @@ async function specSync(rest, io = {}) {
     case 'stamp':
       return specSyncStamp(dir, config, positional[0], flags, out)
     case 'record':
-      return specSyncRecord(dir, config, positional[0], out)
+      return specSyncRecord(dir, config, positional[0], flags, out)
     case 'status':
       return specSyncStatus(dir, config, positional[0], flags, out, err)
     case 'splice': {
@@ -1940,6 +1959,9 @@ function parseArgs(args, sub) {
     '--via': { kind: 'string' },
     '--force': { kind: 'boolean' },
     '--force-new': { kind: 'boolean', name: 'forceNew' },
+    '--hold-state': { kind: 'boolean', name: 'holdState' },
+    '--send-held': { kind: 'boolean', name: 'sendHeld' },
+    '--held': { kind: 'boolean' },
     '--issue': { kind: 'string' },
     '--url': { kind: 'value' },
     '--sub': { kind: 'list', name: 'subs' },
