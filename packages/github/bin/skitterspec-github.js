@@ -32,6 +32,14 @@ require('@skitterbyte/skitterspec-common/src/env/config.js').setProviderEnvDefau
 require('@skitterbyte/skitterspec-common/src/env/config.js').setProviderConfigFile(
   require('@skitterbyte/skitterspec-provider-github/src/config.js').CONFIG_FILE,
 )
+// GitHub holds ideas: an issue carrying `intake.ideaLabel`, kept off the board.
+// Registered so `skitterspec idea` hands GitHub the command instead of writing
+// specs/ideas.md (see common src/idea.js, selectStore).
+require('@skitterbyte/skitterspec-common/src/idea.js').setProviderIdeaStore({
+  supports: true,
+  run: (sub, argv, { cwd } = {}) =>
+    require('@skitterbyte/skitterspec-provider-github/src/cli-sync.js').specSync(['idea', sub, ...argv], { cwd }),
+})
 const {
   PROVIDER_COMMANDS,
   providerHelpSection,

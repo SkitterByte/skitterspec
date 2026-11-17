@@ -130,7 +130,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Engine + file store, landed off base | ✅ | [01-engine-file-store.md](01-engine-file-store.md) |
 | 2 | `/spec-idea` skill and `/spec` promotion | ✅ | [02-skill-and-promotion.md](02-skill-and-promotion.md) |
-| 3 | GitHub idea seam | ⬜ | [03-github-seam.md](03-github-seam.md) |
+| 3 | GitHub idea seam | ✅ | [03-github-seam.md](03-github-seam.md) |
 | 4 | Linear and Azure Boards seams | ⬜ | [04-linear-azure-seams.md](04-linear-azure-seams.md) |
 | 5 | `/spec-todo` line and docs | ⬜ | [05-todo-and-docs.md](05-todo-and-docs.md) |
 

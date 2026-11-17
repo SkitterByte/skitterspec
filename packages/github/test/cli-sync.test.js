@@ -576,6 +576,76 @@ test('intake without a token degrades to one line and exit 0', async () => {
   assert.match(r.out, /needs the API transport/)
 })
 
+// --- ideas -------------------------------------------------------------------------
+
+test('idea add files a labelled issue and keeps it off the board', async () => {
+  const dir = repoWithSpec()
+  const adapter = fakeAdapter()
+  const r = await run(['idea', 'add', 'Rate-limit the review server\nIt answers the LAN.', '--json'], dir, { adapter })
+  assert.strictEqual(r.code, 0, r.out)
+  const out = JSON.parse(r.out)
+  assert.strictEqual(out.identifier, '#101')
+  assert.deepStrictEqual(adapter.calls.find((c) => c[0] === 'createIssue'), ['createIssue', 'Rate-limit the review server', ['idea'], undefined])
+  assert.strictEqual(adapter.issues.get('101').description, 'It answers the LAN.')
+  for (const forbidden of ['addToBoard', 'setStatus']) {
+    assert.ok(!adapter.calls.some((c) => c[0] === forbidden), `${forbidden} was called`)
+  }
+})
+
+test('idea list shows open ideas no spec has adopted, and counts them', async () => {
+  const dir = repoWithSpec({ identifier: '#101' })
+  const adapter = fakeAdapter()
+  adapter.make('Adopted already', '', ['idea'])
+  adapter.make('Dark mode', '', ['idea'])
+  adapter.make('Not an idea', '', [])
+  const r = await run(['idea', 'list', '--json'], dir, { adapter })
+  assert.strictEqual(r.code, 0, r.out)
+  assert.deepStrictEqual(JSON.parse(r.out).ideas.map((i) => [i.identifier, i.promote]), [['#102', '/spec #102']])
+  assert.strictEqual((await run(['idea', 'list', '--count'], dir, { adapter })).out.trim(), '1')
+})
+
+test('idea drop closes the idea as not planned with the reason as a comment', async () => {
+  const dir = repoWithSpec()
+  const adapter = fakeAdapter()
+  adapter.make('Dark mode', '', ['idea'])
+  const r = await run(['idea', 'drop', '#101', '--reason', 'done elsewhere'], dir, { adapter })
+  assert.strictEqual(r.code, 0, r.out)
+  assert.strictEqual(adapter.issues.get('101').open, false)
+  assert.deepStrictEqual(adapter.calls.find((c) => c[0] === 'setIssueOpen'), ['setIssueOpen', '#101', false, 'not_planned'])
+  assert.match(adapter.issues.get('101').comments[0].body, /done elsewhere/)
+})
+
+test('idea drop refuses an issue that is not an idea and leaves it open', async () => {
+  const dir = repoWithSpec()
+  const adapter = fakeAdapter()
+  adapter.make('A real bug', '', ['bug'])
+  const r = await run(['idea', 'drop', '#101'], dir, { adapter })
+  assert.strictEqual(r.code, 1)
+  assert.match(r.out, /not an idea/)
+  assert.strictEqual(adapter.issues.get('101').open, true)
+})
+
+test('idea without a token: a capture refuses with the text back, a listing exits 0', async () => {
+  const env = { XDG_CONFIG_HOME: fs.mkdtempSync(path.join(os.tmpdir(), 'gh-xdg-')) }
+  const add = await run(['idea', 'add', 'Keep me'], repoWithSpec(), { env })
+  assert.strictEqual(add.code, 1)
+  assert.match(add.out, /needs the API transport/)
+  assert.match(add.out, /create_issue with label "idea"/)
+  assert.match(add.out, /Keep me/)
+  const count = await run(['idea', 'list', '--count', '--json'], repoWithSpec(), { env })
+  assert.strictEqual(count.code, 0)
+  assert.strictEqual(JSON.parse(count.out).count, null)
+})
+
+test('stays silent: intake does not list ideas', async () => {
+  const dir = repoWithSpec()
+  const adapter = fakeAdapter()
+  adapter.make('Dark mode', '', ['idea'])
+  adapter.make('Filed by a user', '', [])
+  const r = await run(['intake', '--json'], dir, { adapter })
+  assert.deepStrictEqual(JSON.parse(r.out).map((x) => x.identifier), ['#102'])
+})
+
 // --- ref and released ---------------------------------------------------------------
 
 function gitRepo(dir) {

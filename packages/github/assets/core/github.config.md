@@ -49,6 +49,7 @@ phase will read as deployed. See "Releases and deploys" below.
 | `statesByKind.<kind>.<bucket>` | see table | Per-KIND override laid over `states` (GitHub has no work item types, so the spec's kind keys it) — `{ "issue": { "complete": "Done" } }`. A bucket set to `null` sends no Status; open/close still follows the bucket. |
 | `github.severityLabels.<digit>` | `{}` | A label per `Severity:` header digit (`"2 - High"` → `"2"`) — `{ "2": "sev-high" }`, applied at mint. Unset, the header stays repo-only. A fix spec's `Incident:` header rides in the generated body as a `Related incident: #N` line. |
 | `intake.label` | — | The label `/spec --from-issue` lists. |
+| `intake.ideaLabel` | `idea` | The label that marks an issue as an idea (`/spec-idea`). Ideas stay off the board and out of intake. |
 | `intake.bugLabels` / `.hotfixLabels` | `["bug"]` / `[]` | Labels that route an adopted issue to `/spec-bug` / `/spec-hotfix`. |
 | `auth.tokenEnv` | `GITHUB_TOKEN` | Env var holding the token; `GH_TOKEN` is read after it. |
 | `mapping.description` | What a ticket body carries. `"summary"`: a delimited block (summary, acceptance criteria, surfaces touched, gating, spec path) spliced in beside the team's own text, which no push touches; phase sub-issues get a block with their goal. `"spec"`: the whole overview, replacing the body (the behaviour before this key). A config without the key is `spec`, so an upgrade rewrites no ticket. | `spec` |

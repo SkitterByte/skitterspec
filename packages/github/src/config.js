@@ -92,7 +92,7 @@ const DEFAULT_CONFIG = Object.freeze({
     assigneeId: 'github_assignee_id',
     assigneeName: 'github_assignee_name',
   }),
-  intake: Object.freeze({ label: '', bugLabels: Object.freeze(['bug']), hotfixLabels: Object.freeze([]) }),
+  intake: Object.freeze({ label: '', ideaLabel: 'idea', bugLabels: Object.freeze(['bug']), hotfixLabels: Object.freeze([]) }),
   release: Object.freeze({ ignorePaths: Object.freeze(['specs/', 'CHANGELOG.md', 'RELEASES.md']) }),
   branch: Object.freeze({ pattern: '{type}/{slug}' }),
   // An env-var NAME, not a value. A classic PAT with `repo` + `project`: the
@@ -145,6 +145,7 @@ function defaults() {
     fields: { ...DEFAULT_CONFIG.fields },
     intake: {
       label: DEFAULT_CONFIG.intake.label,
+      ideaLabel: DEFAULT_CONFIG.intake.ideaLabel,
       bugLabels: [...DEFAULT_CONFIG.intake.bugLabels],
       hotfixLabels: [...DEFAULT_CONFIG.intake.hotfixLabels],
     },
@@ -246,6 +247,7 @@ function mergeConfig(base, parsed) {
 
   if (isObject(parsed.intake)) {
     assign(base.intake, parsed.intake, 'label', 'string?')
+    assign(base.intake, parsed.intake, 'ideaLabel', 'string?')
     if (Array.isArray(parsed.intake.bugLabels)) base.intake.bugLabels = stringList(parsed.intake.bugLabels)
     if (Array.isArray(parsed.intake.hotfixLabels)) base.intake.hotfixLabels = stringList(parsed.intake.hotfixLabels)
   }

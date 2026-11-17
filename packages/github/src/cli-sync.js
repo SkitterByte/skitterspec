@@ -912,6 +912,10 @@ async function specSyncIntake(dir, config, query, flags, out) {
   }
   const claimed = new Set(listSpecs(dir, config).map((s) => s.identifier).filter(Boolean))
   const own = new Set(['spec', 'phase'].flatMap((k) => markersFor(config, k).labels).map((l) => l.toLowerCase()))
+  // An idea is the operator's own parked thought, listed by `idea list`; the
+  // intake inbox is for what other people filed. Without this an unset
+  // `intake.label` (every open issue) would list each idea twice over.
+  if (config.intake.ideaLabel) own.add(config.intake.ideaLabel.toLowerCase())
   const want = String(query || '').toLowerCase().trim()
   const bug = new Set((config.intake.bugLabels || []).map((l) => l.toLowerCase()))
   const hot = new Set((config.intake.hotfixLabels || []).map((l) => l.toLowerCase()))
@@ -937,6 +941,120 @@ async function specSyncIntake(dir, config, query, flags, out) {
   const lines = [`${PROGRAM} intake: ${repoLabel(config)}${config.intake.label ? ` · "${config.intake.label}"` : ''}`]
   for (const r of rows) lines.push(`  ${r.identifier}\t${r.route}\t${r.title || ''}${r.author ? `  (${r.author})` : ''}`)
   out.write(lines.join('\n') + '\n')
+  return 0
+}
+
+// `idea add|list|drop` — the store `skitterspec idea` hands GitHub: an open
+// issue carrying `intake.ideaLabel`, deliberately NEVER added to the board. The
+// board is for specs; a parked thought does not get a column. `/spec #N` adopts
+// one like any other issue, which is why an adopted idea drops out of `list`.
+//
+// Without the API a capture REFUSES (exit 1) and hands the text back with the
+// MCP plan — a write that did not happen must not read as one that did. The
+// listing degrades to one line and exit 0, as intake's does, and `--count`
+// answers null rather than 0: zero ideas and "could not ask" are not the same.
+async function specSyncIdea(dir, config, positional, flags, out) {
+  const [verb, ...words] = positional
+  const label = config.intake.ideaLabel
+  const text = words.join(' ')
+  const say = (json, lines) => out.write(flags.json ? JSON.stringify(json, null, 2) + '\n' : lines.join('\n') + '\n')
+  const refuse = (reason, extra = {}) => {
+    const back = verb === 'add' && text ? `\n  your idea, so nothing is lost:\n  ${text.replace(/\n/g, '\n  ')}` : ''
+    say({ ok: false, store: 'github', refused: reason, ...extra }, [`${PROGRAM} idea: ${reason}${back}`])
+    return 1
+  }
+  if (!['add', 'list', 'drop'].includes(verb)) {
+    out.write(`Usage: ${PROGRAM} idea add <text> | list [--count] | drop <#N> [--reason <why>]  [--json]\n`)
+    return verb ? 1 : 0
+  }
+  if (!label) return refuse('intake.ideaLabel is empty — an idea is an issue carrying that label, so set one')
+
+  const cred = apiAdapterFor(config, flags)
+  if (kit.resolveTransport(flags, config, cred.ok) === 'mcp' || !cred.ok) {
+    const why = cred.ok ? 'pass --via api' : cred.error.split('\n')[0]
+    if (verb === 'list') {
+      say({ store: 'github', count: null, ideas: null }, [
+        `${PROGRAM} idea: needs the API transport — ${why}`,
+        `  (over MCP: list_issues with label "${label}", then drop the ones \`spec-sync linked\` names)`,
+      ])
+      return 0
+    }
+    const plan =
+      verb === 'add'
+        ? `create_issue with label "${label}" and do NOT add it to the project`
+        : `close the issue as not planned, with the reason as a comment`
+    return refuse(`needs the API transport — ${why}; nothing was written\n  (over MCP: ${plan})`, verb === 'add' ? { text } : {})
+  }
+  const gh = cred.adapter
+
+  if (verb === 'add') {
+    const lines = text.replace(/\r\n/g, '\n').split('\n')
+    const at = lines.findIndex((l) => l.trim())
+    if (at === -1) return refuse('nothing to capture — give the idea some text')
+    const title = lines[at].trim()
+    const body = lines.slice(at + 1).join('\n').trim()
+    let made
+    try {
+      made = await gh.createIssue({ title, description: body, labels: [label] })
+    } catch (error) {
+      return refuse(`GitHub refused the idea — ${error.message}`, { text })
+    }
+    say({ ok: true, store: 'github', action: 'add', identifier: made.identifier, url: made.url, title }, [
+      `${PROGRAM} idea: filed ${made.identifier} "${title}" (labelled "${label}", not on the board)`,
+      `  url:     ${made.url}`,
+      `  promote: /spec ${made.identifier}`,
+    ])
+    return 0
+  }
+
+  if (verb === 'list') {
+    let issues
+    try {
+      issues = await gh.listIssues({ labels: [label] })
+    } catch (error) {
+      say({ store: 'github', count: null, ideas: null }, [`${PROGRAM} idea: ${error.message}`])
+      return 1
+    }
+    const claimed = new Set(listSpecs(dir, config).map((s) => s.identifier).filter(Boolean))
+    const ideas = issues
+      .filter((i) => !claimed.has(i.identifier))
+      .map((i) => ({ identifier: i.identifier, title: i.title, url: i.url, author: i.author, promote: `/spec ${i.identifier}` }))
+    if (flags.count) {
+      say({ store: 'github', count: ideas.length }, [String(ideas.length)])
+      return 0
+    }
+    const lines = ideas.length
+      ? [`${PROGRAM} idea: ${repoLabel(config)} · "${label}"`, ...ideas.map((i) => `  ${i.identifier}\t${i.title || ''}${i.author ? `  (${i.author})` : ''}`)]
+      : [`${PROGRAM} idea: nothing waiting under "${label}"`]
+    say({ store: 'github', label, ideas }, lines)
+    return 0
+  }
+
+  // drop
+  const ref = words[0]
+  if (!ref) return refuse('name the idea to drop — `idea list` shows them')
+  let issue
+  try {
+    issue = await gh.readIssue(ref)
+  } catch (error) {
+    return refuse(error.message)
+  }
+  if (!issue) return refuse(`no GitHub issue ${ref}`)
+  // Closing an arbitrary issue under the name of an idea is the expensive
+  // mistake here, so the label is the positive signal that it is one.
+  if (!(issue.labels || []).some((l) => String(l).toLowerCase() === label.toLowerCase())) {
+    return refuse(`${issue.identifier || ref} does not carry "${label}" — not an idea, left open`)
+  }
+  const why = flags.reason && String(flags.reason).trim() ? String(flags.reason).trim() : 'no reason given'
+  try {
+    await gh.createComment(ref, `Dropped as an idea: ${why}`)
+    await gh.setIssueOpen(ref, { open: false, reason: 'not_planned' })
+  } catch (error) {
+    return refuse(`GitHub refused the drop — ${error.message}`)
+  }
+  say({ ok: true, store: 'github', action: 'drop', identifier: issue.identifier, title: issue.title, reason: why }, [
+    `${PROGRAM} idea: dropped ${issue.identifier} "${issue.title || ''}" — closed as not planned (${why})`,
+  ])
   return 0
 }
 
@@ -1520,6 +1638,7 @@ const USAGE = `Usage: ${BIN} spec-sync <subcommand>
   states [--json]                        the board's Status options + bucket map
   list [--all | --state NAME|BUCKET | --next N] [--mine | --by USER]  the board's issues
   intake [query] [--json]                issues waiting to become specs
+  idea add|list|drop [--json]            ideas: issues labelled intake.ideaLabel, off the board
   linked [--json]                        specs and their linked issues (offline)
   ownership [--json]                     who owns status and assignee (offline)
   board <spec> [--json]                  is the issue finished where the spec is not?
@@ -1613,6 +1732,8 @@ async function specSync(rest, io = {}) {
       return specSyncList(dir, config, flags, out)
     case 'intake':
       return specSyncIntake(dir, config, positional[0], flags, out)
+    case 'idea':
+      return specSyncIdea(dir, config, positional, flags, out)
     case 'ref':
       return specSyncRef(dir, config, positional[0], flags, out, err)
     case 'released':
@@ -1682,6 +1803,8 @@ function parseArgs(args, sub) {
     '--name': { kind: 'value' },
     '--release': { kind: 'boolean' },
     '--if-unassigned': { kind: 'boolean', name: 'ifUnassigned' },
+    '--reason': { kind: 'value' },
+    '--count': { kind: 'boolean' },
     '--mine': { kind: 'boolean' },
     '--next': { kind: 'number' },
     '--by': { kind: 'string' },

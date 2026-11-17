@@ -47,6 +47,7 @@ test('a full config merges over the defaults', () => {
   assert.strictEqual(config.states.backlog, 'Backlog', 'unnamed buckets keep their defaults')
   assert.deepStrictEqual(config.intake.bugLabels, ['bug'])
   assert.deepStrictEqual(config.intake.hotfixLabels, ['prod'])
+  assert.strictEqual(config.intake.ideaLabel, 'idea', 'ideas default to the "idea" label')
   assert.strictEqual(config.auth.tokenEnv, 'MY_TOKEN')
 })
 
