@@ -154,3 +154,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   and the idea outlives a spec that was never written.
 - 2026-11-17 — Follow-up surfaced: docs/index.html and docs/reference.html
   are stale against d2e25b39 (afterSwitch); not in scope here.
+- 2026-11-17 — Completed; all phases done, tests green.
