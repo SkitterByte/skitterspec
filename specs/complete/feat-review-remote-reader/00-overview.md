@@ -156,3 +156,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   banners. The amendment says the holding line names the engine's `covers` and
   that a hidden tier is never printed, so the templates keep their common-case
   wording rather than becoming placeholders.
+- 2026-11-17 — Completed; all phases done, tests green (5147).
