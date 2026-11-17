@@ -19,23 +19,66 @@ const CONFIG = { registry: '.spec-env/registry.json' }
 const tmpDir = () => fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-noshell-'))
 const tick = () => new Promise((r) => setTimeout(r, 50))
 
+// A spawn that failed the way a missing `sh` fails: no pid, and the ENOENT
+// emitted on the next tick, exactly as `child_process.spawn` delivers it.
+//
+// INJECTED, NOT ARRANGED. This test once emptied PATH and trusted that left no
+// shell — but `startProcess` merges `process.env`, and on Windows `resolveShell`
+// also finds Git for Windows under ProgramFiles, which every GitHub runner has.
+// There the shell started and the test failed. What the machine lacks is not
+// something a test can set up, so the failure is supplied here instead.
+function failedSpawn() {
+  const { EventEmitter } = require('node:events')
+  const calls = []
+  const spawnImpl = (file, args) => {
+    calls.push(file)
+    const child = new EventEmitter()
+    child.pid = undefined
+    child.unref = () => {}
+    process.nextTick(() => {
+      const err = new Error(`spawn ${file} ENOENT`)
+      err.code = 'ENOENT'
+      child.emit('error', err)
+    })
+    return child
+  }
+  return { spawnImpl, calls }
+}
+
 test('a shell that cannot be spawned is reported, not thrown — and writes no pid file', async () => {
   const rootDir = tmpDir()
   const proc = {
     name: 'noshell',
     command: 'echo hi',
-    // No `sh` anywhere on this PATH: the spawn fails with ENOENT.
-    env: { PATH: path.join(rootDir, 'nowhere') },
     logFile: '.spec-env/logs/noshell.log',
     pidFile: '.spec-env/pids/noshell.pid',
   }
-  const res = startProcess(proc, { cwd: rootDir, rootDir })
+  const { spawnImpl, calls } = failedSpawn()
+  const res = startProcess(proc, { cwd: rootDir, rootDir, spawnImpl })
   // The ENOENT arrives as an 'error' event on the next tick; unhandled, it
   // takes the process down. Give it the chance to.
   await tick()
+  assert.strictEqual(calls.length, 1, 'the spawn was attempted')
   assert.strictEqual(res.started, false)
   assert.strictEqual(res.pid, null)
-  assert.match(res.error, /ENOENT|sh/)
+  assert.match(res.error, /could not start/)
+  assert.strictEqual(fs.existsSync(path.resolve(rootDir, proc.pidFile)), false)
+})
+
+test('STAYS SILENT: the answer does not depend on a shell being reachable', async () => {
+  // The Windows runner's world: a real shell on PATH. The injected failure
+  // still decides, so this machine's toolchain cannot flip the result.
+  const rootDir = tmpDir()
+  const proc = {
+    name: 'withshell',
+    command: 'echo hi',
+    env: { PATH: process.env.PATH },
+    logFile: '.spec-env/logs/withshell.log',
+    pidFile: '.spec-env/pids/withshell.pid',
+  }
+  const res = startProcess(proc, { cwd: rootDir, rootDir, spawnImpl: failedSpawn().spawnImpl })
+  await tick()
+  assert.strictEqual(res.started, false)
   assert.strictEqual(fs.existsSync(path.resolve(rootDir, proc.pidFile)), false)
 })
 
