@@ -104,3 +104,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 - 2026-11-17 — Spec created after the third Windows-only failure found after
   tagging (`bug-no-shell-test-windows`).
+- 2026-11-17 — Completed; all phases done, tests green (5152).
