@@ -52,6 +52,7 @@ const path = require('node:path')
 const {
   readSnapshot,
   readBase,
+  isEmptyPlan,
   projectionOf,
   recordPush,
   writeFrontmatter,
@@ -85,16 +86,58 @@ async function applySpecPlan(args) {
   }
 }
 
-async function applyInner({ dir, config, snapshotDir, plan, adapter, ops, progress, forceNew = false, program = 'spec-sync' }) {
+async function applyInner({
+  dir,
+  config,
+  snapshotDir,
+  plan,
+  adapter,
+  ops,
+  progress,
+  forceNew = false,
+  holdState = false,
+  sendHeld = false,
+  program = 'spec-sync',
+}) {
   const fields = fieldsOf(config)
   const helpers = makeSpecHelpers({ program })
   const overviewFile = (config.snapshot && config.snapshot.overviewFile) || '00-overview.md'
   const identifier = helpers.linkedIdentifier(path.join(snapshotDir, overviewFile), config)
   const lines = []
   const result = { issue: null, subIssues: {} }
+
+  // PR-MODE COMPLETION, `branch` lane (spec bug-pr-complete-snapshot-on-base).
+  // Run 1 commits the move to ride the PR, but the Done waits for the merge —
+  // and run 2 sends it from the base branch, where no spec branch is left to
+  // commit a snapshot to. So run 1 HOLDS the state yet records it as sent, and
+  // run 2 SENDS only that state: the snapshot it records is byte-identical to
+  // the one the merge brought, and the base branch stays clean.
+  if (holdState && sendHeld) throw new Error(`${program} apply: --hold-state and --send-held are two runs, not one`)
+  if ((holdState || sendHeld) && !identifier) {
+    throw new Error(`${program} apply: an unlinked spec has no transition to hold — push it plainly`)
+  }
+  let heldState = false
+  let fellBack = false
+  if (holdState && plan.issue && plan.issue.state != null) {
+    const { state, stateResend, ...rest } = plan.issue
+    plan = { ...plan, issue: Object.keys(rest).length ? rest : undefined }
+    heldState = state
+  } else if (sendHeld) {
+    // A NON-EMPTY PLAN MEANS RUN 1 HELD NOTHING — it predates the hold, so the
+    // whole completion is still unsent. Sending the state alone would strand
+    // the rest; apply it all, as before, and say which file that leaves dirty.
+    if (isEmptyPlan(plan)) {
+      const status = projectionOf(snapshotDir, config).status
+      if (status != null) plan = { ...plan, issue: { state: status } }
+    } else {
+      fellBack = true
+    }
+  }
+
   // Which items this apply carried a state for — the snapshot records today's
-  // state name for these and only these (`recordPush`).
-  const sent = { issue: !!(plan.issue && plan.issue.state != null), subIssues: new Set() }
+  // state name for these and only these (`recordPush`). A held state counts:
+  // run 2 sends it, and what run 2 records has to match what run 1 committed.
+  const sent = { issue: !!heldState || !!(plan.issue && plan.issue.state != null), subIssues: new Set() }
   // Handed out immediately, so a throw from anywhere below still reports what
   // had been stamped by the time it happened.
   if (progress) progress.result = result
@@ -268,7 +311,12 @@ async function applyInner({ dir, config, snapshotDir, plan, adapter, ops, progre
   const file = recordPush({ dir, snapshotDir, identifier: helpers.specIdentifier(snapshotDir, config), config, sent, keepSubIssues })
   // A repo path, `/`-separated on every platform — the form every other
   // spec path in this output takes.
-  lines.push(`  snapshot: ${path.relative(dir, file).split(path.sep).join('/')}`)
+  const snapshotPath = path.relative(dir, file).split(path.sep).join('/')
+  lines.push(`  snapshot: ${snapshotPath}`)
+  if (heldState) lines.push(`  state held: ${identifier} → ${heldState} waits for the merge — run 2 sends it with --send-held`)
+  if (fellBack) {
+    lines.push(`  !! nothing was held for ${identifier} — sent the whole plan; ${snapshotPath} now differs from the merged copy`)
+  }
   return { result, lines, lost }
 }
 
