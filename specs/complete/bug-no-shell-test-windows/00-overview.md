@@ -67,3 +67,4 @@ _No external surface changes — internal refactor only._
 - 2026-11-17 — Bug reproduced (CI red on Windows; macOS repro with a
   reachable shell).
 - 2026-11-17 — Fixed: the test injects a failed spawn instead of emptying PATH; suite green.
+- 2026-11-17 — Completed; fix green, suite green (5148).
