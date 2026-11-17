@@ -240,6 +240,7 @@ function makeApiAdapter({ orgUrl, project, token, fetch: fetchImpl, sleep, maxRe
       add('/fields/Microsoft.VSTS.Common.Severity', input.severity)
     }
     if (input.areaPath) add('/fields/System.AreaPath', input.areaPath)
+    if (input.tags && input.tags.length) add('/fields/System.Tags', input.tags.join('; '))
     return ops
   }
 
@@ -298,11 +299,11 @@ function makeApiAdapter({ orgUrl, project, token, fetch: fetchImpl, sleep, maxRe
       return item
     },
 
-    async createIssue({ title, description, assigneeId, workItemType, areaPath, severity }) {
+    async createIssue({ title, description, assigneeId, workItemType, areaPath, severity, tags }) {
       const created = await request(
         'POST',
         `${projectBase}/wit/workitems/$${encodeURIComponent(workItemType)}`,
-        { body: itemPatch({ title, description, assigneeId, areaPath, severity }, bodyFieldFor(workItemType)), patch: true },
+        { body: itemPatch({ title, description, assigneeId, areaPath, severity, tags }, bodyFieldFor(workItemType)), patch: true },
       )
       if (!created || created.id == null) throw new Error('Azure DevOps returned no work item for the create')
       return { id: String(created.id), identifier: identifierOf(created.id), url: urlOf(created.id) }
@@ -451,7 +452,7 @@ function makeApiAdapter({ orgUrl, project, token, fetch: fetchImpl, sleep, maxRe
     // `states` limits to those state names; `orderBy` is a field reference to
     // sort by, ascending — `list --next` passes the backlog's rank field, and
     // WIQL returns ids in that order, which `batchRead` is then made to keep.
-    async searchIssues({ query, workItemType, assignedTo = null, states = null, orderBy = null, limit = 50 }) {
+    async searchIssues({ query, workItemType, assignedTo = null, states = null, orderBy = null, limit = 50, tag = null }) {
       const q = (v) => `'${String(v).replace(/'/g, "''")}'`
       const quoted = String(query || '').replace(/'/g, "''")
       const clauses = [
@@ -460,6 +461,7 @@ function makeApiAdapter({ orgUrl, project, token, fetch: fetchImpl, sleep, maxRe
         quoted ? `[System.Title] CONTAINS '${quoted}'` : null,
         assignedTo ? `[System.AssignedTo] = ${q(assignedTo)}` : null,
         states && states.length ? `[System.State] IN (${states.map(q).join(', ')})` : null,
+        tag ? `[System.Tags] CONTAINS ${q(tag)}` : null,
       ].filter(Boolean)
       const order = orderBy && /^[A-Za-z0-9_.]+$/.test(orderBy) ? ` ORDER BY [${orderBy}] ASC` : ''
       const raw = await request('POST', `${projectBase}/wit/wiql`, {

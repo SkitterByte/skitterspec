@@ -32,6 +32,10 @@ require('@skitterbyte/skitterspec-common/src/env/config.js').setProviderEnvDefau
 require('@skitterbyte/skitterspec-common/src/env/config.js').setProviderConfigFile(
   require('@skitterbyte/skitterspec-provider-jira/src/config.js').CONFIG_FILE,
 )
+// Jira does not hold ideas yet, and SAYS so: `skitterspec idea` then uses
+// specs/ideas.md. Registering nothing would read as cannot-tell and refuse
+// every capture (see common src/idea.js, selectStore).
+require('@skitterbyte/skitterspec-common/src/idea.js').setProviderIdeaStore({ supports: false })
 const {
   PROVIDER_COMMANDS,
   providerHelpSection,

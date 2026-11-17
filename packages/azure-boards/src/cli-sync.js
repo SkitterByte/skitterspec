@@ -393,6 +393,112 @@ function applyOps({ adapter, config, out, kind = 'feature', snapshotDir = null }
   }
 }
 
+// `idea add|list|drop` — the store `skitterspec idea` hands Azure Boards: a
+// work item of `azure.workItemType` tagged `intake.ideaTag`, created with NO
+// area path, so it lands at the project root and out of the spec area. `/spec
+// <id>` adopts one like any other item, which is why an adopted one drops out
+// of `list`.
+//
+// "Open" is read from the type's own state CATEGORIES, never from a list of
+// state names: Basic, Agile, Scrum and CMMI spell Done and Removed differently.
+// Without the API a capture REFUSES (exit 1) and hands the text back; a listing
+// exits 0 with `count: null`, because zero ideas and "could not ask" differ.
+async function specSyncIdea(dir, config, positional, flags, out) {
+  const [verb, ...words] = positional
+  const tag = config.intake.ideaTag
+  const type = config.azure.workItemType
+  const text = words.join(' ')
+  const say = (json, lines) => out.write(flags.json ? JSON.stringify(json, null, 2) + '\n' : lines.join('\n') + '\n')
+  const refuse = (reason, extra = {}) => {
+    const back = verb === 'add' && text ? `\n  your idea, so nothing is lost:\n  ${text.replace(/\n/g, '\n  ')}` : ''
+    say({ ok: false, store: 'azure-boards', refused: reason, ...extra }, [`${PROGRAM} idea: ${reason}${back}`])
+    return 1
+  }
+  if (!['add', 'list', 'drop'].includes(verb)) {
+    out.write(`Usage: ${PROGRAM} idea add <text> | list [--count] | drop <id> [--reason <why>]  [--json]\n`)
+    return verb ? 1 : 0
+  }
+  if (!tag) return refuse('intake.ideaTag is empty — an idea is a work item carrying that tag, so set one')
+
+  const cred = apiAdapterFor(config, flags)
+  if (kit.resolveTransport(flags, config, cred.ok) === 'mcp' || !cred.ok) {
+    const why = cred.ok ? 'pass --via api' : cred.error.split('\n')[0]
+    if (verb === 'list') {
+      say({ store: 'azure-boards', count: null, ideas: null }, [`${PROGRAM} idea: needs the API transport — ${why}`])
+      return 0
+    }
+    return refuse(`needs the API transport — ${why}; nothing was written`, verb === 'add' ? { text } : {})
+  }
+  const az = cred.adapter
+
+  const categories = async () => {
+    const states = await az.listIssueStates(type)
+    const closed = (s) => /^(completed|removed)$/i.test(String(s.category || ''))
+    return { open: states.filter((s) => !closed(s)).map((s) => s.name), states }
+  }
+  const openIdeas = async () => {
+    const { open } = await categories()
+    const claimed = new Set(listSpecs(dir, config).map((s) => s.identifier).filter(Boolean))
+    const items = await az.searchIssues({ workItemType: type, tag, states: open, limit: 200 })
+    return items.filter((i) => !claimed.has(i.identifier))
+  }
+
+  try {
+    if (verb === 'add') {
+      const lines = text.replace(/\r\n/g, '\n').split('\n')
+      const at = lines.findIndex((l) => l.trim())
+      if (at === -1) return refuse('nothing to capture — give the idea some text')
+      const title = lines[at].trim()
+      const description = lines.slice(at + 1).join('\n').trim()
+      const made = await az.createIssue({ title, description, workItemType: type, tags: [tag] })
+      say({ ok: true, store: 'azure-boards', action: 'add', identifier: made.identifier, url: made.url, title }, [
+        `${PROGRAM} idea: filed ${made.identifier} "${title}" (${type}, tagged "${tag}", no area path)`,
+        `  url:     ${made.url}`,
+        `  promote: /spec ${made.identifier}`,
+      ])
+      return 0
+    }
+
+    if (verb === 'list') {
+      const ideas = (await openIdeas()).map((i) => ({ identifier: i.identifier, title: i.title, promote: `/spec ${i.identifier}` }))
+      if (flags.count) {
+        say({ store: 'azure-boards', count: ideas.length }, [String(ideas.length)])
+        return 0
+      }
+      say(
+        { store: 'azure-boards', tag, ideas },
+        ideas.length
+          ? [`${PROGRAM} idea: "${tag}"`, ...ideas.map((i) => `  ${i.identifier}\t${i.title || ''}`)]
+          : [`${PROGRAM} idea: nothing waiting under "${tag}"`],
+      )
+      return 0
+    }
+
+    // drop. Being in the open-ideas listing is the positive signal that the
+    // reference IS an idea; anything else is refused and left alone.
+    const ref = String(words[0] || '').replace(/^#/, '')
+    if (!ref) return refuse('name the idea to drop — `idea list` shows them')
+    const item = (await openIdeas()).find((i) => i.id === ref || i.identifier === words[0])
+    if (!item) return refuse(`${words[0]} is not an open idea tagged "${tag}" — left alone`)
+    const { states } = await categories()
+    const target = states.find((s) => /^removed$/i.test(String(s.category || ''))) || states.find((s) => /^completed$/i.test(String(s.category || '')))
+    if (!target) return refuse(`${type} has no Removed or Completed state to move the idea to`)
+    const why = flags.reason && String(flags.reason).trim() ? String(flags.reason).trim() : 'no reason given'
+    await az.createComment(item.id, `Dropped as an idea: ${why}`)
+    await az.transitionTo(item.id, target.name)
+    say({ ok: true, store: 'azure-boards', action: 'drop', identifier: item.identifier, title: item.title, reason: why }, [
+      `${PROGRAM} idea: dropped ${item.identifier} "${item.title || ''}" — moved to ${target.name} (${why})`,
+    ])
+    return 0
+  } catch (error) {
+    if (verb === 'list') {
+      say({ store: 'azure-boards', count: null, ideas: null }, [`${PROGRAM} idea: ${error.message}`])
+      return 1
+    }
+    return refuse(`Azure DevOps refused — ${error.message}`, verb === 'add' ? { text } : {})
+  }
+}
+
 function apiAdapterFor(config, flags) {
   if (flags.adapter) return { ok: true, adapter: flags.adapter }
   const cred = resolveCredential(config, flags.env || process.env)
@@ -1815,6 +1921,7 @@ const USAGE = `Usage: skitterspec-azure-boards spec-sync <subcommand>
   states [--json]                        the configured types' state names
   list [--all | --state NAME|BUCKET | --next N] [--mine | --by USER]  tracker listing
   linked [--json]                        specs and their linked items (offline)
+  idea add|list|drop [--json]            ideas: work items tagged intake.ideaTag
   ownership [--json]                     who owns status and assignee (offline)
   board <spec> [--json]                  is the item finished where the spec is not?
   ref [<spec>]                           the Refs: trailer value for this branch
@@ -1898,6 +2005,8 @@ async function specSync(rest, io = {}) {
       return specSyncVerify(dir, config, positional[0], flags, out)
     case 'linked':
       return specSyncLinked(dir, config, flags, out)
+    case 'idea':
+      return specSyncIdea(dir, config, positional, flags, out)
     case 'ownership':
       return kit.specSyncOwnership(config, flags, out, PROGRAM)
     case 'board':
@@ -1976,6 +2085,8 @@ function parseArgs(args, sub) {
     '--name': { kind: 'string' },
     '--release': { kind: 'boolean' },
     '--if-unassigned': { kind: 'boolean', name: 'ifUnassigned' },
+    '--reason': { kind: 'value' },
+    '--count': { kind: 'boolean' },
     '--mine': { kind: 'boolean' },
     '--next': { kind: 'number' },
     '--by': { kind: 'string' },

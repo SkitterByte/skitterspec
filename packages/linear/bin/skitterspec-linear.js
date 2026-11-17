@@ -45,6 +45,14 @@ require('@skitterbyte/skitterspec-common/src/env/config.js').setProviderEnvDefau
 require('@skitterbyte/skitterspec-common/src/env/config.js').setProviderConfigFile(
   require('@skitterbyte/skitterspec-provider-linear/src/config.js').CONFIG_FILE,
 )
+// Linear holds ideas: an issue carrying `intake.ideaLabel`, in no project.
+// Registered so `skitterspec idea` hands Linear the command instead of writing
+// specs/ideas.md (see common src/idea.js, selectStore).
+require('@skitterbyte/skitterspec-common/src/idea.js').setProviderIdeaStore({
+  supports: true,
+  run: (sub, argv, { cwd } = {}) =>
+    require('@skitterbyte/skitterspec-provider-linear/src/cli-sync.js').specSync(['idea', sub, ...argv], { cwd }),
+})
 const {
   PROVIDER_COMMANDS,
   providerHelpSection,

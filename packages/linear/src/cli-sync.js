@@ -178,6 +178,109 @@ function specSyncLinked(dir, config, flags, out) {
   out.write(lines.join('\n') + '\n')
 }
 
+// `idea add|list|drop` — the store `skitterspec idea` hands Linear: an issue in
+// the configured team carrying `intake.ideaLabel`, deliberately in NO project.
+// A project is where specs live; a parked thought does not belong to one.
+// `/spec KEY-N` adopts an idea like any other issue, which is why an adopted
+// one drops out of `list`.
+//
+// API only. Without a key a capture REFUSES (exit 1) and hands the text back —
+// a write that did not happen must not read as one that did — while the
+// listing exits 0 with `count: null`, because zero ideas and "could not ask"
+// are different answers.
+async function specSyncIdea(dir, config, positional, flags, out) {
+  const [verb, ...words] = positional
+  const label = config.intake.ideaLabel
+  const teamId = config.linear.teamId
+  const text = words.join(' ')
+  const say = (json, lines) => out.write(flags.json ? JSON.stringify(json, null, 2) + '\n' : lines.join('\n') + '\n')
+  const refuse = (reason, extra = {}) => {
+    const back = verb === 'add' && text ? `\n  your idea, so nothing is lost:\n  ${text.replace(/\n/g, '\n  ')}` : ''
+    say({ ok: false, store: 'linear', refused: reason, ...extra }, [`spec-sync idea: ${reason}${back}`])
+    return 1
+  }
+  if (!['add', 'list', 'drop'].includes(verb)) {
+    out.write('Usage: skitterspec spec-sync idea add <text> | list [--count] | drop <KEY-N> [--reason <why>]  [--json]\n')
+    return verb ? 1 : 0
+  }
+  if (!label) return refuse('intake.ideaLabel is empty — an idea is an issue carrying that label, so set one')
+  if (!teamId) return refuse('linear.teamId is not set — an idea is filed in the configured team')
+
+  const key = resolveApiKey(config, flags.env || process.env)
+  if (resolveTransport(flags, config, key.ok) === 'mcp' || !key.ok) {
+    const why = key.ok ? '--via mcp was requested' : key.error.split('\n')[0]
+    if (verb === 'list') {
+      say({ store: 'linear', count: null, ideas: null }, [`spec-sync idea: needs the API — ${why}`])
+      return 0
+    }
+    return refuse(`needs the API — ${why}; nothing was written`, verb === 'add' ? { text } : {})
+  }
+  const linear = flags.adapter || makeApiAdapter({ apiKey: key.key, fetch: flags.fetch })
+
+  const open = async () => {
+    const claimed = new Set(listSpecs(dir, config).map((s) => s.identifier).filter(Boolean))
+    const issues = await linear.searchIssues({ label, teamId, openOnly: true })
+    return issues.filter((i) => !claimed.has(i.identifier))
+  }
+
+  try {
+    if (verb === 'add') {
+      const lines = text.replace(/\r\n/g, '\n').split('\n')
+      const at = lines.findIndex((l) => l.trim())
+      if (at === -1) return refuse('nothing to capture — give the idea some text')
+      const title = lines[at].trim()
+      const description = lines.slice(at + 1).join('\n').trim()
+      const found = (await linear.listLabels(teamId)).find((l) => String(l.name).toLowerCase() === label.toLowerCase())
+      if (!found) return refuse(`the team has no "${label}" label — create it in Linear, or set intake.ideaLabel`, { text })
+      const made = await linear.createIssue({ teamId, title, description, labelIds: [found.id] })
+      say({ ok: true, store: 'linear', action: 'add', identifier: made.identifier, url: made.url, title }, [
+        `spec-sync idea: filed ${made.identifier} "${title}" (labelled "${label}", in no project)`,
+        `  url:     ${made.url}`,
+        `  promote: /spec ${made.identifier}`,
+      ])
+      return 0
+    }
+
+    if (verb === 'list') {
+      const ideas = (await open()).map((i) => ({ identifier: i.identifier, title: i.title, url: i.url, promote: `/spec ${i.identifier}` }))
+      if (flags.count) {
+        say({ store: 'linear', count: ideas.length }, [String(ideas.length)])
+        return 0
+      }
+      say(
+        { store: 'linear', label, ideas },
+        ideas.length
+          ? [`spec-sync idea: "${label}"`, ...ideas.map((i) => `  ${i.identifier}\t${i.title || ''}`)]
+          : [`spec-sync idea: nothing waiting under "${label}"`],
+      )
+      return 0
+    }
+
+    // drop. The open-ideas listing is the positive signal that the reference
+    // IS an idea — closing an arbitrary issue under that name is the expensive
+    // mistake here, so anything not in it is refused and left alone.
+    const ref = words[0]
+    if (!ref) return refuse('name the idea to drop — `idea list` shows them')
+    const issue = (await open()).find((i) => i.identifier === ref || i.id === ref)
+    if (!issue) return refuse(`${ref} is not an open idea under "${label}" — left alone`)
+    const cancelled = (await linear.listIssueStates(teamId)).find((s) => s.type === 'canceled')
+    if (!cancelled) return refuse('the team has no cancelled state to move the idea to')
+    const why = flags.reason && String(flags.reason).trim() ? String(flags.reason).trim() : 'no reason given'
+    await linear.createComment(issue.id, `Dropped as an idea: ${why}`)
+    await linear.updateIssue(issue.id, { stateId: cancelled.id })
+    say({ ok: true, store: 'linear', action: 'drop', identifier: issue.identifier, title: issue.title, reason: why }, [
+      `spec-sync idea: dropped ${issue.identifier} "${issue.title || ''}" — moved to ${cancelled.name} (${why})`,
+    ])
+    return 0
+  } catch (error) {
+    if (verb === 'list') {
+      say({ store: 'linear', count: null, ideas: null }, [`spec-sync idea: ${error.message}`])
+      return 1
+    }
+    return refuse(`Linear refused — ${error.message}`, verb === 'add' ? { text } : {})
+  }
+}
+
 // `spec-sync normalize <spec>` — print the local projection as JSON.
 function specSyncNormalize(dir, config, specArg, out, err) {
   const snapshotDir = resolveOrExit(specArg, dir, out)
@@ -3480,6 +3583,8 @@ async function specSync(rest, io = {}) {
     else if (args[i] === '--to') flags.to = String(args[++i] || '').trim()
     else if (args[i] === '--release') flags.release = true
     else if (args[i] === '--if-unassigned') flags.ifUnassigned = true
+    else if (args[i] === '--reason') flags.reason = args[++i]
+    else if (args[i] === '--count') flags.count = true
     else if (args[i] === '--no-assign') flags.noAssign = true
     else if (args[i] === '--limit') flags.limit = Number(args[++i]) || 0
     else if (args[i] === '--cursor') flags.cursor = String(args[++i] || '').trim()
@@ -3629,6 +3734,8 @@ async function specSync(rest, io = {}) {
     case 'linked':
       specSyncLinked(dir, config, flags, out)
       return 0
+    case 'idea':
+      return specSyncIdea(dir, config, positional, flags, out)
     case 'ownership':
       return specSyncOwnership(config, flags, out, 'spec-sync')
     case 'board':
@@ -3654,6 +3761,7 @@ async function specSync(rest, io = {}) {
         '       skitterspec spec-sync comment <spec> --file <file> [--via api|mcp]\n' +
         '       skitterspec spec-sync list [--state <name> …|--all|--in-progress] [--next N] [--mine|--by <user>] [--limit N] [--archived] [--json]\n' +
         '       skitterspec spec-sync linked [--json]\n' +
+        '       skitterspec spec-sync idea add <text> | list [--count] | drop <KEY-N> [--reason R] [--json]\n' +
         '       skitterspec spec-sync ownership [--json]\n' +
         '       skitterspec spec-sync board <spec> [--json]\n' +
         '       skitterspec spec-sync ref [<spec>] [--json]\n' +

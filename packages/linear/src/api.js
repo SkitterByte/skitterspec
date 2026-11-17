@@ -352,10 +352,12 @@ function makeApiAdapter({ apiKey, fetch: fetchImpl, endpoint, sleep, maxRetries 
     // The intake inbox. A free-text term uses Linear's `searchIssues` query; a
     // label/team filter alone uses `issues`. Two queries rather than one because
     // Linear exposes text search as its own root field, not an `IssueFilter` key.
-    async searchIssues({ label, query, teamId } = {}) {
+    async searchIssues({ label, query, teamId, openOnly = false } = {}) {
       const filter = {}
       if (label) filter.labels = { name: { eq: label } }
       if (teamId) filter.team = { id: { eq: teamId } }
+      // Open means neither finished nor cancelled — what `idea list` wants.
+      if (openOnly) filter.state = { type: { nin: ['completed', 'canceled'] } }
       if (query) {
         const data = await call(
           `query($term: String!, $filter: IssueFilter) {

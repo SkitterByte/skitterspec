@@ -708,6 +708,13 @@ could have waited.
 miss that production is broken. `/spec-hotfix` checks neither; it is already the
 most specific destination. Leave a list empty and nothing routes through it.
 
+## Ideas — `intake.ideaLabel`
+
+`/spec-idea` files an idea as an issue in the configured team that carries
+`intake.ideaLabel` (`"idea"` by default) and belongs to no project. The label
+must already exist in the team. `/spec KEY-N` adopts an idea like any other
+issue, and `spec-sync idea drop` moves one to the team's cancelled state.
+
 ## One direction — nothing to reconcile
 
 The repo owns the spec's content and pushes it; nothing is merged back.

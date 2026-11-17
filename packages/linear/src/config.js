@@ -145,7 +145,7 @@ const DEFAULT_CONFIG = Object.freeze({
   // feature, and the only signal would be noticing a lost report weeks later.
   // Being wrong in this direction costs a comment nobody needed; the other
   // direction costs someone their words.
-  intake: Object.freeze({ label: '', bugLabels: Object.freeze([]), hotfixLabels: Object.freeze([]), preserveOriginal: true }),
+  intake: Object.freeze({ label: '', ideaLabel: 'idea', bugLabels: Object.freeze([]), hotfixLabels: Object.freeze([]), preserveOriginal: true }),
   // A spec is a Linear ISSUE; each phase is a SUB-ISSUE of it; tasks are not
   // synced (they live only in the repo phase files).
   // A spec is an ISSUE; each phase a SUB-ISSUE of it. `tasks` selects how the
@@ -282,6 +282,7 @@ function defaults() {
     linear: { ...DEFAULT_CONFIG.linear, labelsByKind: { ...DEFAULT_CONFIG.linear.labelsByKind }, severityLabels: { ...DEFAULT_CONFIG.linear.severityLabels } },
     intake: {
       label: DEFAULT_CONFIG.intake.label,
+      ideaLabel: DEFAULT_CONFIG.intake.ideaLabel,
       bugLabels: [...DEFAULT_CONFIG.intake.bugLabels],
       hotfixLabels: [...DEFAULT_CONFIG.intake.hotfixLabels],
       preserveOriginal: DEFAULT_CONFIG.intake.preserveOriginal,
@@ -355,6 +356,7 @@ function mergeConfig(base, parsed) {
 
   if (isObject(parsed.intake)) {
     assign(base.intake, parsed.intake, 'label', 'string?')
+    assign(base.intake, parsed.intake, 'ideaLabel', 'string?')
     if (Array.isArray(parsed.intake.bugLabels)) {
       base.intake.bugLabels = stringList(parsed.intake.bugLabels)
     }

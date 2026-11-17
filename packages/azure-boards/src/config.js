@@ -93,6 +93,8 @@ const DEFAULT_CONFIG = Object.freeze({
   // lists route nothing, as before.
   intake: Object.freeze({
     tag: '',
+    // The tag that marks a work item as an idea (`/spec-idea`).
+    ideaTag: 'idea',
     bugTags: Object.freeze(['bug']),
     hotfixTags: Object.freeze([]),
     bugTypes: Object.freeze(['Bug']),
@@ -165,6 +167,7 @@ function defaults() {
     stateAliases: {},
     intake: {
       tag: DEFAULT_CONFIG.intake.tag,
+      ideaTag: DEFAULT_CONFIG.intake.ideaTag,
       bugTags: [...DEFAULT_CONFIG.intake.bugTags],
       hotfixTags: [...DEFAULT_CONFIG.intake.hotfixTags],
       bugTypes: [...DEFAULT_CONFIG.intake.bugTypes],
@@ -254,6 +257,7 @@ function mergeConfig(base, parsed) {
 
   if (isObject(parsed.intake)) {
     assign(base.intake, parsed.intake, 'tag', 'string?')
+    assign(base.intake, parsed.intake, 'ideaTag', 'string?')
     if (Array.isArray(parsed.intake.bugTags)) base.intake.bugTags = stringList(parsed.intake.bugTags)
     if (Array.isArray(parsed.intake.hotfixTags)) base.intake.hotfixTags = stringList(parsed.intake.hotfixTags)
     if (Array.isArray(parsed.intake.bugTypes)) base.intake.bugTypes = stringList(parsed.intake.bugTypes)
