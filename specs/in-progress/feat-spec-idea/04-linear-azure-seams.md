@@ -7,7 +7,7 @@ github_issue_id: "#214"
 > Spec: [00-overview.md](00-overview.md) · **Status:** Not started
 
 **Goal:** Linear and Azure Boards implement the same `spec-sync idea`
-contract as GitHub. Jira answers `--supports` with no, so it falls back to
+contract as GitHub. Jira registers `supports: false`, so it falls back to
 the file.
 
 ## Tasks
@@ -17,7 +17,7 @@ the file.
 - [ ] Azure Boards: an idea is a work item tagged with the idea label and
       kept out of the spec area/iteration. Drop sets it to Removed with a
       comment.
-- [ ] Jira: make `spec-sync idea --supports` answer no explicitly. Answering
-      with silence is not enough.
+- [ ] Jira: register `setProviderIdeaStore({ supports: false })` explicitly.
+      Registering nothing reads as unknown and refuses capture.
 - [ ] Tests: run each provider's add/list/drop against its fake, and check
-      that Jira's `--supports` returns a positive no. Run `pnpm test`. It must be green.
+      that Jira registers a positive no. Run `pnpm test`. It must be green.

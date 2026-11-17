@@ -68,7 +68,8 @@ that is cheap to write to and that `/spec` can pick up from.
    uses, so `main` is never dirtied and the main guard has nothing to refuse.
    Rejected: a gitignored local file, which isn't shared.
 4. **The file is used only when the provider positively can't hold ideas.**
-   The provider must declare it (`spec-sync idea --supports`); today Jira
+   The provider must declare it by registering an idea store
+   (`setProviderIdeaStore`, `supports: false` included); today Jira
    does not, because it has no intake. A provider that is configured but
    can't be reached is "cannot tell", so capture refuses and prints the text
    back. Otherwise one idea could land in each store
@@ -93,9 +94,9 @@ that is cheap to write to and that `/spec` can pick up from.
 
 ## Solution overview
 
-`skitterspec idea <add|list|drop>` is the engine. It asks the configured
-provider's `spec-sync idea --supports`. If the provider supports ideas, the
-engine delegates to `spec-sync idea add|list|drop`. If it doesn't, or no
+`skitterspec idea <add|list|drop>` is the engine. It asks the idea store
+the configured provider registered in-process. If the provider supports
+ideas, the engine hands it the command. If it doesn't, or no
 provider is configured, it uses the file store. The `/spec-idea` skill makes
 the add-or-offer-`/spec` judgement and relays the result. `/spec` learns the
 `idea:<id>` ref, and `todo` reads `idea list --count --json`.
@@ -113,7 +114,7 @@ Rate-limit the review server
 | Surface | Change | Detail |
 |---------|--------|--------|
 | CLI command | add | `skitterspec idea add\|list\|drop` |
-| CLI command | add | `spec-sync idea add\|list\|drop\|--supports` (github, linear, azure-boards) |
+| Service | add | provider idea store via `setProviderIdeaStore` (github, linear, azure-boards; jira declares none) |
 | Skill | add | `/spec-idea` |
 | Skill | update | `/spec` — `idea:<id>` ref; idea label excluded from bug/hotfix routing |
 | Skill | update | `/spec-todo` — `N ideas waiting` line |
@@ -127,7 +128,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Engine + file store, landed off base | ⬜ | [01-engine-file-store.md](01-engine-file-store.md) |
+| 1 | Engine + file store, landed off base | ✅ | [01-engine-file-store.md](01-engine-file-store.md) |
 | 2 | `/spec-idea` skill and `/spec` promotion | ⬜ | [02-skill-and-promotion.md](02-skill-and-promotion.md) |
 | 3 | GitHub idea seam | ⬜ | [03-github-seam.md](03-github-seam.md) |
 | 4 | Linear and Azure Boards seams | ⬜ | [04-linear-azure-seams.md](04-linear-azure-seams.md) |
@@ -140,3 +141,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-11-17 — Spec created.
+- 2026-11-17 — Phase 1: the file store lands by git plumbing instead of a
+  throwaway worktree, so no checkout is touched and a moved base refuses
+  instead of conflicting. Providers register an idea store in-process
+  (`setProviderIdeaStore`) instead of answering `spec-sync idea --supports`.
+  The `skitterspec idea` row was added to `docs/reference.html` now, because
+  the site-coverage test requires it; the `covers` glob and the `verified:`
+  bump stay in phase 5.

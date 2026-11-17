@@ -927,6 +927,12 @@ function setProviderConfigFile(rel) {
   providerConfigFile = rel || null
 }
 
+// Is a ticketing provider registered AND configured in this project? The same
+// signal `land.specDocs` defaults on, so the two cannot disagree.
+function providerConfigured(dir) {
+  return Boolean(providerConfigFile) && existsSync(join(dir, providerConfigFile))
+}
+
 // An explicit `specDocs` in the file — any value, even one the merge rejected —
 // is the project's decision; a rejected typo stays on the conservative "trunk"
 // rather than being promoted to the provider default.
@@ -976,6 +982,7 @@ module.exports = {
   loadEnvConfig,
   setProviderEnvDefaults,
   setProviderConfigFile,
+  providerConfigured,
   resolveServePort,
   derivedServePort,
   servePortRoot,

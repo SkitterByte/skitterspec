@@ -12,7 +12,8 @@ kept off the board, and `/spec #N` adopts them through the existing Phase 0.
 ## Tasks
 
 - [ ] Add `intake.ideaLabel` (default `idea`) to `packages/github/src/config.js`.
-- [ ] Add `spec-sync idea --supports|add|list|drop`. `add` creates the issue
+- [ ] Register an idea store (`setProviderIdeaStore({ supports: true, run })`)
+      in the GitHub bin, backed by `spec-sync idea add|list|drop`. `add` creates the issue
       with the label and **no** project item. `list` shows open labelled
       issues minus `linked`. `drop` closes the issue as not planned with the
       reason as a comment. Print the MCP fallback for each, as `intake` does.

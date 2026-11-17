@@ -377,6 +377,13 @@ Usage:
                               waiting and gates armed, and today so far. Same
                               scope as tada (--here, --all-projects), --json,
                               --page [--summary <recap.md>].
+  skitterspec idea <cmd>      Ideas not specced yet, where the team can see them:
+                              in the tracker when the provider holds ideas, else
+                              specs/ideas.md landed on the base branch (never
+                              pushed — it prints the push). Subcommands:
+                                add <text>        capture one; first line is the title
+                                list              what is waiting (--count, --json)
+                                drop <id>         discard one (--reason <why>)
   skitterspec gating <cmd>    Release-gating check (opt-in; needs
                               specs/.core/gating.config.json). Subcommands:
                                 check [spec]      report specs with no recorded gating
@@ -8104,6 +8111,11 @@ async function run(argv) {
 
   if (cmd === 'todo') {
     await todoCommand(rest)
+    return
+  }
+
+  if (cmd === 'idea') {
+    process.exitCode = await require('./ideacmd.js').ideaCommand(rest)
     return
   }
 
