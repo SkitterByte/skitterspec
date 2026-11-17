@@ -68,9 +68,46 @@ function readPid(pidFileAbs) {
 }
 
 /**
+ * The shell a planned `command` runs through, or null when there is none.
+ *
+ * POSIX: `sh` from PATH, as it always was. Windows: `sh` only exists where Git
+ * for Windows put its `bin` on PATH, and a `cmd /c` session (a VM driven from
+ * another host, a scheduled task) commonly has Git installed and not on PATH.
+ * So PATH first, then Git's own install locations, then the `bin` beside a
+ * `git.exe` that IS on PATH (`Git\cmd\git.exe` → `Git\bin\sh.exe`).
+ *
+ * WHAT WOULD FOOL THIS: Git installed somewhere none of those name — a scoop
+ * shim, a portable copy. Then the answer is null, and the caller refuses with
+ * a reason rather than spawning something that is not there.
+ */
+function resolveShell({ platform = process.platform, env = process.env, exists = fs.existsSync } = {}) {
+  if (platform !== 'win32') return 'sh'
+  const w = path.win32
+  const dirs = String(env.PATH || env.Path || '').split(';').filter(Boolean)
+  const candidates = dirs.map((d) => w.join(d, 'sh.exe'))
+  for (const base of [env.ProgramFiles, env.ProgramW6432, env['ProgramFiles(x86)']]) {
+    if (base) candidates.push(w.join(base, 'Git', 'bin', 'sh.exe'))
+  }
+  if (env.LOCALAPPDATA) candidates.push(w.join(env.LOCALAPPDATA, 'Programs', 'Git', 'bin', 'sh.exe'))
+  for (const d of dirs) {
+    if (exists(w.join(d, 'git.exe'))) candidates.push(w.join(d, '..', 'bin', 'sh.exe'))
+  }
+  return candidates.find((c) => exists(c)) || null
+}
+
+/**
  * Start one planned process detached, appending stdout+stderr to its log and
  * writing its pid file. Idempotent: if the pid file already names a live
  * process, nothing is spawned — returns `{ started: false, pid }`.
+ *
+ * A proc carrying `argv` is spawned as exactly that, with no shell — the review
+ * server and the proxy are `node <script> <file>` and never needed one. A proc
+ * carrying only `command` runs through `resolveShell`.
+ *
+ * NEVER THROWS OVER A SPAWN THAT FAILED. A missing executable is reported as
+ * `{ started: false, pid: null, error }` with no pid file written: the ENOENT
+ * otherwise arrives as an unhandled 'error' event and takes the CLI down with
+ * it (bug-review-serve-spawn-sh).
  *
  * `spawnImpl` is injectable for tests; defaults to child_process.spawn.
  */
@@ -83,19 +120,44 @@ function startProcess(proc, { cwd, rootDir, spawnImpl = spawn }) {
     return { started: false, pid: existing, logFile: logAbs, pidFile: pidAbs }
   }
 
+  const env = { ...process.env, ...proc.env }
+  let file
+  let args
+  if (proc.argv) {
+    ;[file, ...args] = proc.argv
+  } else {
+    file = resolveShell({ env })
+    args = ['-c', proc.command]
+    if (!file) {
+      const error = 'no sh found — install Git for Windows or put its bin folder on PATH'
+      return { started: false, pid: null, error, logFile: logAbs, pidFile: pidAbs }
+    }
+  }
+
   fs.mkdirSync(path.dirname(logAbs), { recursive: true })
   fs.mkdirSync(path.dirname(pidAbs), { recursive: true })
 
   const out = fs.openSync(logAbs, 'a')
   try {
-    const child = spawnImpl('sh', ['-c', proc.command], {
-      cwd,
-      env: { ...process.env, ...proc.env },
-      detached: true,
-      // No console window per dev server on Windows; nothing anywhere else.
-      windowsHide: true,
-      stdio: ['ignore', out, out],
-    })
+    let child
+    try {
+      child = spawnImpl(file, args, {
+        cwd,
+        env,
+        detached: true,
+        // No console window per dev server on Windows; nothing anywhere else.
+        windowsHide: true,
+        stdio: ['ignore', out, out],
+      })
+    } catch (err) {
+      return { started: false, pid: null, error: `spawn ${file}: ${err.message}`, logFile: logAbs, pidFile: pidAbs }
+    }
+    // A spawn that could not start has no pid, and its error is emitted on the
+    // next tick — the listener is what keeps that from being fatal.
+    child.on('error', () => {})
+    if (!child.pid) {
+      return { started: false, pid: null, error: `could not start ${file}`, logFile: logAbs, pidFile: pidAbs }
+    }
     child.unref()
     fs.writeFileSync(pidAbs, `${child.pid}\n`)
     return { started: true, pid: child.pid, logFile: logAbs, pidFile: pidAbs }
@@ -167,4 +229,4 @@ async function waitHealthy(
 // therefore kills the wrapper, leaves the server holding its port, and then
 // blames whatever it asserts next. Killing the group is what `stopProcess` does
 // and what a test must do to mean "it died".
-module.exports = { startProcess, stopProcess, waitHealthy, isAlive, readPid, signalGroup }
+module.exports = { startProcess, stopProcess, waitHealthy, isAlive, readPid, signalGroup, resolveShell }

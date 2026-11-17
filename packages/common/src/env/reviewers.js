@@ -32,7 +32,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 const crypto = require('node:crypto')
 const { spawn } = require('node:child_process')
-const { signalGroup } = require('./supervise.js')
+const { signalGroup, resolveShell } = require('./supervise.js')
 
 const BUNDLED_ADAPTERS = { coderabbit: require('./reviewers/coderabbit.js') }
 
@@ -288,9 +288,10 @@ function runReviewer(entry, ctx) {
       // Through a shell, deliberately: the config holds a command LINE, with
       // pipes and quoting the project chose. It is read from a committed config
       // in the project's own repo — the same trust level as a package script.
-      // `sh` from PATH on Windows — Git for Windows' — where `/bin/sh` does not
-      // exist and no reviewer could run at all (chore-windows-ci).
-      child = spawnFn(process.platform === 'win32' ? 'sh' : '/bin/sh', ['-c', rendered], {
+      // Git for Windows' `sh` on Windows, where `/bin/sh` does not exist and no
+      // reviewer could run at all (chore-windows-ci) — found off PATH too, and
+      // left as a bare `sh` to fail as `did not run` when there is none.
+      child = spawnFn(process.platform === 'win32' ? resolveShell() || 'sh' : '/bin/sh', ['-c', rendered], {
         cwd: worktree,
         stdio: ['ignore', 'pipe', 'pipe'],
         // THE CHILD LEADS ITS OWN PROCESS GROUP, and the timeout below depends

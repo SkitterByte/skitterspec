@@ -6506,6 +6506,10 @@ async function specEnvDev(dir, config, positional) {
     const out = [`spec-env dev up: ${spec.folder}  slot ${slot}  (ports from ${plan.portOffset})`]
     for (const proc of plan.procs) {
       const res = startProcess(proc, { cwd: spec.projectPath, rootDir: dir })
+      if (res.error) {
+        out.push(`  ${proc.name}: port ${proc.port}  NOT STARTED — ${res.error}`)
+        continue
+      }
       let health = ''
       if (proc.health) {
         health = (await waitHealthy(proc.health)) ? '  health: ok' : '  health: TIMEOUT'
@@ -6593,8 +6597,9 @@ function proxyProcFor(config, routesFileAbs) {
   const sdir = stateDirLabel(config)
   return {
     name: 'proxy',
-    // Quoted: this runs through `sh -c`, which eats a Windows path's
-    // backslashes and splits any path with a space (chore-windows-ci).
+    // `argv` is what runs — node itself, no shell (bug-review-serve-spawn-sh).
+    // `command` is the same thing for a person to read.
+    argv: [process.execPath, path.join(__dirname, 'env', 'proxy.js'), routesFileAbs],
     command: `node ${shellPath(path.join(__dirname, 'env', 'proxy.js'))} ${shellPath(routesFileAbs)}`,
     env: {},
     logFile: `${sdir}/logs/proxy.log`,
@@ -6606,8 +6611,15 @@ function proxyProcFor(config, routesFileAbs) {
 // monorepo developing itself, and a project that installed the package. Naming
 // the distribution here is a path, not provider machinery — `init.js` and
 // `PROVIDER_COMMANDS` above already know package names by name.
+//
+// EVERY DISTRIBUTION, not only the base. A project installs exactly one, and a
+// superset missing here fell through to `__dirname` — the RUNNING copy — so a
+// worktree's engine saw the primary's server as executing a different script,
+// called it stale and stopped it (bug-review-serve-spawn-sh).
 const DAEMON_LOCATIONS = [
-  path.join('node_modules', '@skitterbyte', 'skitterspec', 'src', 'env', 'serve.js'),
+  ...['skitterspec', 'skitterspec-linear', 'skitterspec-jira', 'skitterspec-github', 'skitterspec-azure-boards'].map(
+    (pkg) => path.join('node_modules', '@skitterbyte', pkg, 'src', 'env', 'serve.js'),
+  ),
   path.join('packages', 'common', 'src', 'env', 'serve.js'),
 ]
 
@@ -6663,8 +6675,10 @@ function serveProcFor(config, settingsFileAbs, { root = null } = {}) {
   const sdir = stateDirLabel(config)
   return {
     name: 'review-serve',
-    // Quoted: this runs through `sh -c`, which eats a Windows path's
-    // backslashes and splits any path with a space (chore-windows-ci).
+    // `argv` is what runs — node itself, no shell. It used to go through
+    // `sh -c`, and a Windows session without Git's bin on PATH has no `sh`
+    // (bug-review-serve-spawn-sh). `command` is the same thing for a person.
+    argv: [process.execPath, daemonScript(root), settingsFileAbs],
     command: `node ${shellPath(daemonScript(root))} ${shellPath(settingsFileAbs)}`,
     script: daemonScript(root),
     env: {},
@@ -6917,6 +6931,9 @@ async function ensureReviewServer(dir, config, { host = '127.0.0.1', port, resta
     ) + '\n',
   )
   const res = startProcess(proc, { cwd: dir, rootDir: dir })
+  // Nothing was spawned, so there is nothing to wait for — and the reason is
+  // the only thing worth handing back.
+  if (res.error) return { error: `could not start the server (${res.error})`, port: usePort, replaced, engineWas }
   const up = await waitListening([usePort], { host: loopback ? host : '127.0.0.1' })
   // A PORT ANSWERING IS NOT PROOF THAT OUR PROCESS IS ANSWERING IT. `waitListening`
   // connects, and anything already bound satisfies a connect — so on its own it
@@ -7058,6 +7075,11 @@ async function specEnvReviewServe(dir, config, flags) {
       `spec-env review serve: started (pid ${started.pid}) but port ${started.port} never came up — ` +
         `see ${proc.logFile}\n`,
     )
+    return
+  }
+
+  if (started.error) {
+    process.stdout.write(`spec-env review serve: ${started.error} — see ${proc.logFile}\n`)
     return
   }
 
