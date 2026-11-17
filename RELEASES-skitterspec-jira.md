@@ -5,6 +5,21 @@ What's new for users of skitterspec-jira. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 2.12.0 — 17 Nov 2026
+
+**Highlights:** /spec-idea parks an idea for a future spec in one step, with no questions, where the team can see it - and /spec idea:<id> turns it into a spec when you are ready.
+
+### Ideas
+- **New** — /spec-idea parks an idea for a future spec in one step, with no questions, where the team can see it - and /spec idea:<id> turns it into a spec when you are ready.
+- **New** — You can jot down an idea for a future spec with skitterspec idea add, list what is waiting, and drop what you no longer want - without writing a spec or leaving main dirty.
+
+### Sync
+- **New** — With Linear or Azure Boards sync, /spec-idea files your idea in the tracker; with Jira it lands in specs/ideas.md.
+- **Fixed** — Completing a linked spec in PR mode no longer leaves a modified tracker snapshot on your base branch after the merge. The ticket still moves to Done only once the PR has merged.
+
+### Todo
+- **New** — /spec-todo now says how many ideas are waiting, so parked ideas are not forgotten.
+
 ## 2.11.0 — 16 Nov 2026
 
 **Highlights:** A new /spec-todo answers the morning question: where each project was left on your last working day, what is still open, what is waiting on you, and what to pick up first.
