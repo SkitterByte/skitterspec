@@ -21,6 +21,36 @@ separate grooming command — `/spec` grills to a Ready spec directly.)
 
 <!-- seam:spec-tracker-intake -->
 
+## Phase 0b — start from an idea (only when asked)
+
+**Only when the invocation names an idea** with `idea:<id>`, a handle that
+`/spec-idea` lists for an idea kept in `specs/ideas.md`. An idea kept in the
+tracker is an ordinary issue, so `/spec #N` adopts it through Phase 0 above,
+and nothing here applies to it.
+
+1. **Read it.** Run `skitterspec idea list --json` and find the entry whose
+   `id` matches. If none does, **stop** and say so: an id that matches nothing
+   is never stood in for by the nearest one.
+2. **Seed, don't skip, the grill.** The idea's title becomes the working spec
+   title, and its body becomes the starting material for **Problem**. Quote it
+   rather than paraphrasing it away. An idea is a thought, not a groomed
+   requirement, so grill it as hard as anything else.
+3. **Retire it once the spec exists — never before.** The idea is dropped
+   after the spec reaches somewhere it can be found. With isolation, that is
+   once a committing verdict has committed it (and landed it, under
+   `"trunk"`). Without isolation, it is once the spec is written. Run:
+
+   ```
+   skitterspec idea drop <id> --reason "promoted to <spec-name>"
+   ```
+
+   It commits onto the base branch by itself, so it needs no pathspec and has
+   no part in the spec's own commit. A drop that is refused leaves the idea
+   listed. Say so in `Notes` and carry on: a stale idea is a nuisance, but a
+   lost one is the failure this exists to prevent.
+   **A run that writes no spec drops nothing** — a `⏸` grill and a
+   `discuss` verdict both leave the idea where it was.
+
 ## Phase A — reach a clear shared understanding (grill first)
 
 Interview the user until requirement AND proposed solution are unambiguous. Do

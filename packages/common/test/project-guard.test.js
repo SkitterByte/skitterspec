@@ -127,6 +127,7 @@ test('reads, other programs and home work are allowed', () => {
       `git -C ${sl(w.other)} worktree list`,
       `cd ${sl(w.other)} && skitterspec tada`,
       `cd ${sl(w.other)} && skitterspec todo --here`,
+      `cd ${sl(w.other)} && skitterspec idea list --count`,
       `cd ${sl(w.other)} && skitterspec spec-env review waiting`,
       `ls ${sl(w.other)} && cat ${sl(w.other)}/README.md`,
       `git -C ${sl(w.homeWt)} commit -m x`,
@@ -158,6 +159,8 @@ test('a guard lift in another project is a change; its status is a read', () => 
   assert.ok(at('skitterspec spec-env project allow home'))
   assert.strictEqual(at('skitterspec spec-env main status'), null)
   assert.strictEqual(at('skitterspec project'), null)
+  assert.ok(at('skitterspec idea add x'), 'capturing an idea writes that project\'s base branch')
+  assert.strictEqual(at('skitterspec idea list'), null)
   assert.ok(at('skitterspec project --name x'))
 })
 

@@ -85,9 +85,9 @@ that is cheap to write to and that `/spec` can pick up from.
    listing once `spec-sync linked` names them.
 7. **Promotion reuses adoption.** A tracker idea is adopted by Phase 0 as it
    is today: its body is preserved as a comment and it becomes the spec issue.
-   A file idea (`/spec idea:<id>`) seeds the grill, and its entry is removed
-   in the spec's own authoring commit. Under `land.specDocs: "branch"` that
-   removal rides the branch, which is accepted and noted.
+   A file idea (`/spec idea:<id>`) seeds the grill and is dropped with
+   `skitterspec idea drop` once the spec has been committed. That is never
+   before the spec exists, and never as part of the spec's own commit.
 8. **Discard means closed, not deleted.** On the tracker the idea is closed
    as not planned, with the reason as a comment. In the file the entry is
    removed and the reason goes in the commit body, so git keeps the history.
@@ -129,7 +129,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Engine + file store, landed off base | ✅ | [01-engine-file-store.md](01-engine-file-store.md) |
-| 2 | `/spec-idea` skill and `/spec` promotion | ⬜ | [02-skill-and-promotion.md](02-skill-and-promotion.md) |
+| 2 | `/spec-idea` skill and `/spec` promotion | ✅ | [02-skill-and-promotion.md](02-skill-and-promotion.md) |
 | 3 | GitHub idea seam | ⬜ | [03-github-seam.md](03-github-seam.md) |
 | 4 | Linear and Azure Boards seams | ⬜ | [04-linear-azure-seams.md](04-linear-azure-seams.md) |
 | 5 | `/spec-todo` line and docs | ⬜ | [05-todo-and-docs.md](05-todo-and-docs.md) |
@@ -148,3 +148,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   The `skitterspec idea` row was added to `docs/reference.html` now, because
   the site-coverage test requires it; the `covers` glob and the `verified:`
   bump stay in phase 5.
+- 2026-11-17 — Phase 2: file-idea promotion drops the idea with
+  `skitterspec idea drop` after the spec's committing verdict, instead of
+  removing it in the authoring commit through `stage`. `stage` is unchanged,
+  and the idea outlives a spec that was never written.

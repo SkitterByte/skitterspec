@@ -26,6 +26,7 @@ the governing `spec-planning.md` rule, and the `specs/` folder structure. The li
 | `/spec-cancel` | Record progress, stamp a reason; tear down | `Cancelled` | `specs/cancelled/` |
 | `/spec-tada` | Recap what you did, across projects, by spec — ending in a standup | (unchanged) | (unchanged) |
 | `/spec-todo` | Where you left off on your last working day, and what is ahead | (unchanged) | (unchanged) |
+| `/spec-idea` | Capture an idea without specing it; list or drop the ones waiting | (unchanged) | (unchanged) |
 | `/spec-hotfix` | (Hotfix) Fork a worktree from a release tag, red→green, land by tag | `In Progress` | `specs/in-progress/` |
 | `/spec-incident` | (Incident) Capture a live outage as a record written during it; fixes are separate linked specs | `In Progress` | `specs/in-progress/` |
 | `/no-spec` | Work with no spec — a bump, a rename — on its own branch and page | `—` | (none) |

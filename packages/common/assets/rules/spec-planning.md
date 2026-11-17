@@ -12,6 +12,7 @@ and lifecycle stay consistent. Each sets a status on the spec header
 | `/spec-hotfix` | (Hotfix) Fork a worktree from a release tag, red→green, land by tag + cherry-pick | `In Progress` | `specs/in-progress/` |
 | `/spec-incident` | (Incident) Capture a live outage as a record written during it — grill, write in flight, fixes as separate linked specs | `In Progress` | `specs/in-progress/` |
 | `/no-spec` | Work that genuinely has no spec — its own branch, worktree, page and land. Writes no spec and moves nothing through the lifecycle | `—` | (none) |
+| `/spec-idea` | Capture an idea without specing it — in the tracker when the provider holds ideas, else `specs/ideas.md` on the base branch; bare lists, `--drop` discards. `/spec idea:<id>` or `/spec #N` promotes one | `—` | (none) |
 | `/spec-review` | Re-validate a spec against the codebase; refresh stale parts | `—` | (unchanged) |
 | `/spec-start` | Put a spec in flight — provision its branch, then build phase 1 | `In Progress` | `specs/in-progress/` |
 | `/spec-next` | Build the next phase of the spec this session is in (re-run per phase) | `In Progress` (unchanged) | (unchanged) |
@@ -73,6 +74,17 @@ matters: it is where Claude is sent when it would otherwise write on the base
 branch. Beneath it, `skitterspec spec-env nospec <name>` records the branch —
 and that record is what makes a name with nothing under `specs/**` resolvable by
 `review`, `integrate`, `down` and a bare `resolve`.
+
+**`/spec-idea` is the door before `/spec`.** `/spec` grills until there is a
+spec, which is right for work and wrong for a passing thought. This skill files
+the thought as it stands, somewhere the team can see. An idea is not a spec,
+so it has no folder, no status and no branch. It lives in the tracker when the
+provider can hold ideas (an issue kept off the board, which `/spec #N` already
+adopts), and otherwise in `specs/ideas.md`. That file is committed straight
+onto the base branch by `skitterspec idea`, using plumbing, so no checkout is
+switched or left dirty, and it is never pushed for you. A configured provider
+that does not declare an idea store is cannot-tell: capture refuses and hands
+the text back, rather than putting one idea in each store.
 
 **`/spec-tada` reads, and moves nothing.** It is in the table because it
 reports in the unit the table is about — a spec — but it changes no status,

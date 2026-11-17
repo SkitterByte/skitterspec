@@ -52,7 +52,7 @@ const GIT_READS = new Set([
 
 // skitterspec verbs that only read, as `verb` or `verb sub`.
 const ENGINE_READS = new Set([
-  'tada', 'todo', 'status', 'help', '--help', '-h', '--version', '-v',
+  'tada', 'todo', 'idea list', 'status', 'help', '--help', '-h', '--version', '-v',
   'spec-env status', 'spec-env resolve',
   'epic status', 'epic check', 'gating check', 'spec-sync ownership', 'spec-sync board',
 ])
