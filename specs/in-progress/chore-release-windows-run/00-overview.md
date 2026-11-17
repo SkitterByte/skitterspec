@@ -94,7 +94,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Windows gate in release.js | ⬜ | [01-windows-gate.md](01-windows-gate.md) |
+| 1 | Windows gate in release.js | ✅ | [01-windows-gate.md](01-windows-gate.md) |
 
 ## Open questions
 

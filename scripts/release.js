@@ -199,6 +199,8 @@ function buildPlan({
   // The Linux gate's verdict, decided by `linuxGate` and passed in so buildPlan
   // stays pure — a test states the world rather than needing a Docker daemon.
   linux = { state: 'unknown', why: 'not asked' },
+  // The Windows gate's verdict, from `windowsGate` — same reason as above.
+  windows = { state: 'unknown', why: 'not asked' },
   root = ROOT,
 }) {
   const tag = tagName(name, nextVersion)
@@ -290,6 +292,22 @@ function buildPlan({
         restore: needsBump ? [`${dirRel}/package.json`, notesFile] : [],
       })
     }
+
+    // AND ON WINDOWS, through whatever command the releaser configured — see
+    // `windowsGate`. Last, because it is the slowest of the three: a failure
+    // common to every platform has already surfaced by the time it starts.
+    // Through `sh -c` because the command is the releaser's whole line
+    // (`vm pnpm test`), quoting and all.
+    if (windows.state === 'run') {
+      steps.push({
+        phase: 'local',
+        kind: 'verify',
+        cmd: windows.command,
+        argv: ['sh', '-c', windows.command],
+        desc: 'run the same suite on Windows',
+        restore: needsBump ? [`${dirRel}/package.json`, notesFile] : [],
+      })
+    }
   }
 
   if (needsBump) {
@@ -356,6 +374,7 @@ function buildPlan({
     level,
     skipTests,
     linux,
+    windows,
     steps,
     followUp,
   }
@@ -401,6 +420,42 @@ function linuxGate({ dockerAvailable, skip = false } = {}) {
     return { state: 'unknown', why: 'no running Docker — the Linux run was not attempted' }
   }
   return { state: 'run', why: null }
+}
+
+/**
+ * THE RELEASE'S WINDOWS GATE — decide whether to run the suite on Windows too.
+ *
+ * Windows ran only in `ci.yml`, after the push, and a tag pushed red cannot be
+ * taken back. Three Windows-only failures in a row were found that way
+ * (bug-afterswitch-tests-windows, bug-review-serve-spawn-sh,
+ * bug-no-shell-test-windows), the last right after five tags went out.
+ *
+ * There is no Windows container to reach for, so the run is whatever the
+ * releaser says it is: `SKITTERSPEC_RELEASE_WINDOWS` holds the whole command
+ * (`vm pnpm test`), set on the machine that owns the VM — never committed,
+ * since nobody else's machine can run it. The VM must see THIS checkout through
+ * a shared folder: the tree under test is the one about to be tagged, with the
+ * bump written and not yet committed.
+ *
+ * THREE ANSWERS, the same as Linux, and only `run` does anything:
+ *
+ *   - `run`     — a command is set and nobody opted out.
+ *   - `skipped` — `--skip-windows`, on the record in the plan.
+ *   - `unknown` — no command set. Not evidence the tree is bad, so it never
+ *                blocks a release (`.claude/rules/negative-checks.md` rule 4);
+ *                it is said out loud instead.
+ *
+ * WHAT WOULD FOOL IT: a share that serves a stale copy of the tree, or a
+ * wrapper that exits 0 when the suite inside it failed. Either reads as a
+ * green Windows run. The exit status is the only thing trusted here.
+ *
+ * Pure: the caller reads the environment.
+ */
+function windowsGate({ command, skip = false } = {}) {
+  if (skip) return { state: 'skipped', why: '--skip-windows was passed' }
+  const cmd = String(command || '').trim()
+  if (!cmd) return { state: 'unknown', why: 'SKITTERSPEC_RELEASE_WINDOWS not set' }
+  return { state: 'run', why: null, command: cmd }
 }
 
 // Is there a Docker daemon to run the Linux suite in? A missing binary, a
@@ -489,6 +544,10 @@ function formatPlan(plan) {
   else if (plan.linux && plan.linux.state !== 'run') {
     lines.push(`  note:  Linux run skipped — ${plan.linux.why}`)
     lines.push('         the suite below runs on this machine only')
+  }
+  // The same rule as Linux: a gate that did not run says so, every time.
+  if (!plan.skipTests && plan.windows && plan.windows.state !== 'run') {
+    lines.push(`  note:  Windows run skipped — ${plan.windows.why}`)
   }
   lines.push('')
   lines.push('  steps:')
@@ -588,6 +647,10 @@ Levels (a bare run is a dry-run and changes nothing):
   --skip-linux   cut the release without the second, Linux run of the suite.
                  The native run still happens. Skipped automatically, with a
                  note, when there is no running Docker.
+  --skip-windows cut the release without the Windows run. It runs only when
+                 SKITTERSPEC_RELEASE_WINDOWS holds a command (e.g. 'vm pnpm
+                 test') that runs the suite in a VM sharing this checkout;
+                 unset, the plan says it was skipped.
 
 The suite runs after the version is written and before anything is staged, so
 guards that read the version being released — the migration guide's, for one —
@@ -613,6 +676,7 @@ function parseArgs(argv) {
     allowEmpty: flags.has('--allow-empty'),
     skipTests: flags.has('--skip-tests'),
     skipLinux: flags.has('--skip-linux'),
+    skipWindows: flags.has('--skip-windows'),
     pkg: positional[0],
     bump: positional[1],
   }
@@ -659,6 +723,7 @@ function main(argv) {
   // Asked once, here, so the printed plan and the executed plan cannot
   // disagree about whether Linux was checked.
   const linux = linuxGate({ dockerAvailable: dockerAvailable(), skip: opts.skipLinux })
+  const windows = windowsGate({ command: process.env.SKITTERSPEC_RELEASE_WINDOWS, skip: opts.skipWindows })
   const plan = buildPlan({
     ...resolved,
     currentVersion,
@@ -666,6 +731,7 @@ function main(argv) {
     level,
     skipTests: opts.skipTests,
     linux,
+    windows,
     root: ROOT,
   })
 
@@ -702,6 +768,7 @@ module.exports = {
   assertCleanTree,
   assertTagAvailable,
   linuxGate,
+  windowsGate,
   LINUX_IMAGE,
   formatPlan,
   verifyFailureMessage,

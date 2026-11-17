@@ -310,6 +310,35 @@ family, different image, different filesystem semantics under a bind mount. It
 closes the macOS-vs-Linux gap that has bitten twice. It is not CI parity, and
 nothing here should be read as saying the tag is safe because this passed.
 
+### And a third time, on Windows — where you have a VM
+
+Windows ran only in `ci.yml`, after the push. Three Windows-only failures in a
+row were found that way (`bug-afterswitch-tests-windows`,
+`bug-review-serve-spawn-sh`, `bug-no-shell-test-windows`), the last right after
+five tags had gone out. There is no Windows container to reach for, so the run
+is whatever command you configure, on the machine that owns the VM:
+
+```
+export SKITTERSPEC_RELEASE_WINDOWS='vm pnpm test'
+```
+
+- **The VM must see this checkout through a shared folder.** The tree under
+  test has to be the one about to be tagged, with the version bump written and
+  not yet committed. A separate clone in the VM would test something else.
+- **It runs last**, after native and Linux, through `sh -c`, and only its exit
+  status counts. A red run stops the release exactly like the other two.
+- **Unset is not a failure.** The step is dropped, the plan prints
+  `note:  Windows run skipped — SKITTERSPEC_RELEASE_WINDOWS not set`, and the
+  release proceeds.
+- **`--skip-windows`** skips a configured run on the record, and
+  `--skip-tests` drops it along with the others.
+- **Never commit the variable anywhere.** It names a VM that exists on one
+  machine. The same reasoning applies to `SKITTERSPEC_READER`.
+
+**What would fool it:** a share serving a stale copy of the tree, or a wrapper
+that exits 0 when the suite inside it failed. Either reads as a green Windows
+run.
+
 A red suite leaves **no commit and no tag**, and exactly two unstaged files. The
 next run refuses on a dirty tree, so the failure names them:
 

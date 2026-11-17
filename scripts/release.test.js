@@ -26,6 +26,7 @@ const {
   verifyFailureMessage,
   parseArgs,
   linuxGate,
+  windowsGate,
   LINUX_IMAGE,
 } = require('./release.js')
 
@@ -314,6 +315,7 @@ test('parseArgs derives package, bump, and the escalating level flags', () => {
     allowEmpty: false,
     skipTests: false,
     skipLinux: false,
+    skipWindows: false,
     pkg: 'skitterspec',
     bump: 'patch',
   })
@@ -728,4 +730,58 @@ test('docsStaleAdvisory is quiet-positive on a fresh tree', () => {
   // release run prints one line saying so rather than a report of nothing.
   const lines = docsStaleAdvisory(ROOT)
   assert.ok(lines.length >= 1)
+})
+
+// --- the Windows run ---------------------------------------------------------
+//
+// Windows used to run only in CI, after the tag. The releaser's own VM runs it
+// first, through a command they configure; unconfigured, the plan says so.
+
+const windowsStep = (p) => p.steps.find((s) => s.desc === 'run the same suite on Windows')
+const RUN = windowsGate({ command: 'vm pnpm test' })
+
+test('a configured Windows command runs as a verify step, through the shell', () => {
+  assert.deepStrictEqual(RUN, { state: 'run', why: null, command: 'vm pnpm test' })
+  const step = windowsStep(plan({ windows: RUN }))
+  assert.ok(step, 'the Windows run is a step of the plan')
+  assert.strictEqual(step.kind, 'verify', 'and a failure stops the release')
+  assert.deepStrictEqual(step.argv, ['sh', '-c', 'vm pnpm test'])
+  assert.strictEqual(step.cmd, 'vm pnpm test', 'shown as the releaser wrote it')
+  assert.deepStrictEqual(step.restore, ['packages/skitterspec/package.json', 'RELEASES-skitterspec.md'])
+})
+
+test('the Windows run comes after native and Linux, and before the commit', () => {
+  const p = plan({ linux: linuxGate({ dockerAvailable: true }), windows: RUN })
+  const at = (pred) => p.steps.findIndex(pred)
+  const win = p.steps.indexOf(windowsStep(p))
+  assert.ok(win > at((s) => s.cmd === 'pnpm test'))
+  assert.ok(win > p.steps.indexOf(linuxStep(p)))
+  assert.ok(win < at((s) => /^git commit/.test(s.cmd)))
+  assert.ok(win < at((s) => /^git tag/.test(s.cmd)))
+})
+
+test('STAYS SILENT: an unset command blocks nothing, and says so', () => {
+  for (const command of [undefined, '', '   ']) {
+    const gate = windowsGate({ command })
+    assert.deepStrictEqual(gate, { state: 'unknown', why: 'SKITTERSPEC_RELEASE_WINDOWS not set' })
+    const p = plan({ windows: gate })
+    assert.strictEqual(windowsStep(p), undefined, 'no Windows step')
+    assert.ok(p.steps.some((s) => /^git tag/.test(s.cmd)), 'and the release still tags')
+    assert.match(formatPlan(p), /Windows run skipped — SKITTERSPEC_RELEASE_WINDOWS not set/)
+  }
+})
+
+test('--skip-windows is on the record, and a configured run says nothing extra', () => {
+  const gate = windowsGate({ command: 'vm pnpm test', skip: true })
+  assert.strictEqual(gate.state, 'skipped')
+  assert.strictEqual(windowsStep(plan({ windows: gate })), undefined)
+  assert.match(formatPlan(plan({ windows: gate })), /--skip-windows was passed/)
+  assert.doesNotMatch(formatPlan(plan({ windows: RUN })), /Windows run skipped/)
+  assert.strictEqual(parseArgs(['n', 'r', 'skitterspec', 'patch', '--skip-windows']).skipWindows, true)
+})
+
+test('--skip-tests skips the Windows run too', () => {
+  const p = plan({ skipTests: true, windows: RUN })
+  assert.strictEqual(windowsStep(p), undefined)
+  assert.doesNotMatch(formatPlan(p), /Windows run skipped/, 'the skip-tests note already says it')
 })
