@@ -127,7 +127,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Engine: reader signal and stack | ✅ | [01-engine-reader-signal.md](01-engine-reader-signal.md) |
-| 2 | Contract, skills and docs | ⬜ | [02-contract-and-docs.md](02-contract-and-docs.md) |
+| 2 | Contract, skills and docs | ✅ | [02-contract-and-docs.md](02-contract-and-docs.md) |
 
 ## Open questions
 
@@ -152,3 +152,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   inside the VM would have failed. They now scrub `SKITTERSPEC_READER` (and the
   ssh/bridge variables). Checked by running the whole common suite with
   `SKITTERSPEC_READER=remote` set.
+- 2026-11-17 — Phase 2 changed the contract instead of the four skill
+  banners. The amendment says the holding line names the engine's `covers` and
+  that a hidden tier is never printed, so the templates keep their common-case
+  wording rather than becoming placeholders.

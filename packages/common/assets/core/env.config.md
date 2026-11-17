@@ -514,6 +514,11 @@ through to a documented conservative default; see the field notes below.
   //   "local"  — you are at the machine holding the page; it binds 127.0.0.1.
   //   "remote" — you are not; it binds every interface so the page opens.
   //   "detect" — work it out (the default); cannot-tell binds 127.0.0.1.
+  // SKITTERSPEC_READER=local|remote in the environment outranks this key: a
+  // wrapper that runs the engine on another machine (a VM's `prlctl exec`)
+  // speaks for that machine alone. A reader on another machine — this key or
+  // that variable set to "remote", or ssh — gets no `local` tier while
+  // `network` has a URL, since 127.0.0.1 is the engine's machine.
   // An explicit "local"/"remote" is BELIEVED WITHOUT SNIFFING: you know where
   // you are reading, and no signal outranks being told. Detection is only the
   // default, and it has three outcomes rather than two — local, remote, and

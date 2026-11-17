@@ -159,3 +159,25 @@ test('STAYS SILENT: the skills that land branches gain no stack at all', () => {
     assert.doesNotMatch(text, /## ⏸ Review ready/, name)
   }
 })
+
+// --- the one tier that may be absent ----------------------------------------
+//
+// The third amendment to the tier rule: a reader on another machine sees no
+// `local` line, because 127.0.0.1 is the engine's machine. Pinned so the
+// exception keeps its reason and stays the ENGINE's decision — a skill that
+// decided it would be the guess one layer up that the stack exists to remove.
+
+test('the rule names the hidden-local exception, its signal and its fallback', () => {
+  assert.match(RULE, /\*\*One exception: a reader on another machine sees no `local` line\.\*\*/)
+  assert.match(RULE, /third amendment/)
+  assert.match(RULE, /SKITTERSPEC_READER=remote/)
+  assert.match(RULE, /only\s+when `network` has a URL/)
+  assert.match(RULE, /marked `hidden` in `--json` is absent from the printed stack/)
+  assert.match(RULE, /names the engine's\s+`covers`/)
+})
+
+test('STAYS SILENT: the off-tier rule itself is unchanged', () => {
+  // The exception is for a door that cannot open, not for one that is off.
+  assert.match(RULE, /A tier that is off \*\*keeps its line\*\*/)
+  assert.match(RULE, /\*\*Three tiers, always all three, in this order\.\*\*/)
+})

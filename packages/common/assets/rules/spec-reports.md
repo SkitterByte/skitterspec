@@ -164,6 +164,21 @@ on. Dropping the line is what left a reader who had walked out of the house with
 nothing on screen to tell them a remote page was even possible — they could not
 ask for what they could not see.
 
+**One exception: a reader on another machine sees no `local` line.** This is
+the third amendment, and it argues from the rule's own reason. The rule keeps a
+line so the reader can see a door they could ask to have opened. But when the
+engine runs on one machine and the reader is on another — a wrapper running it
+inside a VM, or an ssh session — `127.0.0.1` is the engine's machine, not the
+reader's. That door never opens, whatever anyone asks. It was also first in the
+stack, the link habit reaches for, and it cost a timeout on every review. So the
+engine hides it, on a signal someone set on purpose: `SKITTERSPEC_READER=remote`
+(`local` outranks ssh), the committed `review.reader`, or ssh. It hides it only
+when `network` has a URL to take its place; otherwise the line stays and says
+it is unreachable. Detection decides nothing here, and nor does the skill. A
+tier marked `hidden` in `--json` is absent from the printed stack, so copying
+the stack still produces the right banner. The holding line names the engine's
+`covers` — *the wait covers network* — never a door the stack did not show.
+
 **The `network` tier may carry alternates, and they are part of it — not a fourth tier.**
 The engine offers the other addresses this machine has (a
 tailnet one, for a reader off the wifi) as `also:` lines under `network`, each
