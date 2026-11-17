@@ -737,16 +737,23 @@ const ranLog = (dir) => {
   return fs.existsSync(file) ? fs.readFileSync(file, 'utf-8').split('\n').filter(Boolean) : []
 }
 
+// Commands the engine runs through the platform shell — cmd.exe on Windows —
+// so each is plain `node -e`, never sh (shell-commands-portable.test.js).
+const LOG_BRANCH = `node -e "const fs=require('fs');fs.mkdirSync('.spec-env',{recursive:true});fs.appendFileSync('.spec-env/ran.log',require('child_process').execSync('git branch --show-current').toString())"`
+const LOG_SECOND = `node -e "const fs=require('fs');fs.mkdirSync('.spec-env',{recursive:true});fs.appendFileSync('.spec-env/ran.log','second\\n')"`
+const BOOM = `node -e "console.log('boom-output');process.exit(3)"`
+const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
 test('live take runs a matched afterSwitch command in the primary, and skips the rest', async () => {
   const { dir } = scaffoldRepoWithSpecWorktree()
   try {
     setAfterSwitch(dir, [
-      { run: 'mkdir -p .spec-env && echo "$(git branch --show-current)" >> .spec-env/ran.log', when: 'change.txt' },
+      { run: LOG_BRANCH, when: 'change.txt' },
       { run: 'echo never >> .spec-env/ran.log', when: 'prisma/schema.prisma' },
     ])
     const out = await runQuiet(['spec-env', 'live', 'take', 'feat-x', '--dir', dir])
     assert.match(out, /after switch \(in .*\):/)
-    assert.match(out, /ran: {2}mkdir -p .*# change\.txt changed/)
+    assert.match(out, /ran: {2}node -e .*# change\.txt changed/)
     assert.match(out, /skipped \(nothing in the switch matched\):\n {4}echo never .*# when prisma\/schema\.prisma/)
     // Ran AFTER the checkout, in the primary checkout — so it saw the branch.
     assert.deepStrictEqual(ranLog(dir), ['feat/x'])
@@ -758,11 +765,11 @@ test('live take runs a matched afterSwitch command in the primary, and skips the
 test('live take stops at a failing afterSwitch command and leaves the switch standing', async () => {
   const { dir } = scaffoldRepoWithSpecWorktree()
   try {
-    setAfterSwitch(dir, ['echo boom-output; exit 3', 'mkdir -p .spec-env && echo second >> .spec-env/ran.log'])
+    setAfterSwitch(dir, [BOOM, LOG_SECOND])
     const out = await runQuiet(['spec-env', 'live', 'take', 'feat-x', '--dir', dir])
-    assert.match(out, /! after switch: echo boom-output; exit 3 failed \(exit 3\) — the switch stands/)
+    assert.match(out, new RegExp(`! after switch: ${escape(BOOM)} failed \\(exit 3\\) — the switch stands`))
     assert.match(out, /\n {6}boom-output\n/)
-    assert.match(out, /not run: {2}mkdir -p \.spec-env/)
+    assert.match(out, new RegExp(`not run: {2}${escape(LOG_SECOND)}`))
     assert.deepStrictEqual(ranLog(dir), [])
     assert.strictEqual(git(dir, 'symbolic-ref', '--short', 'HEAD'), 'feat/x')
     assert.ok(fs.existsSync(path.join(dir, '.spec-env', 'live.json')))
@@ -775,12 +782,12 @@ test('live release runs afterSwitch against the same files, after switching back
   const { dir } = scaffoldRepoWithSpecWorktree()
   try {
     setAfterSwitch(dir, [
-      { run: 'mkdir -p .spec-env && echo "$(git branch --show-current)" >> .spec-env/ran.log', when: ['change.txt'] },
+      { run: LOG_BRANCH, when: ['change.txt'] },
     ])
     await runQuiet(['spec-env', 'live', 'take', 'feat-x', '--dir', dir])
     const out = await runQuiet(['spec-env', 'live', 'release', '--dir', dir])
     assert.match(out, /feat-x released — primary back on main/)
-    assert.match(out, /ran: {2}mkdir -p .*# change\.txt changed/)
+    assert.match(out, /ran: {2}node -e .*# change\.txt changed/)
     assert.deepStrictEqual(ranLog(dir), ['feat/x', 'main'])
   } finally {
     cleanup(dir)
