@@ -23,8 +23,14 @@ const path = require('node:path')
 const { execFileSync } = require('node:child_process')
 
 const { DEFAULT_CONFIG, loadEnvConfig } = require('../src/env/config.js')
-const { reviewTierStack, reviewTierLine } = require('../src/env/review.js')
+const { reviewTierStack, reviewTierLine, reviewStackText, waitCovers, resolveReader, readerOffMachine } = require('../src/env/review.js')
 const { run } = require('../src/cli.js')
+
+// `run` reads the reader from `process.env`, and a reader on another machine
+// hides the `local` tier — so a suite run over ssh, or inside a VM whose
+// wrapper sets SKITTERSPEC_READER, would see a different stack from the one
+// these tests describe. Scrubbed so each test states the world it is testing.
+for (const k of ['SSH_CONNECTION', 'SSH_TTY', 'CLAUDE_CODE_BRIDGE_SESSION_ID', 'SKITTERSPEC_READER']) delete process.env[k]
 
 function repo(review = {}) {
   const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-tiers-')))
@@ -227,13 +233,19 @@ test('setting a tier to what it already is says so rather than pretending to cha
  * its own stdout, which is the pattern the other serving suites already use.
  */
 function review(dir, ...extra) {
+  return reviewWith({}, dir, ...extra)
+}
+
+// The same render with variables added to the child's environment — how a test
+// states that the reader is on another machine.
+function reviewWith(env, dir, ...extra) {
   const script =
     `const { run } = require(${JSON.stringify(path.resolve(__dirname, '../src/cli.js'))});` +
     'run(process.argv.slice(1)).then(() => {}, (e) => { console.error(e); process.exit(1) })'
   return execFileSync(
     'node',
     ['-e', script, 'spec-env', 'review', 'feat-alpha', '--dir', dir, ...extra],
-    { encoding: 'utf-8' },
+    { encoding: 'utf-8', env: { ...process.env, ...env } },
   )
 }
 
@@ -534,4 +546,110 @@ test('STAYS SILENT: a disabled network keeps naming the engine command', () => {
   const network = stack.find((t) => t.tier === 'network')
   assert.strictEqual(network.enable, 'skitterspec spec-env review allow network')
   assert.doesNotMatch(reviewTierLine(network), /\/spec-/)
+})
+
+// --- a reader on another machine ---------------------------------------------
+//
+// The engine running in a VM (a wrapper's `prlctl exec`) or over ssh, read
+// from a browser elsewhere: `127.0.0.1` is the wrong machine, so `local` is a
+// door that never opens. Only a signal someone set on purpose hides it.
+
+const SERVED = {
+  loopbackUrl: 'http://127.0.0.1:7760/tok/bug-x',
+  url: 'http://192.168.0.10:7760/tok/bug-x',
+  alternates: [],
+  loopback: false,
+}
+const ON = { review: { allowNetwork: true, allowRemote: false } }
+const stackFor = (reader, served = SERVED, config = ON) =>
+  reviewTierStack({ served, fileUrl: 'file:///x', publishedUrl: null, config, reader })
+
+test('SKITTERSPEC_READER outranks the committed setting and ssh', () => {
+  assert.deepStrictEqual(resolveReader({ review: { reader: 'local' } }, { SKITTERSPEC_READER: 'remote' }), {
+    reader: 'remote',
+    why: 'SKITTERSPEC_READER',
+  })
+  // `local` is the way back for ssh with a port forward, where loopback reaches.
+  assert.strictEqual(resolveReader({}, { SKITTERSPEC_READER: 'Local', SSH_CONNECTION: 'x' }).reader, 'local')
+})
+
+test('STAYS SILENT: an unrecognised SKITTERSPEC_READER falls through', () => {
+  assert.deepStrictEqual(resolveReader({}, { SKITTERSPEC_READER: 'vm' }), { reader: 'unknown', why: null })
+  assert.deepStrictEqual(resolveReader({}, { SKITTERSPEC_READER: '' }), { reader: 'unknown', why: null })
+})
+
+test('a remote reader with network serving gets no local line, network first', () => {
+  const tiers = stackFor(resolveReader({}, { SKITTERSPEC_READER: 'remote' }))
+  const text = reviewStackText(tiers)
+  assert.doesNotMatch(text, /local:/)
+  assert.match(text, /^ {2}network: http:\/\/192\.168\.0\.10/)
+  // Still in the data, marked — the decision is visible, not an absence.
+  assert.deepStrictEqual(tiers[0], {
+    tier: 'local',
+    url: SERVED.loopbackUrl,
+    hidden: true,
+    reason: 'the reader is on another machine (SKITTERSPEC_READER)',
+  })
+  assert.deepStrictEqual(waitCovers(tiers), ['network'])
+})
+
+test('ssh alone hides it too', () => {
+  const tiers = stackFor(resolveReader({}, { SSH_CONNECTION: '10.0.0.1 1 10.0.0.2 22' }))
+  assert.strictEqual(tiers[0].hidden, true)
+})
+
+test('STAYS SILENT: no signal leaves the stack exactly as it was', () => {
+  for (const reader of [null, resolveReader({}, {}), { reader: 'local', why: 'configured' }]) {
+    const tiers = stackFor(reader)
+    assert.deepStrictEqual(tiers[0], { tier: 'local', url: SERVED.loopbackUrl })
+    assert.strictEqual(reviewStackText(tiers), tiers.map((t) => reviewTierLine(t) + '\n').join(''))
+    assert.deepStrictEqual(waitCovers(tiers), ['local', 'network'])
+  }
+})
+
+test('STAYS SILENT: a bridge session is not enough to hide a working link', () => {
+  // Often a browser on this same machine, and an undocumented variable.
+  const reader = resolveReader({}, { CLAUDE_CODE_BRIDGE_SESSION_ID: 'abc' })
+  assert.strictEqual(reader.reader, 'remote')
+  assert.strictEqual(readerOffMachine(reader), false)
+  assert.strictEqual(stackFor(reader)[0].hidden, undefined)
+})
+
+test('with no network URL, local stays and says it is unreachable', () => {
+  const reader = { reader: 'remote', why: 'SKITTERSPEC_READER' }
+  const tiers = stackFor(reader, null, { review: { allowNetwork: false, allowRemote: false } })
+  assert.strictEqual(tiers[0].hidden, undefined)
+  assert.match(reviewStackText(tiers), /^ {2}local: {3}file:\/\/\/x {3}\(not reachable from the reader's machine\)/)
+  assert.deepStrictEqual(waitCovers(tiers), ['local', 'network'])
+})
+
+test('a render for a remote reader prints no local line, and --json marks it', async () => {
+  const { dir } = repoWithSpec({}, await freePort())
+  try {
+    const remote = { SKITTERSPEC_READER: 'remote' }
+    const out = reviewWith(remote, dir)
+    assert.doesNotMatch(out, /^ {2}local:/m)
+    assert.match(out, /^ {2}network: http:/m)
+    assert.match(out, /the wait covers network; a remote verdict/)
+    const json = JSON.parse(reviewWith(remote, dir, '--json'))
+    assert.strictEqual(json.tiers[0].tier, 'local')
+    assert.strictEqual(json.tiers[0].hidden, true)
+    assert.deepStrictEqual(json.covers, ['network'])
+  } finally {
+    stopServe(dir)
+    drop(dir)
+  }
+})
+
+test('STAYS SILENT: the same render without the signal keeps local and both doors', async () => {
+  const { dir } = repoWithSpec({}, await freePort())
+  try {
+    const out = review(dir)
+    assert.match(out, /^ {2}local: {3}http:\/\/127\.0\.0\.1/m)
+    assert.match(out, /the wait covers local \+ network/)
+    assert.deepStrictEqual(JSON.parse(review(dir, '--json')).covers, ['local', 'network'])
+  } finally {
+    stopServe(dir)
+    drop(dir)
+  }
 })

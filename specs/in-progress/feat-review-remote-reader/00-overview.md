@@ -126,7 +126,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Engine: reader signal and stack | ⬜ | [01-engine-reader-signal.md](01-engine-reader-signal.md) |
+| 1 | Engine: reader signal and stack | ✅ | [01-engine-reader-signal.md](01-engine-reader-signal.md) |
 | 2 | Contract, skills and docs | ⬜ | [02-contract-and-docs.md](02-contract-and-docs.md) |
 
 ## Open questions
@@ -139,3 +139,16 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   started as "is local ever useful?" (answer: yes, on the same machine). It
   became "local points at the wrong machine when the engine runs in a VM", and
   that fact is what scopes this spec.
+- 2026-11-17 — Phase 1 changed course. The engine already had a reader
+  signal (`detectReader`/`resolveReader`, plus a committed `review.reader`
+  key), so no new `readerLocation` was added. `SKITTERSPEC_READER` now goes
+  first in `resolveReader` and outranks the committed key, because the wrapper
+  speaks for this machine. `readerOffMachine` hides `local` for the env var,
+  the committed setting and ssh, but not for a bridge session: that is often a
+  browser on the same machine, and its variable is undocumented. Decision 3's
+  "rejected a committed key" still holds, in the sense that no new key was
+  added.
+- 2026-11-17 — Two test files assumed the run's environment, so a suite run
+  inside the VM would have failed. They now scrub `SKITTERSPEC_READER` (and the
+  ssh/bridge variables). Checked by running the whole common suite with
+  `SKITTERSPEC_READER=remote` set.

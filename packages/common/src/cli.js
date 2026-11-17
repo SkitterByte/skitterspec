@@ -114,6 +114,8 @@ const {
   collectReview,
   reviewTierStack,
   reviewTierLine,
+  reviewStackText,
+  waitCovers,
   isTailnetAddress,
   tailnetLabel,
   renderReviewPage,
@@ -1027,8 +1029,9 @@ async function serveTadaPage({ window, flags, recap }) {
   const q = tadaQuery({ ...flags, on: flags.on || (flags.since ? null : localDay(window.since)) })
   const withQ = (u) => (u ? `${u}${q}` : u)
   const page = { ...served, loopbackUrl: withQ(served.loopbackUrl), url: withQ(served.url), alternates: (served.alternates || []).map(withQ) }
-  const tiers = reviewTierStack({ served: page, fileUrl: null, publishedUrl: null, config })
-  process.stdout.write(`page: ${humanLabel(window)}\n${tiers.map(reviewTierLine).join('\n')}\n`)
+  const reader = resolveReader(config, process.env)
+  const tiers = reviewTierStack({ served: page, fileUrl: null, publishedUrl: null, config, reader })
+  process.stdout.write(`page: ${humanLabel(window)}\n${reviewStackText(tiers)}`)
   return true
 }
 
@@ -1132,13 +1135,14 @@ function epicPageTiers(inputs, up, epic) {
   if (!inputs.config) return null
   if (!up) return { off: true, start: 'skitterspec spec-env review serve --host 0.0.0.0' }
   const served = reviewServedUrls(up, offerableLanAddresses(), epic)
-  return { tiers: reviewTierStack({ served, fileUrl: null, publishedUrl: null, config: inputs.config }) }
+  const reader = resolveReader(inputs.config, process.env)
+  return { tiers: reviewTierStack({ served, fileUrl: null, publishedUrl: null, config: inputs.config, reader }) }
 }
 
 function epicPageLines(page) {
   if (!page) return ''
   if (page.off) return `epic page: no review server running — start it with: ${page.start}\n`
-  return `epic page:\n${page.tiers.map(reviewTierLine).join('\n')}\n`
+  return `epic page:\n${reviewStackText(page.tiers)}`
 }
 
 // The working tree `--here` reads: the project folder of the checkout this
@@ -4874,7 +4878,8 @@ function reshowStack(dir, config, spec, out) {
   const cfg = withSpecRemote(config, out)
   const up = readRunningReviewServer(dir, cfg)
   const served = up ? reviewServedUrls(up, offerableLanAddresses(), spec.folder) : null
-  const tiers = reviewTierStack({ served, fileUrl: reviewFileUrl(out), publishedUrl: readReviewUrl(out), config: cfg })
+  const reader = resolveReader(cfg, process.env)
+  const tiers = reviewTierStack({ served, fileUrl: reviewFileUrl(out), publishedUrl: readReviewUrl(out), config: cfg, reader })
   let live = null
   try {
     const primaryState = assertPrimaryOnMain(cfg, gitReader(dir))
@@ -4941,7 +4946,7 @@ async function specEnvReviewWait(dir, config, specArg, flags) {
         `${rearm ? ` (re-arm ${rearm})` : ''}\n` +
         (stack
           ? `  re-show: banner (re-arm ${rearm})\n` +
-            stack.tiers.map((t) => reviewTierLine(t) + '\n').join('') +
+            reviewStackText(stack.tiers) +
             (liveStateLine(stack.live) ? `${liveStateLine(stack.live)}\n` : '')
           : ''),
     )
@@ -6279,6 +6284,10 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
     }
   }
 
+  // ONE STACK for both outputs, so `--json` and the text cannot disagree about
+  // which tiers exist — or which one is hidden.
+  const stackTiers = reviewTierStack({ served, fileUrl: reviewFileUrl(out), publishedUrl: url, config, reader })
+
   if (flags.json) {
     process.stdout.write(
       JSON.stringify(
@@ -6305,12 +6314,10 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
           // The same stack the text prints, so a skill reads the tiers rather
           // than parsing prose — and the two can never disagree, because both
           // come from `reviewTierStack`.
-          tiers: reviewTierStack({
-            served,
-            fileUrl: reviewFileUrl(out),
-            publishedUrl: url,
-            config,
-          }),
+          tiers: stackTiers,
+          // Which served tiers one wait covers — the holding line's tiers, so a
+          // banner never names a door the stack did not show.
+          covers: waitCovers(stackTiers),
           // The same answer `live status --json` gives, from the same function,
           // so the page and the command cannot disagree. Always present, unlike
           // the tiers' optional keys: `unavailable` is a state a consumer needs
@@ -6432,19 +6439,12 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
       // rendering — `reviewTierLine` carries them, which is what puts them
       // under `network:` rather than dangling after the stack (they used to
       // print below `remote:`, against the comment that placed them).
-      reviewTierStack({
-        served,
-        fileUrl: reviewFileUrl(out),
-        publishedUrl: url,
-        config,
-      })
-        .map((t) => reviewTierLine(t) + '\n')
-        .join('') +
+      reviewStackText(stackTiers) +
       // WHICH TIERS THE WAIT COVERS, once, next to the stack. `local` and
       // `network` are two doors into one room — the page POSTs to
       // `location.pathname`, so both reach this server and this pending store.
       // `remote` writes to the artifact's own store, which nothing here can see.
-      '  the wait covers local + network; a remote verdict needs /spec-reviewed.\n' +
+      `  the wait covers ${waitCovers(stackTiers).join(' + ')}; a remote verdict needs /spec-reviewed.\n` +
       // WHETHER IT IS ALSO RUNNING SOMEWHERE, which is the other way to judge a
       // change. `unavailable` prints nothing — see `liveStateLine`.
       (liveStateLine(live) ? `${liveStateLine(live)}\n` : '') +

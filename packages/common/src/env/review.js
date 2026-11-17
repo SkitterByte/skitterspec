@@ -249,9 +249,34 @@ function detectReader(env = {}) {
  * being told.
  */
 function resolveReader(config, env = {}) {
+  // THE WRAPPER FIRST, because it is the one thing that knows this machine. A
+  // committed `review.reader` speaks for every checkout of the repo; a wrapper
+  // that runs the engine inside a VM (`prlctl exec`) speaks for this one, and
+  // the VM shows nothing else to detect — no SSH, no session variables.
+  const told = String(env.SKITTERSPEC_READER || '').trim().toLowerCase()
+  if (told === 'local' || told === 'remote') return { reader: told, why: 'SKITTERSPEC_READER' }
   const setting = (config && config.review && config.review.reader) || 'detect'
   if (setting === 'local' || setting === 'remote') return { reader: setting, why: 'configured' }
   return detectReader(env)
+}
+
+/**
+ * Whether the reader's browser is on another machine, so `127.0.0.1` is the
+ * wrong one — the question that hides the `local` tier.
+ *
+ * NARROWER THAN `reader === 'remote'`, deliberately. A bridge session is a
+ * reader driving this session from elsewhere, but often from a browser on this
+ * same machine, where loopback opens fine; and its variable is an undocumented
+ * harness internal. Hiding a working link on that guess is the load-bearing
+ * detection `detectReader` warns against, so only the signals someone set on
+ * purpose count: the wrapper's variable, the committed setting, and SSH.
+ *
+ * WHAT WOULD FOOL THIS: SSH with a `-L` port forward makes the reader's loopback
+ * reach this server, so `ssh` is a strong hint rather than proof —
+ * `SKITTERSPEC_READER=local` is the way back, and it outranks it.
+ */
+function readerOffMachine(reader) {
+  return Boolean(reader && reader.reader === 'remote' && reader.why !== 'bridge session')
 }
 
 /**
@@ -721,7 +746,7 @@ function surfacesFor({ live, tiers, buttons = null }) {
  * pending store, and one wait covers both. `remote` is a second store, which is
  * why it carries the line saying so.
  */
-function reviewTierStack({ served, fileUrl, publishedUrl, config }) {
+function reviewTierStack({ served, fileUrl, publishedUrl, config, reader = null }) {
   const tiers = []
   const loopbackUrl = served && served.loopbackUrl ? served.loopbackUrl : null
 
@@ -772,7 +797,44 @@ function reviewTierStack({ served, fileUrl, publishedUrl, config }) {
     tiers.push({ tier: 'remote', unavailable: true, note: 'publishing is an ask — nothing published yet' })
   }
 
+  // A READER ON ANOTHER MACHINE gets no `local` door: it points at this
+  // machine's loopback, so it hangs and never opens — first in the list, and
+  // the one habit reaches for. Hidden only when `network` has a URL to take
+  // its place; with none, an empty stack is worse than a dead link that says
+  // it is dead, so it stays and says so. Kept in `--json` either way, marked,
+  // so the decision is visible rather than an absence.
+  if (readerOffMachine(reader)) {
+    const network = tiers.find((t) => t.tier === 'network')
+    const why = `the reader is on another machine (${reader.why})`
+    tiers[0] =
+      network && network.url
+        ? { ...tiers[0], hidden: true, reason: why }
+        : { ...tiers[0], note: "not reachable from the reader's machine" }
+  }
+
   return tiers
+}
+
+/**
+ * The stack as printed text: every tier the reader can use, one line each,
+ * each ending in a newline. A `hidden` tier prints nothing — it is in `--json`
+ * for anyone who asks, and absent from the screen a reader clicks from.
+ */
+function reviewStackText(tiers) {
+  return tiers
+    .filter((t) => !t.hidden)
+    .map((t) => reviewTierLine(t) + '\n')
+    .join('')
+}
+
+/**
+ * The served tiers one wait covers, as the stack shows them. `local` and
+ * `network` are two doors into one room; with `local` hidden there is one door,
+ * and the line must not name one the reader was never shown.
+ */
+function waitCovers(tiers) {
+  const local = tiers.find((t) => t.tier === 'local')
+  return local && local.hidden ? ['network'] : ['local', 'network']
 }
 
 // One tier as a line, padded so the labels form a column the eye can run down.
@@ -2632,6 +2694,8 @@ module.exports = {
   surfacesFor,
   reviewTierStack,
   reviewTierLine,
+  reviewStackText,
+  waitCovers,
   isTailnetAddress,
   tailnetLabel,
   COMMITTING,
@@ -2724,6 +2788,7 @@ module.exports = {
   renderReviewFragment,
   detectReader,
   resolveReader,
+  readerOffMachine,
   CHECK_LEVELS,
   loadTemplate,
   TEMPLATE_PATH,

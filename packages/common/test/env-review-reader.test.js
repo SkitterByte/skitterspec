@@ -175,6 +175,7 @@ function review(dir, ...extra) {
   delete env.SSH_CONNECTION
   delete env.SSH_TTY
   delete env.CLAUDE_CODE_BRIDGE_SESSION_ID
+  delete env.SKITTERSPEC_READER
   return execFileSync('node', ['-e', script, 'spec-env', 'review', 'feat-alpha', '--dir', dir, ...extra], {
     encoding: 'utf-8',
     stdio: ['ignore', 'pipe', 'inherit'],
