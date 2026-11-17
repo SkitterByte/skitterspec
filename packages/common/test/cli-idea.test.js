@@ -171,11 +171,12 @@ test('a provider that holds ideas is handed the command', async () => {
   const dir = repo()
   const calls = []
   setProviderConfigFile('specs/.core/tracker.config.json')
-  setProviderIdeaStore({ supports: true, run: async (sub, argv) => (calls.push([sub, ...argv]), 0) })
+  setProviderIdeaStore({ supports: true, run: async (sub, argv, { out }) => (calls.push([sub, ...argv]), out.write('handed\n'), 0) })
   try {
     fs.writeFileSync(path.join(dir, 'specs', '.core', 'tracker.config.json'), '{}\n')
-    const { code } = await idea(['add', 'Tracked', '--json'], dir)
+    const { code, out } = await idea(['add', 'Tracked', '--json'], dir)
     assert.strictEqual(code, 0)
+    assert.strictEqual(out, 'handed\n', 'the provider writes to the caller\'s stream')
     assert.deepStrictEqual(calls, [['add', 'Tracked', '--json']])
     assert.throws(() => git(dir, 'show', 'main:specs/ideas.md'))
   } finally {

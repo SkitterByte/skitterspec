@@ -132,7 +132,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 2 | `/spec-idea` skill and `/spec` promotion | ✅ | [02-skill-and-promotion.md](02-skill-and-promotion.md) |
 | 3 | GitHub idea seam | ✅ | [03-github-seam.md](03-github-seam.md) |
 | 4 | Linear and Azure Boards seams | ✅ | [04-linear-azure-seams.md](04-linear-azure-seams.md) |
-| 5 | `/spec-todo` line and docs | ⬜ | [05-todo-and-docs.md](05-todo-and-docs.md) |
+| 5 | `/spec-todo` line and docs | ✅ | [05-todo-and-docs.md](05-todo-and-docs.md) |
 
 ## Open questions
 
@@ -152,3 +152,5 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   `skitterspec idea drop` after the spec's committing verdict, instead of
   removing it in the authoring commit through `stage`. `stage` is unchanged,
   and the idea outlives a spec that was never written.
+- 2026-11-17 — Follow-up surfaced: docs/index.html and docs/reference.html
+  are stale against d2e25b39 (afterSwitch); not in scope here.

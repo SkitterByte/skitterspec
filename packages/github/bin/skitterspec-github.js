@@ -37,8 +37,8 @@ require('@skitterbyte/skitterspec-common/src/env/config.js').setProviderConfigFi
 // specs/ideas.md (see common src/idea.js, selectStore).
 require('@skitterbyte/skitterspec-common/src/idea.js').setProviderIdeaStore({
   supports: true,
-  run: (sub, argv, { cwd } = {}) =>
-    require('@skitterbyte/skitterspec-provider-github/src/cli-sync.js').specSync(['idea', sub, ...argv], { cwd }),
+  run: (sub, argv, { cwd, out } = {}) =>
+    require('@skitterbyte/skitterspec-provider-github/src/cli-sync.js').specSync(['idea', sub, ...argv], { cwd, out }),
 })
 const {
   PROVIDER_COMMANDS,

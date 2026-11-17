@@ -46,6 +46,9 @@ What the lines mean:
 - `finished:` — the specs that day completed or cancelled, by name.
 - `blocked:` — a review verdict waiting, or a gate armed by a phase that ended
   and still owes an answer. Read only for specs in flight.
+- `ideas:` — how many ideas are waiting for the `(here)` project. It is a count,
+  never the next action: `/spec-idea` lists them, and the line is absent when
+  there are none or the count could not be read.
 - `today:` — commits and moves since midnight, when there are any.
 
 ## 2. Write the recap

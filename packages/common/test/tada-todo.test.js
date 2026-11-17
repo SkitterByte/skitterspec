@@ -292,3 +292,27 @@ test('the served route asks for the to-do and titles it so', async () => {
   assert.match(out.html, /<h1>To-do · Monday 16 November 2026<\/h1>/)
   assert.match(out.html, /Nothing in flight\./)
 })
+
+test('waiting ideas are counted on the home project, and keep it listed', () => {
+  const todo = buildTodo({
+    leftOff: null,
+    leftOffDay: null,
+    today: day({ projects: [] }),
+    home: { repo: '/home', name: 'home', groups: [], ideas: 3 },
+  })
+  assert.deepStrictEqual(todo.projects.map((p) => [p.name, p.ideas]), [['home', 3]])
+  assert.match(formatTodo(todo), /\n {2}ideas: 3 waiting · \/spec-idea lists them\n/)
+})
+
+test('stays silent: no ideas, or a count that could not be read, prints nothing', () => {
+  for (const ideas of [0, null, undefined]) {
+    const todo = buildTodo({
+      leftOff: null,
+      leftOffDay: null,
+      today: day({ projects: [] }),
+      home: { repo: '/home', name: 'home', groups: [{ spec: 'feat-mine', inFlight: inFlight('feat-mine') }], ideas },
+    })
+    assert.ok(!('ideas' in todo.projects[0]), `ideas: ${ideas}`)
+    assert.doesNotMatch(formatTodo(todo), /ideas:/)
+  }
+})

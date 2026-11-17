@@ -221,7 +221,7 @@ async function ideaCommand(argv, { cwd = process.cwd(), now = new Date(), out = 
   const anchor = primaryAnchor(from, reader(from))
   const store = getProviderIdeaStore()
   const where = selectStore({ providerConfigured: providerConfigured(anchor.dir), store })
-  if (where === 'provider') return store.run(sub, rest, { cwd: from })
+  if (where === 'provider') return store.run(sub, rest, { cwd: from, out })
   if (where === 'unknown') {
     if (sub === 'list') {
       write(out, flags, { store: 'unknown', count: null }, ['idea: cannot tell where ideas live — the configured provider declares no idea store'])

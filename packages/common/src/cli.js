@@ -913,6 +913,26 @@ function repoBlockers(repo, specs) {
 }
 
 /**
+ * The home project's waiting ideas, or null when that cannot be told. A
+ * provider store asks the network, so the answer is bounded: a slow, failed or
+ * refused count is null, and null prints nothing — an idea count is never a
+ * reason for the morning report to fail or stall.
+ */
+async function ideaCount(repo) {
+  let text = ''
+  const sink = { write: (s) => (text += s) }
+  try {
+    const counted = require('./ideacmd.js').ideaCommand(['list', '--count', '--json'], { cwd: repo, out: sink })
+    const timeout = new Promise((resolve) => setTimeout(() => resolve('timeout'), 5000).unref())
+    if ((await Promise.race([counted, timeout])) !== 0) return null
+    const n = JSON.parse(text).count
+    return Number.isInteger(n) ? n : null
+  } catch {
+    return null
+  }
+}
+
+/**
  * `skitterspec todo` — the morning half of the ta-da list: where each project
  * was left on the last day with any activity, what is ahead, and what is in
  * the way. Exits 0 whatever it finds, a fortnight of nothing included.
@@ -938,7 +958,7 @@ async function todoCommand(argv) {
     } catch {
       // the folder name stands in, as it does everywhere else
     }
-    home = { repo: homeRepo, name, groups: openSpecsIn(homeRepo).map((row) => ({ spec: row.spec, inFlight: row })) }
+    home = { repo: homeRepo, name, groups: openSpecsIn(homeRepo).map((row) => ({ spec: row.spec, inFlight: row })), ideas: await ideaCount(homeRepo) }
   }
 
   const todo = buildTodo({ leftOff, leftOffDay: day, today: todaySoFar, home, blockersFor: repoBlockers })

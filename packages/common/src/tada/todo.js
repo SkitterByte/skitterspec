@@ -179,13 +179,17 @@ function buildTodo({ leftOff, leftOffDay, today, home = null, blockersFor = () =
     const e = entry({ ...home, here: true })
     for (const g of home.groups) if (g.inFlight) e.groups.push({ spec: g.spec, branch: null, left: null, prompt: null, inFlight: g.inFlight })
   }
+  // Ideas are counted for home only: the count is this project's to act on,
+  // and asking every project's tracker would turn a morning read into a crawl.
+  // Null — could not ask — and zero both print nothing.
+  if (home && home.ideas > 0) projects.get(keyOf(home)).ideas = home.ideas
 
   const list = [...projects.values()]
     .map((e) => {
       const specs = e.groups.filter((g) => g.spec && g.inFlight).map((g) => g.spec)
       return { ...e, blocked: e.repo && specs.length ? blockersFor(e.repo, specs) : [] }
     })
-    .filter((e) => e.groups.length || e.finished.length || e.today.commits || e.today.moves)
+    .filter((e) => e.groups.length || e.finished.length || e.today.commits || e.today.moves || e.ideas)
     // The home project first: it is the one this session acts on.
     .sort((a, b) => (a.here !== b.here ? (a.here ? -1 : 1) : a.name.localeCompare(b.name)))
 
@@ -233,6 +237,7 @@ function formatTodo(todo, now = new Date()) {
     }
     if (p.finished.length) out.push(`  finished: ${p.finished.join(', ')}`)
     for (const b of p.blocked) out.push(`  blocked: ${blockedText(b, now)}`)
+    if (p.ideas) out.push(`  ideas: ${p.ideas} waiting · /spec-idea lists them`)
     if (p.today.commits || p.today.moves) {
       const parts = [p.today.commits && `${p.today.commits} commit${p.today.commits === 1 ? '' : 's'}`, p.today.moves && `${p.today.moves} move${p.today.moves === 1 ? '' : 's'}`]
       out.push(`  today: ${parts.filter(Boolean).join(', ')}`)
