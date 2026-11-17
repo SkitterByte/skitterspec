@@ -85,3 +85,4 @@ _No external surface changes — internal refactor only._
   everywhere.
 - 2026-11-17 — Fixed: the three tests use `node -e` commands; guard green,
   suite green (5130 passed).
+- 2026-11-17 — Completed; all phases done, tests green.
