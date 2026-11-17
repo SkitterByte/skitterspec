@@ -5,6 +5,14 @@ What's new for users of skitterspec-github. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 2.13.0 — 17 Nov 2026
+
+### Env
+- **Fixed** — On Windows, the review page now starts even when Git's sh is not on PATH, and running the engine from a worktree no longer takes down a review server someone is reading.
+
+### Review
+- **New** — When skitterspec runs on another machine (a VM wrapper that sets SKITTERSPEC_READER=remote, or an ssh session), review links no longer offer a localhost address that cannot open where you read.
+
 ## 2.12.0 — 17 Nov 2026
 
 **Highlights:** /spec-idea parks an idea for a future spec in one step, with no questions, where the team can see it - and /spec idea:<id> turns it into a spec when you are ready.
