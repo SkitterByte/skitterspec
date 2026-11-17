@@ -5,7 +5,7 @@ covers:
   - packages/skitterspec-azure-boards/**
   - packages/sync-core/**
   - packages/provider-kit/**
-verified: 261bd6a24c72
+verified: 7f4d3f157658
 -->
 <html lang="en">
 <head>
@@ -789,7 +789,7 @@ skitterspec-azure-boards spec-sync <span class="p">credentials set</span></div>
         <tbody>
           <tr class="grp-row"><td colspan="3">Plumbing — the push path drives these</td></tr>
           <tr><td class="cmd">spec-sync (azure) plan &lt;spec&gt;</td><td>Compute a create/update plan against the last-pushed snapshot. Writes nothing — and refuses until the types' state names have been checked (<span class="mono">--workspace-states</span>).</td><td class="folder">/spec-push</td></tr>
-          <tr><td class="cmd">spec-sync (azure) apply &lt;spec&gt;</td><td>Apply a plan over the API — create/update as JSON Patch, then set the state — and stamp the returned ids. On the MCP transport it writes nothing and names the tools that apply it instead.</td><td class="folder">/spec-push</td></tr>
+          <tr><td class="cmd">spec-sync (azure) apply &lt;spec&gt;</td><td>Apply a plan over the API — create/update as JSON Patch, then set the state — and stamp the returned ids. On the MCP transport it writes nothing and names the tools that apply it instead. In PR mode the push splits across <span class="mono">/spec-complete</span>'s two runs: <span class="mono">--hold-state</span> sends everything but the Done and writes the snapshot to ride the PR, and <span class="mono">--send-held</span> sends the Done after the merge, needing no plan and leaving the snapshot untouched.</td><td class="folder">/spec-push</td></tr>
           <tr><td class="cmd">spec-sync (azure) restate &lt;spec&gt; | --all &lt;bucket&gt;</td><td>Bring already-pushed items' states up to today's map, read live — child items only unless <span class="mono">--parents</span>. A dry run until <span class="mono">--apply</span>; never moves an item out of an unmapped or later state; records the names so the next map change shows up in <span class="mono">plan</span>.</td><td class="folder">you</td></tr>
           <tr><td class="cmd">spec-sync (azure) status &lt;spec&gt;</td><td>What would push, and whether the description was edited on Boards since the last push. Never reads the item's state.</td><td class="folder">/spec-status</td></tr>
           <tr><td class="cmd">spec-sync (azure) verify &lt;spec&gt;</td><td>Compare a read-back against what was sent — markdown is stored verbatim, so this is normally byte-identical; an HTML-era item reduces to text first. Warns, never fails.</td><td class="folder">/spec-push · you</td></tr>

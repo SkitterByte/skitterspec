@@ -110,7 +110,7 @@ cd packages/provider-kit && node --test test/apply-held-state.test.js
 |---|-------|--------|------|
 | 1 | Engine: hold and send the completion state | ✅ | [01-engine-held-state.md](01-engine-held-state.md) |
 | 2 | Provider CLIs: `--hold-state` / `--send-held` | ✅ | [02-provider-flags.md](02-provider-flags.md) |
-| 3 | Skill, seams and docs | ⬜ | [03-skill-seams-docs.md](03-skill-seams-docs.md) |
+| 3 | Skill, seams and docs | ✅ | [03-skill-seams-docs.md](03-skill-seams-docs.md) |
 
 ## Open questions
 
@@ -126,3 +126,6 @@ cd packages/provider-kit && node --test test/apply-held-state.test.js
 - 2026-11-17 — Phase 2: flags wired through `kit.heldFlags` / `kit.heldOverMcp`
   on all four providers, plus `record --held`. Jira turned out to use the shared
   apply too. MCP prints a note rather than a reshaped plan.
+- 2026-11-17 — Phase 3: the sync seam (× 4) and `spec-complete` §6-pr name
+  the branch-lane hold/send; the docs apply rows gain both flags. Fixed: test
+  green, 5088 + all package suites pass.

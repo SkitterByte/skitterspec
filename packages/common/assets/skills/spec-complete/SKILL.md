@@ -408,6 +408,10 @@ person happens before the ready, in this order:
    — run 2 moves it on base after the merge; under `branch` commit the move on
    the branch *before* step 3 so it rides the PR. Either way
    **the tracker's Done waits for run 2**: a ready PR is not a merged one.
+   Under `branch` the §4 tracker step still runs here, but holding the state
+   (`--hold-state`, as the step says), so the snapshot run 2 would write is in
+   the commit that rides the PR. Otherwise run 2 leaves it modified on the base
+   branch, where nothing is left to commit it to.
 5. **Stop, keeping the worktree.** Report
    `Landed: PR #N opened — finish after merge` (or `ready`), spec
    `In Progress`, worktree standing. No afterLand runs — the plan deferred it
@@ -417,12 +421,18 @@ person happens before the ready, in this order:
 **Run 2 — after the host merges.** `integrate` recognises the landed branch
 (ancestry or the host's answer) and prints the finish: catch local base up and
 the deferred `afterLand` with the land's own range. Run those, then do what run
-1 deferred — the §4 move (trunk lane) with its State log row and commit, the
-§5 report — then **§7 teardown runs as normal**:
+1 deferred — the §4 move (trunk lane) with its State log row and commit, or
+under `branch` the held state alone (`--send-held`, which writes nothing to the
+tree), the §5 report — then **§7 teardown runs as normal**:
 a host-merged branch counts as landed (squash and rebase
 merges included), and a host that auto-deleted the branch makes the remote
 delete an already-gone no-op, never a failure. Re-test on base before calling
 it done, exactly as 6-feature/bug step 4.
+
+Where `--send-held` reports that nothing was held — a run 1 from before the
+hold existed — it has sent the whole plan, and its line names the snapshot it
+left modified on base. Put that in the report's `Notes`: only the operator can
+choose where that file goes.
 
 ## 7. Tear down the environment (opt-in, only if configured)
 

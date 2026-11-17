@@ -5,7 +5,7 @@ covers:
   - packages/skitterspec-jira/**
   - packages/sync-core/**
   - packages/provider-kit/**
-verified: 261bd6a24c72
+verified: 7f4d3f157658
 -->
 <html lang="en">
 <head>
@@ -778,7 +778,7 @@ skitterspec-jira spec-sync <span class="p">credentials set</span></div>
         <tbody>
           <tr class="grp-row"><td colspan="3">Plumbing — the push path drives these</td></tr>
           <tr><td class="cmd">spec-sync (jira) plan &lt;spec&gt;</td><td>Compute a create/update plan against the last-pushed snapshot. Writes nothing — and refuses until the project's status names have been checked (<span class="mono">--workspace-states</span>).</td><td class="folder">/spec-push</td></tr>
-          <tr><td class="cmd">spec-sync (jira) apply &lt;spec&gt;</td><td>Apply a plan over the API — create/update, then transition — and stamp the returned keys. On the MCP transport it writes nothing and names the tools that apply it instead.</td><td class="folder">/spec-push</td></tr>
+          <tr><td class="cmd">spec-sync (jira) apply &lt;spec&gt;</td><td>Apply a plan over the API — create/update, then transition — and stamp the returned keys. On the MCP transport it writes nothing and names the tools that apply it instead. In PR mode the push splits across <span class="mono">/spec-complete</span>'s two runs: <span class="mono">--hold-state</span> sends everything but the Done and writes the snapshot to ride the PR, and <span class="mono">--send-held</span> sends the Done after the merge, needing no plan and leaving the snapshot untouched.</td><td class="folder">/spec-push</td></tr>
           <tr><td class="cmd">spec-sync (jira) status &lt;spec&gt;</td><td>What would push, and whether the description was edited on Jira since the last push. Never reads the issue's status.</td><td class="folder">/spec-status</td></tr>
           <tr><td class="cmd">spec-sync (jira) verify &lt;spec&gt;</td><td>Compare a read-back against what was sent — by words, not bytes, because ADF has no canonical byte form. Warns, never fails.</td><td class="folder">/spec-push · you</td></tr>
           <tr><td class="cmd">spec-sync (jira) splice &lt;spec&gt; --live &lt;f&gt;</td><td>The body to write when the skill applies over MCP: in summary mode, the block spliced into what Jira holds now, so the team's text around it survives; refuses (prints no body) when a delimiter was edited. In spec mode, the projection as it is.</td><td class="folder">/spec-push · /spec</td></tr>

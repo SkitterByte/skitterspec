@@ -5,7 +5,7 @@ covers:
   - packages/skitterspec-linear/**
   - packages/sync-core/**
   - packages/provider-kit/**
-verified: 261bd6a24c72
+verified: 7f4d3f157658
 -->
 <html lang="en">
 <head>
@@ -847,7 +847,7 @@ skitterspec spec-sync <span class="p">credentials set</span></div>
         <tbody>
           <tr class="grp-row"><td colspan="3">Plumbing — the push path drives these</td></tr>
           <tr><td class="cmd">spec-sync plan &lt;spec&gt;</td><td>Compute a create/update plan against the last-pushed snapshot. Writes nothing. (Named <code>push</code> before v13.)</td><td class="folder">/spec-push</td></tr>
-          <tr><td class="cmd">spec-sync apply &lt;spec&gt;</td><td>Apply a plan, stamp the returned ids into the spec, and record the snapshot.</td><td class="folder">/spec-push</td></tr>
+          <tr><td class="cmd">spec-sync apply &lt;spec&gt;</td><td>Apply a plan, stamp the returned ids into the spec, and record the snapshot. In PR mode the push splits across <span class="mono">/spec-complete</span>'s two runs: <span class="mono">--hold-state</span> sends everything but the Done and writes the snapshot to ride the PR, and <span class="mono">--send-held</span> sends the Done after the merge, needing no plan and leaving the snapshot untouched.</td><td class="folder">/spec-push</td></tr>
           <tr><td class="cmd">spec-sync status &lt;spec&gt;</td><td>What would push, and whether the description was edited in Linear since the last push. Never reads the issue's workflow-state.</td><td class="folder">/spec-status</td></tr>
           <tr><td class="cmd">spec-sync verify &lt;spec&gt;</td><td>Read back what Linear stored and compare it to what was sent.</td><td class="folder">/spec-push · you</td></tr>
           <tr><td class="cmd">spec-sync splice &lt;spec&gt; --live &lt;f&gt;</td><td>The body to write when the skill applies over MCP: in summary mode, the block spliced into what Linear holds now, so the team's text around it survives; refuses (prints no body) when a delimiter was edited. In spec mode, the projection as it is.</td><td class="folder">/spec-push · /spec</td></tr>

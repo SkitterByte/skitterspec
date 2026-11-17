@@ -27,10 +27,20 @@ Jira credentials are set (see `apply.transport` in `jira.config.md`).
   complete/cancelled/reviewed in the repo regardless; the mirror is disposable
   and the next push repairs it. Do not roll anything back, and do not stop to
   ask.
-- **In `/spec-complete`'s PR mode this push belongs to run 2.** Run 1 readies
-  a PR, and a ready PR is not a merged one — so skip it on run 1, even where
-  the `branch` lane committed the move to ride the PR, and run it on run 2 once
-  the host has merged. The tracker's Done lands when the work does.
+- **In `/spec-complete`'s PR mode the Done waits for run 2.** Run 1 readies a
+  PR, and a ready PR is not a merged one. Which run pushes depends on the
+  `land.specDocs` lane:
+  - **`trunk`** — skip it on run 1. Run 2 moves the spec on base, so it pushes
+    there in this step's usual place, before its own commit.
+  - **`branch`** — run 1 commits the move to ride the PR, so push **here**,
+    holding the state: `spec-sync apply <spec> --plan <file> --hold-state`.
+    Everything but the Done goes now, and the snapshot is written as if the
+    Done had gone too, so it rides the PR. Run 2 sends it once the host has
+    merged: `spec-sync apply <spec> --send-held`, which needs no plan and
+    leaves the snapshot untouched. Over MCP, apply by hand and end run 1 with
+    `spec-sync record <spec> --held`.
+
+  The tracker's Done lands when the work does.
 - **Say what happened** in the skill's report: mirror updated, skipped as
   unlinked, or failed with the reason.
 - **There is no assignment to release here.** Assignment sync is not yet
@@ -48,6 +58,14 @@ In `/spec-complete` and `/spec-cancel` this step is deliberately pinned
 - **Before the commit**, because the push stamps keys into the spec and writes a
   snapshot under `specs/.core/`. Push after the commit instead and both are left
   uncommitted, which makes `spec-env integrate` refuse to land the branch.
+
+**PR mode keeps both halves by splitting the push across the runs.** In the
+`branch` lane the commit happens in run 1, and run 2 only has the base branch,
+where nothing is left to commit a snapshot to. An unsplit push there left a
+modified snapshot on base after every completion. `--hold-state` writes run 2's
+snapshot in run 1, and `--send-held` then moves only the state. If it says
+nothing was held (a run 1 from before this), it sends the whole plan and names
+the snapshot it leaves modified. Relay that line.
 
 The snapshot is reached **by name**, not by breadth. It is a declared
 `spec.companionPaths` entry (`specs/.core/jira-base/{identifier}.base.json`),
