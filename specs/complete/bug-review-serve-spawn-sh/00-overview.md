@@ -98,3 +98,4 @@ renders ~10 minutes apart with no engine call that should have touched it.
   (returns the error), so not in scope here. The Git Bash server that died
   after ~10 minutes is unexplained; the `sh` wrapper it ran under is gone now,
   so it may not recur.
+- 2026-11-17 — Completed; fix done, tests green. Docs impact flagged index, reference, review for re-read; none describe the spawn path.
