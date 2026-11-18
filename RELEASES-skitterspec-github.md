@@ -5,6 +5,12 @@ What's new for users of skitterspec-github. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 2.15.0 — 18 Nov 2026
+
+### Env
+- **New** — Between release branches, every command offers to use the fallback base instead of refusing outright, and once you accept, the review page, status and land plans say the base is pinned for the gap.
+- **New** — When no release branch matches your base pattern, skitterspec can pin the fallback branch for the gap with spec-env base --use-fallback; the pin clears itself once the next release branch appears.
+
 ## 2.14.0 — 18 Nov 2026
 
 ### Review
