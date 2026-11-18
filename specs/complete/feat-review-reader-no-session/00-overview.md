@@ -136,3 +136,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   broke exactly one test, an "unknown reader" render that inherited its
   session. It now sets `SESSIONNAME=Console`. Every other CLI stack test
   configures `review.reader: local`, so detection never runs in them.
+- 2026-11-18 — Completed; all phases done, tests green.
