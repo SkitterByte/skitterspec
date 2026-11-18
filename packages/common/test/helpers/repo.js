@@ -85,9 +85,21 @@ function makeRepo({ name = 'skitterspec-', prefix = nestedPrefix(), config = {},
       // RETRIED, because Windows releases a killed process's handles late: a
       // dev server `taskkill`ed a moment ago can still hold its cwd, and the
       // rm fails EPERM on a tree that is free a few hundred ms later.
-      const rm = { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }
-      fs.rmSync(root, rm)
-      fs.rmSync(wtRoot, rm)
+      //
+      // And on Windows a tree still held once the retries run out is LEFT, not
+      // thrown: under full-suite load on CI the handle outlived ~5s of backoff
+      // while the same test passed every isolated run. What a dev test asserts
+      // is that the process died, and it probes that itself; a leftover temp
+      // tree on an ephemeral runner is not that failure. Elsewhere a lock this
+      // long means something really is alive, so it still throws.
+      const rm = { recursive: true, force: true, maxRetries: 20, retryDelay: 100 }
+      for (const tree of [root, wtRoot]) {
+        try {
+          fs.rmSync(tree, rm)
+        } catch (err) {
+          if (process.platform !== 'win32' || !['EPERM', 'EBUSY'].includes(err.code)) throw err
+        }
+      }
       byDir.delete(dir)
     },
     // Add a worktree for `folder` on `feat/<slug>` at the default layout, and
