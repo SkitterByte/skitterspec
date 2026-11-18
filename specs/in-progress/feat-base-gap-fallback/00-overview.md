@@ -134,7 +134,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Resolver, pin store and `spec-env base` verbs | ✅ | [01-resolver-and-pin.md](01-resolver-and-pin.md) |
-| 2 | Every caller honours the pin and carries the offer | ⬜ | [02-callers-and-offer.md](02-callers-and-offer.md) |
+| 2 | Every caller honours the pin and carries the offer | ✅ | [02-callers-and-offer.md](02-callers-and-offer.md) |
 | 3 | Skills relay the offer; docs | ⬜ | [03-skills-and-docs.md](03-skills-and-docs.md) |
 
 ## Open questions
@@ -149,3 +149,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   tell a gap from an unfetched remote); a named `baseBranchFallback` must
   exist locally or on the remote, else no offer. The `env.config.md` key
   entry landed here; the rolling-base passage is still phase 3's.
+- 2026-11-18 — Phase 2: the pin reaches callers as `config.gapPin`, a
+  non-enumerable getter `loadEnvConfig` attaches, rather than a helper at
+  each call site — the review server loads config once and lives for days,
+  so the pin is re-read on every resolve. The `spec-env` dispatcher retires a
+  stale pin and turns `BaseUnresolvedError` into the refusal + offer. The gap
+  line goes on review (text, JSON `baseGap`, page), `status` and integrate
+  plans; `resolve` never reads the base, so it gets none.

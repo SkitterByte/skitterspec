@@ -67,6 +67,7 @@
 const { createHash } = require('node:crypto')
 const { existsSync, readFileSync, realpathSync } = require('node:fs')
 const { join, resolve, sep } = require('node:path')
+const { readBasePin } = require('./basepin.js')
 
 const CONFIG_FILE = join('specs', '.core', 'env.config.json')
 
@@ -958,6 +959,27 @@ function applyProviderSpecDocs(config, parsed, dir) {
   return config
 }
 
+/**
+ * Attach the gap pin (`env/basepin.js`) to a loaded config as `gapPin`, so every
+ * caller that resolves the base from this config honours it with nothing passed
+ * — the main guard, the served pages and the dashboard included. Without a
+ * pattern there is no gap and nothing is read.
+ *
+ * Non-enumerable, because it is local state rather than configuration: it must
+ * not appear in a config dump, a deep-equal, or anything written back to disk.
+ * `dir` is the folder the config was read from — the primary checkout for
+ * every caller that anchors there first. One that does not finds no pin, which
+ * is the harmless direction: it refuses and offers again.
+ */
+function withGapPin(config, dir) {
+  if (config.baseBranchPattern) {
+    // A getter, read on every resolve: the review server loads its config once
+    // and lives for days, and a pin taken after it started must still count.
+    Object.defineProperty(config, 'gapPin', { get: () => readBasePin(dir, config), enumerable: false })
+  }
+  return config
+}
+
 function loadEnvConfig(dir = process.cwd()) {
   const base = defaults()
   const file = join(dir, CONFIG_FILE)
@@ -985,7 +1007,7 @@ function loadEnvConfig(dir = process.cwd()) {
   }
 
   return {
-    config: applyProviderSpecDocs(applyProviderEnvDefaults(mergeConfig(base, parsed), parsed), parsed, dir),
+    config: withGapPin(applyProviderSpecDocs(applyProviderEnvDefaults(mergeConfig(base, parsed), parsed), parsed, dir), dir),
     present: true,
     unknown: collectUnknownKeys(parsed),
     badReviewers: collectBadReviewers(parsed),

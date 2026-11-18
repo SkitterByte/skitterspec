@@ -316,7 +316,7 @@ function readerOffMachine(reader) {
  * `buttons` is the button set the page renders — see `BUTTON_SETS`. It is the
  * caller's declaration about the work, not a reading of the gate.
  */
-function collectReview({ spec, git, mode = 'working', ref, base = null, now, notes = null, gate = null, fellBack = false, buttons = null, only = null, treePath = null, live = null, tiers = null, project = null }) {
+function collectReview({ spec, git, mode = 'working', ref, base = null, baseGap = null, now, notes = null, gate = null, fellBack = false, buttons = null, only = null, treePath = null, live = null, tiers = null, project = null }) {
   // WHICH TREE THE SPEC'S OWN DOCUMENTS ARE READ FROM. Every render but one
   // reads the spec's worktree, and for those the two are the same path — so
   // `treePath` left null keeps the existing behaviour exactly. The `docs` mode
@@ -424,6 +424,9 @@ function collectReview({ spec, git, mode = 'working', ref, base = null, now, not
     // "everything since main, because there was nothing uncommitted" are
     // different answers to "what am I looking at".
     fellBack,
+    // Set when a gap pin chose `base` (`gapNote`): the page says so beside it,
+    // because "since master" reads as a decision nobody made otherwise.
+    baseGap: base ? baseGap : null,
     generatedAt: now,
     // Is there a phase left for `/spec-next` to build? The page needs it to
     // know whether offering `Commit & Continue` means anything — and it is read

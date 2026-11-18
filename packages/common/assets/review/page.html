@@ -3373,7 +3373,8 @@ a.ticket:hover { border-color: var(--accent); }
   part(data.branch)
   sep()
   part(data.mode === 'branch'
-    ? 'everything since ' + data.base + (data.fellBack ? ' (working tree clean)' : '')
+    ? 'everything since ' + data.base + (data.fellBack ? ' (working tree clean)' : '') +
+      (data.baseGap ? ' — ' + data.baseGap : '')
     : data.mode === 'docs'
       ? "the spec's own documents"
       : 'uncommitted work')

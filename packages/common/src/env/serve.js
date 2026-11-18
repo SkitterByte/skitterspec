@@ -35,6 +35,7 @@ const {
   allSpecs,
   resolveSpec,
   resolveBaseBranch,
+  gapNote,
   isEpic,
 } = require('./resolve.js')
 const { epicTree, worktreeOverview, epicsInFlight, memberReaders, epicAnswer } = require('./epicread.js')
@@ -641,6 +642,7 @@ function renderSpecPage(dir, config, spec, { branch = false } = {}) {
     mode,
     ref,
     base: baseName,
+    baseGap: baseName ? gapNote(config, trimmed) : null,
     now,
     notes,
     gate,
@@ -664,6 +666,7 @@ function renderSpecPage(dir, config, spec, { branch = false } = {}) {
         mode: 'branch',
         ref: mergeBase,
         base: fallbackBase,
+        baseGap: gapNote(config, trimmed),
         now,
         notes,
         gate,

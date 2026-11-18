@@ -154,7 +154,17 @@ function refuse(out, flags, reason, extra = {}) {
 
 async function fileStore(sub, positional, flags, { cwd, now, out }) {
   const ctx = fileContext(cwd)
-  if (!ctx.base) return refuse(out, flags, ctx.refused ? ctx.refused.message : 'cannot resolve the base branch')
+  if (!ctx.base) {
+    // A rolling base in its gap carries the engine's offer
+    // (`.claude/rules/offered-unblocks.md`): the refusal, then the way out.
+    const offer = ctx.refused && ctx.refused.offer
+    if (!offer) return refuse(out, flags, ctx.refused ? ctx.refused.message : 'cannot resolve the base branch')
+    write(out, flags, { ok: false, refused: ctx.refused.message, offer }, [
+      `idea: ${ctx.refused.message}`,
+      `  offer: ${offer.label} — ${offer.command}`,
+    ])
+    return 1
+  }
   const { tip, text } = readOnBase(ctx)
 
   if (sub === 'list') {

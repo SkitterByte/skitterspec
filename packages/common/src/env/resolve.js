@@ -479,7 +479,7 @@ class BaseUnresolvedError extends Error {
  * synchronous for every caller, the main-guard hook included. Fetching is left
  * to the commands that already talk to the remote.
  */
-function resolveBaseBranch(config, git, pin = null) {
+function resolveBaseBranch(config, git, pin = (config && config.gapPin) || null) {
   const { base, refused } = describeBaseBranch(config, git, pin)
   if (refused) throw refused
   return base
@@ -492,14 +492,15 @@ function resolveBaseBranch(config, git, pin = null) {
  * `{ base: null, how: 'pattern', refused }` rather than thrown, so a listing
  * can still say what it saw.
  *
- * `pin` is the gap pin as `readBasePin` returns it, or null. It is passed in
- * rather than read here so this stays pure. It is honoured only while the
+ * `pin` is the gap pin as `readBasePin` returns it, or null. It defaults to
+ * the one `loadEnvConfig` attached as `config.gapPin`, so callers need not
+ * pass it; it is never read from disk here, so this stays pure. It is honoured only while the
  * pattern has NO match and only when it was made under this same pattern: a
  * match always wins, which is what makes the pin clear itself the moment the
  * next release branch is cut. `stalePin` says a pin was passed and a match
  * overrode it, so the caller can delete the file.
  */
-function describeBaseBranch(config, git, pin = null) {
+function describeBaseBranch(config, git, pin = (config && config.gapPin) || null) {
   const explicit = config && typeof config.baseBranch === 'string' && config.baseBranch.trim()
   if (explicit) return { base: explicit, how: 'pin' }
 
@@ -533,6 +534,17 @@ function describeBaseBranch(config, git, pin = null) {
 // `up` and `integrate` fetch before resolving so they never act on one.
 function baseRemote(config) {
   return (config && config.land && typeof config.land.remote === 'string' && config.land.remote.trim()) || 'origin'
+}
+
+/**
+ * The words that go beside the base wherever one is shown, when a gap pin
+ * chose it — `no 20??/Q? branch on origin — pinned for the gap` — else null.
+ * One function so the page, the review text and the plans cannot disagree.
+ */
+function gapNote(config, git) {
+  const { how } = describeBaseBranch(config, git)
+  if (how !== 'gap-pin') return null
+  return `no ${config.baseBranchPattern.trim()} branch on ${baseRemote(config)} — pinned for the gap`
 }
 
 // The branch a gap pin would name: `baseBranchFallback`, else the remote's
@@ -874,6 +886,7 @@ module.exports = {
   resolveBaseBranch,
   describeBaseBranch,
   gapFallback,
+  gapNote,
   baseRemote,
   BaseUnresolvedError,
   resolvePrimaryCheckout,

@@ -67,6 +67,8 @@ const {
   resolveSpecless,
   resolveBaseBranch,
   describeBaseBranch,
+  BaseUnresolvedError,
+  gapNote,
   baseRemote,
   liveWorktreePaths,
   collectSpecFolders,
@@ -593,6 +595,10 @@ function provisionedSpecs(dir, config) {
 
 function specEnvStatus(dir, config) {
   const provisioned = provisionedSpecs(dir, config)
+  // A base held on the fallback is worth one line wherever work is listed: it
+  // is the state every fork and land is in until the next release branch.
+  const gap = gapNote(config, gitReader(dir))
+  if (gap) process.stdout.write(`spec-env: base ${config.gapPin.base} — ${gap}\n`)
 
   // REACHED EITHER WAY. This used to return here, so a repo with nothing in
   // flight could say nothing about a waiting pass — and a repo with nothing in
@@ -3138,7 +3144,7 @@ function specEnvIntegrate(dir, config, specArg, flags = {}) {
     }
     const cout = [`spec-env integrate: ${spec.folder}`, '', '  mode:      checkout',
                   `  base:      ${base}`, `  branch:    ${cplan.branch}`,
-                  ...retargetLines(retarget),
+                  ...retargetLines(retarget), ...gapLines(config, gitReader(dir)),
                   ...reverifyLines(dir, spec, base, dir), '',
                   '  run these (abort the rebase on conflict):']
     for (const cmd of cplan.commands) cout.push(`    ${cmd}`)
@@ -3253,7 +3259,7 @@ function specEnvIntegrate(dir, config, specArg, flags = {}) {
   out.push(`  base:      ${plan.base}`)
   out.push(`  branch:    ${plan.branch}`)
   out.push(`  worktree:  ${spec.worktreePath}`)
-  out.push(...retargetLines(retarget))
+  out.push(...retargetLines(retarget), ...gapLines(config, gitReader(dir)))
   if (primarySwitch) out.push(`  primary:   on ${primarySwitch.from} — switched to ${base} before the land`)
   out.push(...reverifyLines(dir, spec, baseRef, spec.projectPath || spec.worktreePath))
   out.push('')
@@ -3305,6 +3311,13 @@ function reverifyLines(dir, spec, baseRef, tree) {
 // never happen without the reader seeing it.
 function retargetLines(retarget) {
   return retarget ? [`  retarget:  forked from ${retarget.from} · landing onto ${retarget.to}`] : []
+}
+
+// Said under `base:` when a gap pin chose it, so a land onto the fallback is
+// never mistaken for a land onto a release branch. Nothing otherwise.
+function gapLines(config, git) {
+  const note = gapNote(config, git)
+  return note ? [`  gap:       ${note}`] : []
 }
 
 // Is the primary checkout sitting on an older rolling-base match? Positive
@@ -3441,7 +3454,7 @@ function specEnvIntegratePr(dir, config, spec, base, flags, retarget = null) {
   out.push(`  base:      ${remote}/${base}`)
   out.push(`  branch:    ${plan.branch}`)
   out.push(checkout ? `  checkout:  ${treePath}` : `  worktree:  ${treePath}`)
-  out.push(...retargetLines(retarget))
+  out.push(...retargetLines(retarget), ...gapLines(config, gitReader(dir)))
   // Silent on cannot-tell: a line about a lookup that failed accuses nothing
   // and helps nobody — the placeholder in the commands already degrades.
   if (pr.state === 'none') out.push('  pr:        none yet')
@@ -4502,7 +4515,7 @@ function specEnvBase(dir, config, flags = {}) {
   const fetch = fetchForPattern(dir, config)
   const pin = pattern ? readBasePin(dir, config) : null
   const { base, how, stalePin, refused } = describeBaseBranch(config, git, pin)
-  const pinCleared = Boolean(stalePin) && clearBasePin(dir, config)
+  const pinCleared = Boolean(flags.pinRetired) || (Boolean(stalePin) && clearBasePin(dir, config))
 
   let matches = []
   let forks = []
@@ -4554,7 +4567,8 @@ function baseUseFallback(dir, config, flags) {
         `cannot tell whether a ${pattern} branch exists, so nothing was pinned.`,
     )
   }
-  const { base, refused } = describeBaseBranch(config, gitReader(dir))
+  // null, not the attached pin: the question is whether the PATTERN matches.
+  const { base, refused } = describeBaseBranch(config, gitReader(dir), null)
   if (base) {
     clearBasePin(dir, config)
     return basePinAnswer(flags, false, `spec-env base: ${base} matches ${pattern} — no gap to pin; it is the base.`, { base })
@@ -6129,12 +6143,16 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
   // spec with no branch to put live (decision 6), so it carries neither key and
   // renders exactly as it did before this existed.
   const surfaceArgs = docs ? {} : { live, tiers: pageTiers(config) }
+  // The words beside the base when a gap pin chose it; asked only where a base
+  // is shown, which is the branch range.
+  const baseGap = () => gapNote(config, trimmed)
   let data = collectReview({
     spec,
     git,
     mode,
     ref,
     base,
+    baseGap: base ? baseGap() : null,
     now,
     notes,
     gate,
@@ -6178,6 +6196,7 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
         mode: 'branch',
         ref: mergeBase,
         base: fallbackBase,
+        baseGap: baseGap(),
         now,
         notes,
         gate,
@@ -6376,6 +6395,7 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
           mode,
           base,
           fellBack,
+          baseGap: data.baseGap,
           // The paths a committing verdict on this page must commit, so the
           // skill that routes on it never recomputes the set the reader saw.
           // Absent for every other mode, which keeps their output identical.
@@ -6452,6 +6472,7 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
     `spec-env review: ${spec.folder} (${
       fellBack ? `working tree clean — since ${base}` : mode === 'branch' ? `since ${base}` : 'uncommitted'
     })\n` +
+      (data.baseGap ? `  base: ${base} — ${data.baseGap}\n` : '') +
       `  ${t.files} file${t.files === 1 ? '' : 's'}, +${t.additions} -${t.deletions}\n` +
       (merged
         ? `  merged: ${merged.accepted} accept${merged.accepted === 1 ? '' : 's'}, ` +
@@ -8065,6 +8086,40 @@ async function specEnv(rest) {
     }
   }
 
+  // A gap pin a match has retired is deleted here, the one point every
+  // subcommand passes, so it cannot outlive the gap even when nobody runs
+  // `spec-env base`. Only asked when a pin exists, so the common path pays
+  // nothing. The resolver already ignores it; this just tidies the file.
+  if (config.gapPin && describeBaseBranch(config, gitReader(dir)).stalePin) {
+    clearBasePin(dir, config)
+    flags.pinRetired = true
+  }
+
+  try {
+    await specEnvDispatch(sub, dir, config, positional, flags, present, invokedFrom)
+  } catch (error) {
+    if (!(error instanceof BaseUnresolvedError)) throw error
+    baseRefusal(sub, error, flags)
+  }
+}
+
+// A base that will not resolve, said with the way out where the engine has one
+// (`.claude/rules/offered-unblocks.md`): the refusal first, then the offer.
+// stdout and exit 1, so a skill reads it whether or not it asked for --json.
+function baseRefusal(sub, error, flags) {
+  process.exitCode = 1
+  if (flags.json) {
+    const out = { blocked: true, reason: error.refused }
+    if (error.offer) out.offer = error.offer
+    process.stdout.write(JSON.stringify(out, null, 2) + '\n')
+    return
+  }
+  const lines = [`spec-env ${sub}: ${error.refused}`]
+  if (error.offer) lines.push(`  offer: ${error.offer.label} — ${error.offer.command}`)
+  process.stdout.write(lines.join('\n') + '\n')
+}
+
+async function specEnvDispatch(sub, dir, config, positional, flags, present, invokedFrom) {
   switch (sub) {
     case 'up':
       specEnvUp(dir, config, positional[0], flags)
