@@ -439,15 +439,22 @@ function branchFor(spec, config) {
 /**
  * Thrown when `baseBranchPattern` is set and no remote branch matches it. A
  * refusal, never a fall-through: the default branch is exactly where a rolling
- * base must not land. `refused` carries the one-line reason; `pattern` the glob.
+ * base must not land unasked. `refused` carries the one-line reason; `pattern`
+ * the glob. `offer` is the way out the engine declares
+ * (`.claude/rules/offered-unblocks.md`) — pin the fallback for the gap — and is
+ * null when no fallback resolves, because guessing a base is worse than asking.
  */
 class BaseUnresolvedError extends Error {
-  constructor(pattern) {
+  constructor(pattern, fallback = null) {
     const refused = `no branch matches ${pattern} — run spec-env base to fetch`
     super(refused)
     this.name = 'BaseUnresolvedError'
     this.refused = refused
     this.pattern = pattern
+    this.fallback = fallback
+    this.offer = fallback
+      ? { kind: 'satisfy', label: `Use ${fallback} as the base for now`, command: 'skitterspec spec-env base --use-fallback' }
+      : null
   }
 }
 
@@ -456,7 +463,8 @@ class BaseUnresolvedError extends Error {
  * onto). Precedence:
  *   1. `config.baseBranch` — explicit override
  *   2. `config.baseBranchPattern` — the newest remote branch matching it, by
- *      committer date; no match throws `BaseUnresolvedError`
+ *      committer date; no match takes a gap pin made under that same pattern
+ *      (`env/basepin.js`), else throws `BaseUnresolvedError`
  *   3. `origin/HEAD` — the remote's default branch
  *   4. `main` if it exists locally
  *   5. `master` if it exists locally
@@ -471,30 +479,39 @@ class BaseUnresolvedError extends Error {
  * synchronous for every caller, the main-guard hook included. Fetching is left
  * to the commands that already talk to the remote.
  */
-function resolveBaseBranch(config, git) {
-  const { base, refused } = describeBaseBranch(config, git)
+function resolveBaseBranch(config, git, pin = null) {
+  const { base, refused } = describeBaseBranch(config, git, pin)
   if (refused) throw refused
   return base
 }
 
 /**
  * The same resolution as `resolveBaseBranch`, returned as data with HOW it was
- * found — `pin` · `pattern` · `origin-head` · `local` · `fallback` — for the
- * one surface that reports it (`spec-env base`). A pattern with no match comes
- * back as `{ base: null, how: 'pattern', refused }` rather than thrown, so a
- * listing can still say what it saw.
+ * found — `pin` · `pattern` · `gap-pin` · `origin-head` · `local` · `fallback`
+ * — for the surfaces that report it. A pattern with no match comes back as
+ * `{ base: null, how: 'pattern', refused }` rather than thrown, so a listing
+ * can still say what it saw.
+ *
+ * `pin` is the gap pin as `readBasePin` returns it, or null. It is passed in
+ * rather than read here so this stays pure. It is honoured only while the
+ * pattern has NO match and only when it was made under this same pattern: a
+ * match always wins, which is what makes the pin clear itself the moment the
+ * next release branch is cut. `stalePin` says a pin was passed and a match
+ * overrode it, so the caller can delete the file.
  */
-function describeBaseBranch(config, git) {
+function describeBaseBranch(config, git, pin = null) {
   const explicit = config && typeof config.baseBranch === 'string' && config.baseBranch.trim()
   if (explicit) return { base: explicit, how: 'pin' }
 
   const pattern = config && typeof config.baseBranchPattern === 'string' && config.baseBranchPattern.trim()
   if (pattern) {
     try {
-      return { base: newestMatch(config, git, pattern), how: 'pattern' }
+      const base = newestMatch(config, git, pattern)
+      return pin ? { base, how: 'pattern', stalePin: true } : { base, how: 'pattern' }
     } catch (error) {
-      if (error instanceof BaseUnresolvedError) return { base: null, how: 'pattern', refused: error }
-      throw error
+      if (!(error instanceof BaseUnresolvedError)) throw error
+      if (pin && pin.pattern === pattern && pin.base) return { base: pin.base, how: 'gap-pin', pin }
+      return { base: null, how: 'pattern', refused: new BaseUnresolvedError(pattern, gapFallback(config, git)) }
     }
   }
 
@@ -516,6 +533,28 @@ function describeBaseBranch(config, git) {
 // `up` and `integrate` fetch before resolving so they never act on one.
 function baseRemote(config) {
   return (config && config.land && typeof config.land.remote === 'string' && config.land.remote.trim()) || 'origin'
+}
+
+// The branch a gap pin would name: `baseBranchFallback`, else the remote's
+// default branch. Null when neither can be read — and then no offer is made,
+// because a guessed base is worse than a refusal.
+//
+// WHAT WOULD FOOL THIS: an unset `<remote>/HEAD`. A clone made with
+// `git clone` has one, but a repo that added its remote by hand does not until
+// `git remote set-head` runs, so a healthy repo can land here with no offer.
+// That costs a plain refusal, never a wrong base.
+function gapFallback(config, git) {
+  const remote = baseRemote(config)
+  const named = config && typeof config.baseBranchFallback === 'string' && config.baseBranchFallback.trim()
+  if (named) {
+    const exists =
+      git(['show-ref', '--verify', '--quiet', `refs/remotes/${remote}/${named}`]) !== null ||
+      git(['show-ref', '--verify', '--quiet', `refs/heads/${named}`]) !== null
+    return exists ? named : null
+  }
+  const head = git(['symbolic-ref', '--short', `refs/remotes/${remote}/HEAD`])
+  if (!head) return null
+  return head.startsWith(`${remote}/`) ? head.slice(remote.length + 1) : head
 }
 
 function newestMatch(config, git, pattern) {
@@ -834,6 +873,7 @@ module.exports = {
   allSpecs,
   resolveBaseBranch,
   describeBaseBranch,
+  gapFallback,
   baseRemote,
   BaseUnresolvedError,
   resolvePrimaryCheckout,

@@ -123,6 +123,42 @@ test('planBaseReport: no match names the pattern and the remote', () => {
   assert.strictEqual(json.base, null)
 })
 
+test('planBaseReport: a gap pin names the fallback, the pattern and how it clears', () => {
+  const { lines, json } = planBaseReport({
+    pattern: '20??/Q?',
+    remote: 'origin',
+    base: 'master',
+    how: 'gap-pin',
+    fetch: { ok: true, reason: null },
+    matches: [],
+    forks: [],
+    pin: { base: 'master', pattern: '20??/Q?', pinnedAt: '2020-01-01T00:00:00.000Z' },
+  })
+  assert.deepStrictEqual(lines, [
+    'spec-env base: master — no 20??/Q? branch on origin (pinned for the gap)',
+    '  fetched origin',
+    '  pinned since 2020-01-01 · clears itself when a 20??/Q? branch appears · --unpin removes it now',
+  ])
+  assert.strictEqual(json.pin.base, 'master')
+})
+
+test('planBaseReport: no match with an offer prints the offer under the refusal', () => {
+  const offer = { kind: 'satisfy', label: 'Use master as the base for now', command: 'skitterspec spec-env base --use-fallback' }
+  const { lines, json } = planBaseReport({ pattern: '20??/Q?', remote: 'origin', base: null, how: 'pattern', fetch: null, offer })
+  assert.deepStrictEqual(lines, [
+    'spec-env base: none — no branch on origin matches 20??/Q?',
+    '  offer: Use master as the base for now — skitterspec spec-env base --use-fallback',
+  ])
+  assert.deepStrictEqual(json.offer, offer)
+})
+
+test('planBaseReport: a match carries no pin and no offer (stays silent)', () => {
+  const { lines, json } = planBaseReport({ pattern: '20??/Q?', remote: 'origin', base: '2027/Q1', how: 'pattern', matches: MATCHES })
+  assert.ok(!lines.some((l) => /pin|offer/.test(l)))
+  assert.strictEqual(json.pin, null)
+  assert.strictEqual(json.offer, null)
+})
+
 test('forkMatch: the match with the newest merge-base wins', () => {
   const mb = { '2027/Q1': 'root', '2026/Q4': 'q4tip' }
   const ancestry = new Set(['root>q4tip'])
@@ -159,7 +195,7 @@ function commit(cwd, file, msg, date) {
 // main, plus two rcs on a bare remote: 2026/Q4 (older, with a commit of its
 // own) and 2027/Q1 (newer, cut from main without it). One spec worktree forked
 // from 2026/Q4. Dates are fixed relative values, never today.
-function scaffold({ config = {}, remoteUrl = null } = {}) {
+function scaffold({ config = {}, remoteUrl = null, originHead = false } = {}) {
   const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-base-')))
   const remote = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-base-remote-')))
   execFileSync('git', ['init', '-q', '--bare', remote], { stdio: 'ignore' })
@@ -193,6 +229,7 @@ function scaffold({ config = {}, remoteUrl = null } = {}) {
   git(dir, ['worktree', 'add', '-q', '-b', 'feat/thing', worktree, 'origin/2026/Q4'])
   commit(worktree, 'work.txt', 'phase 1', '2020-02-15T00:00:00Z')
 
+  if (originHead) git(dir, ['remote', 'set-head', 'origin', 'main'])
   if (remoteUrl) git(dir, ['remote', 'set-url', 'origin', remoteUrl])
   return { dir, remote }
 }
@@ -279,6 +316,88 @@ test('spec-env base: no pattern prints the base and how, nothing else', async ()
   try {
     const out = await runQuiet(['spec-env', 'base', '--dir', fx.dir])
     assert.strictEqual(out, 'spec-env base: main (pinned by baseBranch)\n')
+  } finally {
+    cleanup(fx)
+  }
+})
+
+// --- the gap ------------------------------------------------------------------
+
+// `2028/Q?` matches neither rc the scaffold pushes, which is the gap: the last
+// release branch merged and the next not yet cut.
+const GAP = { baseBranchPattern: '2028/Q?' }
+const pinFile = (dir) => path.join(dir, '.spec-env', 'base-pin.json')
+
+test('spec-env base: in the gap, offers the remote default branch', async () => {
+  const fx = scaffold({ config: GAP, originHead: true })
+  try {
+    const out = await runQuiet(['spec-env', 'base', '--dir', fx.dir])
+    assert.match(out, /^spec-env base: none — no branch on origin matches 2028\/Q\?/)
+    assert.match(out, /offer: Use main as the base for now — skitterspec spec-env base --use-fallback/)
+  } finally {
+    cleanup(fx)
+  }
+})
+
+test('spec-env base --use-fallback: pins, and bare base then reports the pin', async () => {
+  const fx = scaffold({ config: GAP, originHead: true })
+  try {
+    const out = await runQuiet(['spec-env', 'base', '--use-fallback', '--dir', fx.dir])
+    assert.match(out, /pinned main for the gap — no 2028\/Q\? branch on origin/)
+    assert.strictEqual(JSON.parse(fs.readFileSync(pinFile(fx.dir), 'utf8')).base, 'main')
+    const json = JSON.parse(await runQuiet(['spec-env', 'base', '--json', '--dir', fx.dir]))
+    assert.strictEqual(json.base, 'main')
+    assert.strictEqual(json.how, 'gap-pin')
+  } finally {
+    cleanup(fx)
+  }
+})
+
+test('spec-env base: a match retires the pin and deletes the file', async () => {
+  const fx = scaffold({ config: GAP, originHead: true })
+  try {
+    await runQuiet(['spec-env', 'base', '--use-fallback', '--dir', fx.dir])
+    git(fx.dir, ['switch', '-q', '-c', '2028/Q1'])
+    commit(fx.dir, 'q28.txt', '2028 cut', '2020-04-01T00:00:00Z')
+    git(fx.dir, ['switch', '-q', 'main'])
+    git(fx.dir, ['push', '-q', 'origin', '2028/Q1'])
+    const out = await runQuiet(['spec-env', 'base', '--dir', fx.dir])
+    assert.match(out, /^spec-env base: 2028\/Q1 \(newest match for 2028\/Q\?\)/)
+    assert.match(out, /gap pin cleared — 2028\/Q1 matches 2028\/Q\?/)
+    assert.ok(!fs.existsSync(pinFile(fx.dir)))
+  } finally {
+    cleanup(fx)
+  }
+})
+
+test('spec-env base --use-fallback: refuses with no fallback, on a match, and on a failed fetch', async () => {
+  const noHead = scaffold({ config: GAP })
+  const matching = scaffold()
+  const offline = scaffold({ config: GAP, originHead: true, remoteUrl: path.join(os.tmpdir(), 'skitterspec-base-no-such-remote') })
+  try {
+    for (const [fx, why] of [
+      [noHead, /no fallback resolves/],
+      [matching, /2027\/Q1 matches 20\?\?\/Q\? — no gap to pin/],
+      [offline, /cannot tell whether a 2028\/Q\? branch exists, so nothing was pinned/],
+    ]) {
+      process.exitCode = 0
+      const out = await runQuiet(['spec-env', 'base', '--use-fallback', '--dir', fx.dir])
+      assert.match(out, why)
+      assert.strictEqual(process.exitCode, 1)
+      assert.ok(!fs.existsSync(pinFile(fx.dir)))
+    }
+  } finally {
+    process.exitCode = 0
+    for (const fx of [noHead, matching, offline]) cleanup(fx)
+  }
+})
+
+test('spec-env base --unpin: removes the pin, and says so when there is none', async () => {
+  const fx = scaffold({ config: GAP, originHead: true })
+  try {
+    await runQuiet(['spec-env', 'base', '--use-fallback', '--dir', fx.dir])
+    assert.match(await runQuiet(['spec-env', 'base', '--unpin', '--dir', fx.dir]), /gap pin removed/)
+    assert.match(await runQuiet(['spec-env', 'base', '--unpin', '--dir', fx.dir]), /no gap pin to remove/)
   } finally {
     cleanup(fx)
   }

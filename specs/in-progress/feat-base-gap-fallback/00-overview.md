@@ -133,7 +133,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Resolver, pin store and `spec-env base` verbs | ⬜ | [01-resolver-and-pin.md](01-resolver-and-pin.md) |
+| 1 | Resolver, pin store and `spec-env base` verbs | ✅ | [01-resolver-and-pin.md](01-resolver-and-pin.md) |
 | 2 | Every caller honours the pin and carries the offer | ⬜ | [02-callers-and-offer.md](02-callers-and-offer.md) |
 | 3 | Skills relay the offer; docs | ⬜ | [03-skills-and-docs.md](03-skills-and-docs.md) |
 
@@ -145,3 +145,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 - 2026-11-18 — Spec created, from a `/no-spec` review blocked in the gap
   between `2026/Q4` merging and `2027/Q1` being cut.
+- 2026-11-18 — Phase 1: `--use-fallback` refuses on a failed fetch (cannot
+  tell a gap from an unfetched remote); a named `baseBranchFallback` must
+  exist locally or on the remote, else no offer. The `env.config.md` key
+  entry landed here; the rolling-base passage is still phase 3's.

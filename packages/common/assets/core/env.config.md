@@ -327,6 +327,17 @@ through to a documented conservative default; see the field notes below.
   // `spec-env base` lists the matches, the base, and specs on an older one.
   "baseBranchPattern": "",
 
+  // The branch OFFERED as the base while `baseBranchPattern` matches nothing —
+  // the gap between one rc merging and the next being cut. Empty = the
+  // remote's default branch (`<land.remote>/HEAD`). It is never used unasked:
+  // the refusal offers it, and accepting (`spec-env base --use-fallback`)
+  // writes a local, gitignored pin in `.spec-env/base-pin.json` that clears
+  // itself the moment a branch matches again. Name a branch here when you
+  // release from something other than the default (a test branch). A value
+  // that names no branch, or neither resolving, means no offer — a plain
+  // refusal, because a guessed base is worse. Ignored without a pattern.
+  "baseBranchFallback": "",
+
   // How a finished branch reaches the base branch.
   //   strategy: "ff" (default) — trunk-based: rebase + local `merge --ff-only`,
   //             exactly as always; nothing below applies.

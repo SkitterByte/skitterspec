@@ -51,6 +51,7 @@ const SPEC_ENV_VERBS = Object.freeze([
   'project',
 ])
 const { forkMatch, planBaseReport } = require('./env/base.js')
+const { readBasePin, writeBasePin, clearBasePin } = require('./env/basepin.js')
 const {
   readRegistry,
   writeRegistry,
@@ -338,6 +339,8 @@ Usage:
                                 base              fetch, list baseBranchPattern matches
                                                   newest-first, mark the base, and name
                                                   specs forked from an older match
+                                                  (--use-fallback pins the fallback
+                                                   while nothing matches; --unpin)
   skitterspec status          What is in flight here: every spec with a worktree,
                               its bucket and phase progress read from that
                               worktree (--json). Offline; always exits 0.
@@ -4470,18 +4473,26 @@ function specEnvResolve(dir, config, specArg, flags = {}) {
 }
 
 /**
- * `skitterspec spec-env base [--json]`
+ * `skitterspec spec-env base [--json] [--use-fallback | --unpin]`
  *
  * Which branch is the base, how it was found, and — under `baseBranchPattern` —
  * every match newest-first plus the provisioned specs that forked from an older
  * one. It fetches first, because the resolver itself never does: a release
  * candidate cut since the last fetch is invisible to it.
  *
- * Lists only and always exits 0. A failed fetch is reported and the listing
- * carries on from the refs already here; nothing is edited, and pinning stays a
- * hand edit of `baseBranch`.
+ * Bare, it lists only and always exits 0; the one thing it writes is deleting a
+ * gap pin a match has retired. A failed fetch is reported and the listing
+ * carries on from the refs already here.
+ *
+ * `--use-fallback` is the offer's command: it writes the gap pin
+ * (`env/basepin.js`) when the pattern matches nothing and a fallback resolves.
+ * `--unpin` removes it. Both exit 1 on a refusal, since a caller retries on 0.
+ * A permanent pin stays a hand edit of `baseBranch`.
  */
 function specEnvBase(dir, config, flags = {}) {
+  if (flags.useFallback) return baseUseFallback(dir, config, flags)
+  if (flags.unpin) return baseUnpin(dir, config, flags)
+
   const pattern = (config.baseBranchPattern || '').trim()
   const remote = baseRemote(config)
   const git = gitReader(dir)
@@ -4489,7 +4500,9 @@ function specEnvBase(dir, config, flags = {}) {
   // No pattern: the base is today's chain, and there is nothing to fetch for —
   // origin/HEAD is not updated by a fetch.
   const fetch = fetchForPattern(dir, config)
-  const { base, how } = describeBaseBranch(config, git)
+  const pin = pattern ? readBasePin(dir, config) : null
+  const { base, how, stalePin, refused } = describeBaseBranch(config, git, pin)
+  const pinCleared = Boolean(stalePin) && clearBasePin(dir, config)
 
   let matches = []
   let forks = []
@@ -4502,8 +4515,71 @@ function specEnvBase(dir, config, flags = {}) {
     }))
   }
 
-  const { json, lines } = planBaseReport({ pattern, remote, base, how, fetch, matches, forks })
+  const { json, lines } = planBaseReport({
+    pattern,
+    remote,
+    base,
+    how,
+    fetch,
+    matches,
+    forks,
+    pin,
+    pinCleared,
+    offer: refused ? refused.offer : null,
+  })
   process.stdout.write(flags.json ? JSON.stringify(json, null, 2) + '\n' : lines.join('\n') + '\n')
+}
+
+// One answer for both pin verbs: a line of text, or `{ ok, ... }` as JSON.
+function basePinAnswer(flags, ok, line, extra = {}) {
+  if (!ok) process.exitCode = 1
+  process.stdout.write(flags.json ? JSON.stringify({ ok, ...extra, message: line }, null, 2) + '\n' : line + '\n')
+}
+
+// WHAT WOULD FOOL THIS: an unfetched remote looks exactly like the gap — no
+// branch matches in either case. So it fetches first and will not pin on a
+// failed fetch: a pin made then could hold the base on the fallback while the
+// next release branch already exists on the remote.
+function baseUseFallback(dir, config, flags) {
+  const pattern = (config.baseBranchPattern || '').trim()
+  if (!pattern) {
+    return basePinAnswer(flags, false, 'spec-env base: no baseBranchPattern is set — there is no gap to pin.')
+  }
+  const fetch = fetchForPattern(dir, config)
+  if (fetch && !fetch.ok) {
+    return basePinAnswer(
+      flags,
+      false,
+      `spec-env base: fetch from ${baseRemote(config)} failed${fetch.reason ? ` (${fetch.reason})` : ''} — ` +
+        `cannot tell whether a ${pattern} branch exists, so nothing was pinned.`,
+    )
+  }
+  const { base, refused } = describeBaseBranch(config, gitReader(dir))
+  if (base) {
+    clearBasePin(dir, config)
+    return basePinAnswer(flags, false, `spec-env base: ${base} matches ${pattern} — no gap to pin; it is the base.`, { base })
+  }
+  if (!refused || !refused.fallback) {
+    return basePinAnswer(
+      flags,
+      false,
+      `spec-env base: no branch matches ${pattern}, and no fallback resolves — set baseBranchFallback, ` +
+        `or run git remote set-head ${baseRemote(config)} --auto.`,
+    )
+  }
+  const pin = writeBasePin(dir, config, { base: refused.fallback, pattern })
+  basePinAnswer(
+    flags,
+    true,
+    `spec-env base: pinned ${pin.base} for the gap — no ${pattern} branch on ${baseRemote(config)}. ` +
+      `It clears itself when one appears.`,
+    { base: pin.base, pin },
+  )
+}
+
+function baseUnpin(dir, config, flags) {
+  const removed = clearBasePin(dir, config)
+  basePinAnswer(flags, true, removed ? 'spec-env base: gap pin removed.' : 'spec-env base: no gap pin to remove.', { removed })
 }
 
 // Fetch the base's remote, but only where `baseBranchPattern` decides the base:
@@ -7916,6 +7992,8 @@ async function specEnv(rest) {
     else if (args[i] === '--cwd') flags.cwd = args[++i]
     else if (args[i] === '--command') flags.command = args[++i] ?? ''
     else if (args[i] === '--assert-primary-clean') flags.assertPrimaryClean = true
+    else if (args[i] === '--use-fallback') flags.useFallback = true
+    else if (args[i] === '--unpin') flags.unpin = true
     else positional.push(args[i])
   }
   dir = path.resolve(dir)

@@ -5,14 +5,16 @@
  * which in-flight specs forked from an older one.
  *
  * Pure: the CLI fetches, reads refs and computes merge-bases, and hands the
- * facts in. Nothing here touches git, and nothing here edits config — pinning
- * is a hand edit of `baseBranch`, deliberately without a verb (the pin is the
- * exception, so it does not get one).
+ * facts in. Nothing here touches git, and nothing here edits config — a
+ * permanent pin is a hand edit of `baseBranch`, deliberately without a verb.
+ * The gap pin is different (`env/basepin.js`): local, temporary, and retired by
+ * the next match, so `--use-fallback` and `--unpin` are its verbs.
  */
 
 const HOW = Object.freeze({
   pin: 'pinned by baseBranch',
   pattern: 'newest match',
+  'gap-pin': 'pinned for the gap',
   'origin-head': 'origin/HEAD',
   local: 'local branch',
   fallback: 'nothing detected — default',
@@ -44,7 +46,10 @@ function forkMatch(matches, mergeBase, isAncestor) {
 /**
  * Build the report. `facts`:
  *   { pattern, remote, base, how, fetch: { ok, reason } | null,
- *     matches: [{ name, date }] (newest first), forks: [{ spec, forkedFrom }] }
+ *     matches: [{ name, date }] (newest first), forks: [{ spec, forkedFrom }],
+ *     pin: { base, pattern, pinnedAt } | null — the gap pin in force,
+ *     pinCleared: bool — a match retired a pin on this run,
+ *     offer: { kind, label, command } | null — no match and no pin }
  * Returns `{ json, lines }`; the CLI prints one of them and always exits 0.
  */
 function planBaseReport(facts) {
@@ -67,6 +72,9 @@ function planBaseReport(facts) {
     fetch,
     matches: matches.map((m) => ({ ...m, base: m.name === base })),
     stale,
+    pin: how === 'gap-pin' ? facts.pin || null : null,
+    pinCleared: Boolean(facts.pinCleared),
+    offer: facts.offer || null,
   }
 
   const lines = []
@@ -75,7 +83,8 @@ function planBaseReport(facts) {
     return { json, lines }
   }
 
-  if (base) lines.push(`spec-env base: ${base} (${HOW[how]}${how === 'pin' ? ` — ${pattern} not used` : ` for ${pattern}`})`)
+  if (how === 'gap-pin') lines.push(`spec-env base: ${base} — no ${pattern} branch on ${remote} (${HOW[how]})`)
+  else if (base) lines.push(`spec-env base: ${base} (${HOW[how]}${how === 'pin' ? ` — ${pattern} not used` : ` for ${pattern}`})`)
   else lines.push(`spec-env base: none — no branch on ${remote} matches ${pattern}`)
 
   if (fetch) {
@@ -93,6 +102,13 @@ function planBaseReport(facts) {
       lines.push(`  ${m.name.padEnd(width)}  ${m.date || ''}${mark}`.trimEnd())
     }
   }
+
+  if (how === 'gap-pin') {
+    const since = facts.pin && facts.pin.pinnedAt ? ` since ${facts.pin.pinnedAt.slice(0, 10)}` : ''
+    lines.push(`  pinned${since} · clears itself when a ${pattern} branch appears · --unpin removes it now`)
+  }
+  if (facts.pinCleared) lines.push(`  gap pin cleared — ${base} matches ${pattern}`)
+  if (!base && facts.offer) lines.push(`  offer: ${facts.offer.label} — ${facts.offer.command}`)
 
   if (stale.length) {
     lines.push('  forked from an older match:')

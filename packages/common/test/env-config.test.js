@@ -73,6 +73,18 @@ test('baseBranchPattern: whitespace or .. inside is dropped, never thrown on', (
   }
 })
 
+test('baseBranchFallback defaults to empty, trims, and drops what cannot be a branch', () => {
+  const dir = tmpDir()
+  assert.strictEqual(loadEnvConfig(dir).config.baseBranchFallback, '')
+  writeEnvConfig(dir, { baseBranchFallback: ' test ' })
+  assert.strictEqual(loadEnvConfig(dir).config.baseBranchFallback, 'test')
+  for (const bad of ['re lease', 'rc/..', 42]) {
+    const d = tmpDir()
+    writeEnvConfig(d, { baseBranchFallback: bad })
+    assert.strictEqual(loadEnvConfig(d).config.baseBranchFallback, '')
+  }
+})
+
 test('present config → present:true and merged over defaults', () => {
   const dir = tmpDir()
   writeEnvConfig(dir, {

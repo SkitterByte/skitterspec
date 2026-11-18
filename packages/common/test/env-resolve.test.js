@@ -9,6 +9,7 @@ const path = require('node:path')
 const {
   resolveSpec,
   resolveBaseBranch,
+  describeBaseBranch,
   BaseUnresolvedError,
   resolvePrimaryCheckout,
   splitPrefix,
@@ -103,6 +104,66 @@ test('resolveBaseBranch: no match refuses, never falls through to origin/HEAD', 
 test('resolveBaseBranch: unreadable refs refuse too (cannot tell is not a base)', () => {
   const git = fakeGit({ [ORIGIN_HEAD]: 'origin/master' })
   assert.throws(() => resolveBaseBranch({ baseBranchPattern: '20??/Q?' }, git), BaseUnresolvedError)
+})
+
+// --- the gap: a pattern with no match ---------------------------------------
+
+const GAP = { baseBranchPattern: '20??/Q?' }
+const NO_MATCH = { [MATCH('origin', '20??/Q?')]: '' }
+const PIN = { base: 'master', pattern: '20??/Q?', pinnedAt: '2020-01-01T00:00:00.000Z' }
+
+test('describeBaseBranch: the gap offers origin/HEAD as a satisfy offer', () => {
+  const { base, refused } = describeBaseBranch(GAP, fakeGit({ ...NO_MATCH, [ORIGIN_HEAD]: 'origin/master' }))
+  assert.strictEqual(base, null)
+  assert.strictEqual(refused.fallback, 'master')
+  assert.deepStrictEqual(refused.offer, {
+    kind: 'satisfy',
+    label: 'Use master as the base for now',
+    command: 'skitterspec spec-env base --use-fallback',
+  })
+})
+
+test('describeBaseBranch: baseBranchFallback names the offer when the branch exists', () => {
+  const git = fakeGit({
+    ...NO_MATCH,
+    [ORIGIN_HEAD]: 'origin/master',
+    'show-ref --verify --quiet refs/remotes/origin/test': '',
+  })
+  const { refused } = describeBaseBranch({ ...GAP, baseBranchFallback: 'test' }, git)
+  assert.strictEqual(refused.offer.label, 'Use test as the base for now')
+})
+
+test('describeBaseBranch: a fallback that cannot be found makes no offer (stays silent)', () => {
+  const named = describeBaseBranch({ ...GAP, baseBranchFallback: 'test' }, fakeGit({ ...NO_MATCH, [ORIGIN_HEAD]: 'origin/master' }))
+  assert.strictEqual(named.refused.offer, null)
+  const unset = describeBaseBranch(GAP, fakeGit(NO_MATCH))
+  assert.strictEqual(unset.refused.offer, null)
+})
+
+test('describeBaseBranch: a gap pin under the same pattern is the base', () => {
+  const answer = describeBaseBranch(GAP, fakeGit(NO_MATCH), PIN)
+  assert.strictEqual(answer.base, 'master')
+  assert.strictEqual(answer.how, 'gap-pin')
+  assert.strictEqual(resolveBaseBranch(GAP, fakeGit(NO_MATCH), PIN), 'master')
+})
+
+test('describeBaseBranch: a match beats the pin and marks it stale', () => {
+  const git = fakeGit({ [MATCH('origin', '20??/Q?')]: 'refs/remotes/origin/2027/Q1' })
+  assert.deepStrictEqual(describeBaseBranch(GAP, git, PIN), { base: '2027/Q1', how: 'pattern', stalePin: true })
+})
+
+test('describeBaseBranch: a pin made under another pattern is ignored', () => {
+  const { base, refused } = describeBaseBranch(GAP, fakeGit(NO_MATCH), { ...PIN, pattern: 'rc/*' })
+  assert.strictEqual(base, null)
+  assert.ok(refused instanceof BaseUnresolvedError)
+})
+
+test('describeBaseBranch: no pattern, or a match, carries no offer and no stale pin (stays silent)', () => {
+  assert.deepStrictEqual(describeBaseBranch({}, fakeGit({ [ORIGIN_HEAD]: 'origin/main' })), { base: 'main', how: 'origin-head' })
+  // a pin with no pattern configured is not consulted at all
+  assert.deepStrictEqual(describeBaseBranch({}, fakeGit({ [ORIGIN_HEAD]: 'origin/main' }), PIN), { base: 'main', how: 'origin-head' })
+  const git = fakeGit({ [MATCH('origin', '20??/Q?')]: 'refs/remotes/origin/2027/Q1' })
+  assert.deepStrictEqual(describeBaseBranch(GAP, git), { base: '2027/Q1', how: 'pattern' })
 })
 
 test('resolveBaseBranch: pattern unset or blank → today\'s chain, and no ref listing', () => {

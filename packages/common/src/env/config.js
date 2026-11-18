@@ -44,6 +44,8 @@
  *     baseBranch: "",          // "" = auto-detect (origin/HEAD → main → master)
  *     baseBranchPattern: "",   // glob over remote branch names; newest match
  *               // by commit date is the base (rolling release-candidate)
+ *     baseBranchFallback: "",  // offered as the base while the pattern matches
+ *               // nothing; "" = the remote's default branch
  *     land:     { strategy, remote, draft, specDocs },  // how a branch lands:
  *               // "ff" (default, trunk-based local fast-forward) or "pr"
  *               // (push + pull request; base moves when the host merges)
@@ -227,6 +229,12 @@ const DEFAULT_CONFIG = Object.freeze({
   // candidate is all it takes to move every spec onto it. An explicit
   // `baseBranch` still wins. Empty = off, and resolution is exactly as before.
   baseBranchPattern: '',
+  // The base to offer while `baseBranchPattern` matches nothing — the gap
+  // between one release branch merging and the next being cut. Empty = the
+  // remote's default branch. Only ever used once someone accepts the offer,
+  // which writes a local pin (`env/basepin.js`); never consulted without a
+  // pattern.
+  baseBranchFallback: '',
   // How a finished branch reaches the base branch. `strategy: "ff"` (the
   // default) is trunk-based landing exactly as it has always been: rebase, then
   // a local `merge --ff-only` — nothing changes for an installed repo on
@@ -428,6 +436,7 @@ function defaults() {
     spec: { companionPaths: [] },
     baseBranch: DEFAULT_CONFIG.baseBranch,
     baseBranchPattern: DEFAULT_CONFIG.baseBranchPattern,
+    baseBranchFallback: DEFAULT_CONFIG.baseBranchFallback,
     land: { ...DEFAULT_CONFIG.land },
     guards: { ...DEFAULT_CONFIG.guards },
     teardown: { ...DEFAULT_CONFIG.teardown },
@@ -711,6 +720,11 @@ function mergeConfig(base, parsed) {
   if (typeof parsed.baseBranchPattern === 'string') {
     const pattern = parsed.baseBranchPattern.trim()
     if (pattern && !/\s/.test(pattern) && !pattern.includes('..')) base.baseBranchPattern = pattern
+  }
+  // A branch name, so the same two characters can never be in it.
+  if (typeof parsed.baseBranchFallback === 'string') {
+    const fallback = parsed.baseBranchFallback.trim()
+    if (fallback && !/\s/.test(fallback) && !fallback.includes('..')) base.baseBranchFallback = fallback
   }
 
   // Same treatment as `teardown.deleteRemoteBranch` below, for the same reason:
