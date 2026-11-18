@@ -351,7 +351,11 @@ is finished — e.g. to run a later phase in CI or a shared test env? Use
      relay it verbatim in the `Landed` row so the reader sees where the work went.
 
    A refusal naming `no branch matches <pattern>` means no release candidate is
-   visible — usually not fetched. Relay it, stop with `⏸`, and name
+   visible. Where it carries an `offer:` line it is the gap between release
+   branches: relay it, then offer it as `.claude/rules/offered-unblocks.md`
+   describes — its label and Cancel — and on the pick run
+   `skitterspec spec-env base --use-fallback` and retry the land. With no offer
+   it is usually not fetched: relay it, stop with `⏸`, and name
    `skitterspec spec-env base` (it fetches and lists) as the next step.
 3. **Run the after-land commands.** Where the plan ends with a
    `then, in the primary checkout (<path>), run:` section — the project's

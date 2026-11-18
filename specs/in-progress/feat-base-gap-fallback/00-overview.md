@@ -135,7 +135,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Resolver, pin store and `spec-env base` verbs | ✅ | [01-resolver-and-pin.md](01-resolver-and-pin.md) |
 | 2 | Every caller honours the pin and carries the offer | ✅ | [02-callers-and-offer.md](02-callers-and-offer.md) |
-| 3 | Skills relay the offer; docs | ⬜ | [03-skills-and-docs.md](03-skills-and-docs.md) |
+| 3 | Skills relay the offer; docs | ✅ | [03-skills-and-docs.md](03-skills-and-docs.md) |
 
 ## Open questions
 
@@ -156,3 +156,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   stale pin and turns `BaseUnresolvedError` into the refusal + offer. The gap
   line goes on review (text, JSON `baseGap`, page), `status` and integrate
   plans; `resolve` never reads the base, so it gets none.
+- 2026-11-18 — Phase 3: `docs:impact` also lists `index.html` (skill text)
+  and `review.html` (page/review code). Re-read both: neither describes the
+  base refusal or the page subtitle's base, so neither is wrong and `Docs:`
+  stays `reference`.

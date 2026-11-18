@@ -470,6 +470,11 @@ skitterspec spec-env review <spec> --run-reviewers   # …and run review.reviewe
 skitterspec spec-env review serve               # every spec, on localhost
 ```
 
+A refusal naming `no branch matches <pattern>` that carries an `offer:` line
+is the gap between release branches: relay it, then offer it as
+`.claude/rules/offered-unblocks.md` describes — its label and Cancel — and on
+the pick run `skitterspec spec-env base --use-fallback` and render again.
+
 **`--run-reviewers` is opt-in here, and a BARE `/spec-diff` MUST NOT PASS IT.**
 `/spec-next` runs the project's configured reviewers once per phase, where the
 cost is paid against work that is finished. This skill answers at any point,

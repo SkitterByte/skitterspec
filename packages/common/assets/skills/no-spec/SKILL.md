@@ -45,6 +45,11 @@ things answering to one name is how a teardown removes the wrong tree.
 skitterspec spec-env nospec <name>
 ```
 
+A refusal naming `no branch matches <pattern>` that carries an `offer:` line
+is the gap between release branches: relay it, then offer it as
+`.claude/rules/offered-unblocks.md` describes — its label and Cancel — and on
+the pick run `skitterspec spec-env base --use-fallback` and retry.
+
 It records the name as a **specless branch** and prints the plan. Run the
 `git worktree add` it prints, then move this session into the worktree with a
 plain `cd` and run the `then, run:` line where there is one:

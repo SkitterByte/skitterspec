@@ -62,6 +62,11 @@ branch and that is always the operator's call.
 **A refused capture loses nothing.** The engine prints the text back. Put it in
 the `Why` row verbatim so the user can copy it.
 
+A refusal naming `no branch matches <pattern>` that carries an `offer:` line
+is the gap between release branches: relay it, then offer it as
+`.claude/rules/offered-unblocks.md` describes — its label and Cancel — and on
+the pick run `skitterspec spec-env base --use-fallback` and retry.
+
 ## 3. List
 
 ```

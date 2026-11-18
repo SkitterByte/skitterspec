@@ -156,8 +156,12 @@ render says so. On **`--plan`** this step does not run at all.
    the primary checkout is not on the newest release candidate the plan says
    `fork:  <base>  (the base — the primary checkout is on <old>)` and forks from
    it. Relay that line in the `Branch` row. A refusal naming
-   `no branch matches <pattern>` means no release candidate is visible —
-   usually not fetched: relay it, stop with `⏸`, and name
+   `no branch matches <pattern>` means no release candidate is visible. Where
+   it carries an `offer:` line it is the gap between release branches: relay
+   it, then offer it as `.claude/rules/offered-unblocks.md` describes — its
+   label and Cancel — and on the pick run
+   `skitterspec spec-env base --use-fallback` and re-run `up`. With no offer it
+   is usually not fetched: relay it, stop with `⏸`, and name
    `skitterspec spec-env base` (it fetches and lists) as the next step.
 
 2. **Trust the worktree.** `spec-env up` wrote the printed `trusted:` root into

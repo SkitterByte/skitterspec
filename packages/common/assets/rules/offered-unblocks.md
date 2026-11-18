@@ -55,6 +55,28 @@ offer's `label`, and Cancel.
 something easier-sounding, never pre-select it, and never add a third option. A
 bypass that arrives pre-selected is a bypass by default wearing a question mark.
 
+### A worked `satisfy`: the gap between release branches
+
+Under `baseBranchPattern`, a base nobody can resolve refuses — and where the
+last release branch has merged and the next is not yet cut, that refusal is the
+normal state of the repo for a while, not a mistake. So the engine declares:
+
+```json
+{
+  "blocked": true,
+  "reason": "no branch matches 20??/Q? — run spec-env base to fetch",
+  "offer": { "kind": "satisfy", "label": "Use master as the base for now", "command": "skitterspec spec-env base --use-fallback" }
+}
+```
+
+Text output carries the same thing as an `offer:` line under the refusal. On
+the pick, run the command and retry the command that refused. It is `satisfy`
+because it gives the guard what it asked for — a base — and the pick is kept as
+a local pin that every command then honours, so it is asked once per gap rather
+than once per command. The pin clears itself when a branch matches again, so
+nothing about it needs recording. No fallback resolvable means no `offer`, and
+the refusal stands alone.
+
 ## A bypass is offered once per obligation
 
 The engine enforces this; a skill does not count anything. Spend the offer by

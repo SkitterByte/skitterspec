@@ -316,8 +316,11 @@ through to a documented conservative default; see the field notes below.
   //   - git's glob does not cross "/": "rc/*" matches rc/2026-11 but not
   //     rc/a/b. Spell each segment ("20??/Q?").
   //   - No match REFUSES, naming `spec-env base` — it never falls back to
-  //     origin/HEAD, because zero matches usually means "not fetched", and
-  //     the default branch is exactly where a rolling base must not land.
+  //     origin/HEAD UNASKED, because zero matches usually means "not
+  //     fetched", and the default branch is exactly where a rolling base must
+  //     not land by accident. Between rcs (one merged, the next not cut) the
+  //     refusal OFFERS `baseBranchFallback` below; accepting it pins that
+  //     branch locally until a match appears, for every command at once.
   //   - Newest-by-date is only right when one rc is live at a time (the next
   //     is cut after the last merges). If your rcs overlap, pin `baseBranch`.
   //   - A spec that outlived a roll lands on the new rc; the integrate plan
