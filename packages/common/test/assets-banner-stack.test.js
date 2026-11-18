@@ -173,7 +173,10 @@ test('the rule names the hidden-local exception, its signal and its fallback', (
   assert.match(RULE, /SKITTERSPEC_READER=remote/)
   assert.match(RULE, /only\s+when `network` has a URL/)
   assert.match(RULE, /marked `hidden` in `--json` is absent from the printed stack/)
-  assert.match(RULE, /names the engine's\s+`covers`/)
+  assert.match(RULE, /names the\s+engine's\s+`covers`/)
+  // The one detection admitted, and the argument that admits it.
+  assert.match(RULE, /a Windows session with no\s+desktop \(no `SESSIONNAME`/)
+  assert.match(RULE, /what a wrong guess costs/)
 })
 
 test('STAYS SILENT: the off-tier rule itself is unchanged', () => {

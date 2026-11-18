@@ -12,7 +12,7 @@ covers:
   - packages/common/src/env/epicpage.js
   - packages/common/assets/hooks/review-gate.cjs
   - packages/common/assets/rules/spec-reports.md
-verified: 441e4e26dabd
+verified: af9743a38b85
 -->
 <html lang="en">
 <head>
@@ -696,7 +696,7 @@ verified: 441e4e26dabd
           <div>
             <h3>local — the machine the run is on</h3>
             <div class="u">http://127.0.0.1:7760/7e9e…/feat-orders</div>
-            <p>There unless you are reading from another machine. With nothing served it is a <span class="mono" style="font-size:.9em">file://</span> page that copies the pass to your clipboard instead. When the engine runs somewhere other than your browser (a wrapper running it inside a VM, or an ssh session), <span class="mono" style="font-size:.9em">127.0.0.1</span> is the wrong machine, so the line is left out and <b>network</b> comes first. A wrapper says so with <span class="mono" style="font-size:.9em">SKITTERSPEC_READER=remote</span>, and ssh counts automatically. <span class="mono" style="font-size:.9em">SKITTERSPEC_READER=local</span> brings it back, for ssh with a port forward. It is hidden only while network has a URL; without one it stays, marked unreachable.</p>
+            <p>There unless you are reading from another machine. With nothing served it is a <span class="mono" style="font-size:.9em">file://</span> page that copies the pass to your clipboard instead. When the engine runs somewhere other than your browser (a wrapper running it inside a VM, or an ssh session), <span class="mono" style="font-size:.9em">127.0.0.1</span> is the wrong machine, so the line is left out and <b>network</b> comes first. A wrapper can say so with <span class="mono" style="font-size:.9em">SKITTERSPEC_READER=remote</span>. Ssh counts automatically, and so does a Windows session with no desktop (no <span class="mono" style="font-size:.9em">SESSIONNAME</span>), which is what a Mac driving a Windows VM through <span class="mono" style="font-size:.9em">prlctl exec</span> looks like. Being wrong costs little: the network link reaches the same server from either machine. <span class="mono" style="font-size:.9em">SKITTERSPEC_READER=local</span> brings it back, for ssh with a port forward. It is hidden only while network has a URL; without one it stays, marked unreachable.</p>
           </div>
         </div>
         <div class="tier">

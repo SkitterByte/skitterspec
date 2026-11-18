@@ -123,7 +123,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Detect the desktop-less Windows session | ⬜ | [01-detect-no-session.md](01-detect-no-session.md) |
+| 1 | Detect the desktop-less Windows session | ✅ | [01-detect-no-session.md](01-detect-no-session.md) |
 
 ## Open questions
 
@@ -132,3 +132,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-11-18 — Spec created.
+- 2026-11-18 — Simulating the rule on the Mac (`cli.js` forced to `'win32'`)
+  broke exactly one test, an "unknown reader" render that inherited its
+  session. It now sets `SESSIONNAME=Console`. Every other CLI stack test
+  configures `review.reader: local`, so detection never runs in them.

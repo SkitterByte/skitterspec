@@ -1029,7 +1029,7 @@ async function serveTadaPage({ window, flags, recap }) {
   const q = tadaQuery({ ...flags, on: flags.on || (flags.since ? null : localDay(window.since)) })
   const withQ = (u) => (u ? `${u}${q}` : u)
   const page = { ...served, loopbackUrl: withQ(served.loopbackUrl), url: withQ(served.url), alternates: (served.alternates || []).map(withQ) }
-  const reader = resolveReader(config, process.env)
+  const reader = resolveReader(config, process.env, process.platform)
   const tiers = reviewTierStack({ served: page, fileUrl: null, publishedUrl: null, config, reader })
   process.stdout.write(`page: ${humanLabel(window)}\n${reviewStackText(tiers)}`)
   return true
@@ -1135,7 +1135,7 @@ function epicPageTiers(inputs, up, epic) {
   if (!inputs.config) return null
   if (!up) return { off: true, start: 'skitterspec spec-env review serve --host 0.0.0.0' }
   const served = reviewServedUrls(up, offerableLanAddresses(), epic)
-  const reader = resolveReader(inputs.config, process.env)
+  const reader = resolveReader(inputs.config, process.env, process.platform)
   return { tiers: reviewTierStack({ served, fileUrl: null, publishedUrl: null, config: inputs.config, reader }) }
 }
 
@@ -4878,7 +4878,7 @@ function reshowStack(dir, config, spec, out) {
   const cfg = withSpecRemote(config, out)
   const up = readRunningReviewServer(dir, cfg)
   const served = up ? reviewServedUrls(up, offerableLanAddresses(), spec.folder) : null
-  const reader = resolveReader(cfg, process.env)
+  const reader = resolveReader(cfg, process.env, process.platform)
   const tiers = reviewTierStack({ served, fileUrl: reviewFileUrl(out), publishedUrl: readReviewUrl(out), config: cfg, reader })
   let live = null
   try {
@@ -6217,7 +6217,7 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
   const url = readReviewUrl(out)
 
   // Resolved before the --json early return, so both outputs agree.
-  const reader = resolveReader(config, process.env)
+  const reader = resolveReader(config, process.env, process.platform)
 
   // A remote reader cannot open a path on this machine — that is the whole of
   // what detection established. Serving is how the engine answers it: a local

@@ -250,7 +250,7 @@ function reviewWith(env, dir, ...extra) {
 }
 
 function repoWithSpec(review_ = {}, port) {
-  const dir = repo({ ...review_, reader: 'local', servePort: port })
+  const dir = repo({ reader: 'local', ...review_, servePort: port })
   const g = (...a) => execFileSync('git', ['-C', dir, ...a], { stdio: ['ignore', 'pipe', 'ignore'] })
   const sd = path.join(dir, 'specs', 'in-progress', 'feat-alpha')
   fs.mkdirSync(sd, { recursive: true })
@@ -598,6 +598,17 @@ test('ssh alone hides it too', () => {
   assert.strictEqual(tiers[0].hidden, true)
 })
 
+test('a Windows session with no desktop hides it too, and says why', () => {
+  const tiers = stackFor(resolveReader({}, {}, 'win32'))
+  assert.strictEqual(tiers[0].hidden, true)
+  assert.strictEqual(tiers[0].reason, 'the reader is on another machine (no interactive session)')
+  assert.deepStrictEqual(waitCovers(tiers), ['network'])
+})
+
+test('STAYS SILENT: a Windows desktop session keeps local', () => {
+  assert.strictEqual(stackFor(resolveReader({}, { SESSIONNAME: 'Console' }, 'win32'))[0].hidden, undefined)
+})
+
 test('STAYS SILENT: no signal leaves the stack exactly as it was', () => {
   for (const reader of [null, resolveReader({}, {}), { reader: 'local', why: 'configured' }]) {
     const tiers = stackFor(reader)
@@ -635,6 +646,21 @@ test('a render for a remote reader prints no local line, and --json marks it', a
     assert.strictEqual(json.tiers[0].tier, 'local')
     assert.strictEqual(json.tiers[0].hidden, true)
     assert.deepStrictEqual(json.covers, ['network'])
+  } finally {
+    stopServe(dir)
+    drop(dir)
+  }
+})
+
+// Only Windows can say it has no desktop, so only there can the engine's own
+// platform be the thing under test; elsewhere the unit tests above carry it.
+test('on Windows, a render with no desktop session prints no local line', { skip: process.platform !== 'win32' }, async () => {
+  const { dir } = repoWithSpec({ reader: 'detect' }, await freePort())
+  try {
+    const out = reviewWith({ SESSIONNAME: '' }, dir)
+    assert.doesNotMatch(out, /^ {2}local:/m)
+    assert.match(out, /reader: remote \(no interactive session\)/)
+    assert.match(reviewWith({ SESSIONNAME: 'Console' }, dir), /^ {2}local: {3}http:/m)
   } finally {
     stopServe(dir)
     drop(dir)

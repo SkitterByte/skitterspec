@@ -171,13 +171,22 @@ engine runs on one machine and the reader is on another — a wrapper running it
 inside a VM, or an ssh session — `127.0.0.1` is the engine's machine, not the
 reader's. That door never opens, whatever anyone asks. It was also first in the
 stack, the link habit reaches for, and it cost a timeout on every review. So the
-engine hides it, on a signal someone set on purpose: `SKITTERSPEC_READER=remote`
-(`local` outranks ssh), the committed `review.reader`, or ssh. It hides it only
+engine hides it, on `SKITTERSPEC_READER=remote` (`local` outranks everything
+below it), the committed `review.reader`, ssh, or a Windows session with no
+desktop (no `SESSIONNAME`, which is what `prlctl exec`, the OpenSSH server and a
+scheduled task all look like). It hides it only
 when `network` has a URL to take its place; otherwise the line stays and says
-it is unreachable. Detection decides nothing here, and nor does the skill. A
-tier marked `hidden` in `--json` is absent from the printed stack, so copying
-the stack still produces the right banner. The holding line names the engine's
-`covers` — *the wait covers network* — never a door the stack did not show.
+it is unreachable.
+
+**That last signal is detection, allowed here for what a wrong guess costs.** The network URL is the same server, so it opens from
+the engine's own machine too. A reader wrongly judged to be elsewhere gets the
+second-best link, never a page that will not open. Detection has done harm
+before when it decided whether to *serve*, because a wrong guess there removed
+the verdict loop. Nothing like that is at stake here. The skill still decides
+nothing. A tier marked `hidden` in `--json` is absent from the printed stack, so
+copying the stack still produces the right banner. The holding line names the
+engine's `covers` — *the wait covers network* — never a door the stack did not
+show.
 
 **The `network` tier may carry alternates, and they are part of it — not a fourth tier.**
 The engine offers the other addresses this machine has (a

@@ -222,8 +222,13 @@ function numstatFor(git, ref, file, untracked) {
  * WHAT WOULD FOOL THIS: the bridge variable is an undocumented harness internal
  * and may be renamed or dropped, so its ABSENCE proves nothing — which is the
  * whole reason `unknown` exists and the default is not `local`.
+ *
+ * `platform` is passed in for the same reason as `env`, and defaults to NONE
+ * rather than `process.platform`: a caller that names no platform, and every
+ * test that states only an environment, gets the platform-free answer on any
+ * machine the suite runs on.
  */
-function detectReader(env = {}) {
+function detectReader(env = {}, platform = null) {
   // SSH first: a standard convention, and the strongest available signal. If the
   // shell arrived over the network, the page's path is on a machine the reader
   // is not looking at.
@@ -232,6 +237,20 @@ function detectReader(env = {}) {
   // The operator is driving this session from somewhere else — the case that
   // produced the original dead link, read on a phone.
   if (env.CLAUDE_CODE_BRIDGE_SESSION_ID) return { reader: 'remote', why: 'bridge session' }
+
+  // A WINDOWS SESSION WITH NO DESKTOP. Windows sets SESSIONNAME for every
+  // interactive logon — `Console` at the desktop, `RDP-Tcp#N` over Remote
+  // Desktop — and whatever starts from that desktop inherits it. A process
+  // outside any desktop has none: `prlctl exec`'s background logon (a Mac
+  // driving the VM), the OpenSSH server, a scheduled task, a service. Nobody is
+  // at this machine's browser in any of those.
+  //
+  // WHAT WOULD FOOL THIS: a scheduled task or service run while someone sits at
+  // the desk. That is affordable only because of what it decides — `local` is
+  // hidden only while `network` has a URL, and that URL is the same server, so
+  // a wrong guess costs the second-best link, never a page that will not open.
+  // Elsewhere SESSIONNAME means nothing, so its absence is not evidence.
+  if (platform === 'win32' && !env.SESSIONNAME) return { reader: 'remote', why: 'no interactive session' }
 
   // CLAUDE_CODE_ENTRYPOINT IS DELIBERATELY NOT CONSULTED. It describes the
   // PROCESS, not the reader, and reports `cli` for a bridged session — it said
@@ -248,7 +267,7 @@ function detectReader(env = {}) {
  * sniffing: the operator knows where they are reading, and no signal outranks
  * being told.
  */
-function resolveReader(config, env = {}) {
+function resolveReader(config, env = {}, platform = null) {
   // THE WRAPPER FIRST, because it is the one thing that knows this machine. A
   // committed `review.reader` speaks for every checkout of the repo; a wrapper
   // that runs the engine inside a VM (`prlctl exec`) speaks for this one, and
@@ -257,7 +276,7 @@ function resolveReader(config, env = {}) {
   if (told === 'local' || told === 'remote') return { reader: told, why: 'SKITTERSPEC_READER' }
   const setting = (config && config.review && config.review.reader) || 'detect'
   if (setting === 'local' || setting === 'remote') return { reader: setting, why: 'configured' }
-  return detectReader(env)
+  return detectReader(env, platform)
 }
 
 /**
@@ -269,7 +288,10 @@ function resolveReader(config, env = {}) {
  * same machine, where loopback opens fine; and its variable is an undocumented
  * harness internal. Hiding a working link on that guess is the load-bearing
  * detection `detectReader` warns against, so only the signals someone set on
- * purpose count: the wrapper's variable, the committed setting, and SSH.
+ * purpose count: the wrapper's variable, the committed setting, and SSH — plus
+ * one detection, a Windows session with no desktop, admitted because hiding
+ * `local` only ever happens beside a working `network` URL, so being wrong
+ * costs the second-best link rather than the loop.
  *
  * WHAT WOULD FOOL THIS: SSH with a `-L` port forward makes the reader's loopback
  * reach this server, so `ssh` is a strong hint rather than proof —

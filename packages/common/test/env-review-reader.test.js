@@ -54,7 +54,49 @@ test('ssh outranks the bridge marker, being the stabler signal', () => {
   assert.strictEqual(both.why, 'ssh')
 })
 
+test('a Windows session with no desktop means the reader is elsewhere', () => {
+  // `prlctl exec`, the OpenSSH server, a scheduled task: no SESSIONNAME.
+  assert.deepStrictEqual(detectReader({}, 'win32'), { reader: 'remote', why: 'no interactive session' })
+  assert.deepStrictEqual(detectReader({ SESSIONNAME: '' }, 'win32'), {
+    reader: 'remote',
+    why: 'no interactive session',
+  })
+})
+
+test('ssh outranks the missing session, so the reason names the stronger signal', () => {
+  assert.strictEqual(detectReader({ SSH_CONNECTION: 'x' }, 'win32').why, 'ssh')
+})
+
+test('the missing session is only detection, so being told outranks it', () => {
+  assert.deepStrictEqual(resolveReader({}, { SKITTERSPEC_READER: 'local' }, 'win32'), {
+    reader: 'local',
+    why: 'SKITTERSPEC_READER',
+  })
+  assert.deepStrictEqual(resolveReader({ review: { reader: 'local' } }, {}, 'win32'), {
+    reader: 'local',
+    why: 'configured',
+  })
+  assert.deepStrictEqual(resolveReader({}, {}, 'win32'), { reader: 'remote', why: 'no interactive session' })
+})
+
 // --- stays silent ----------------------------------------------------------
+
+test('STAYS SILENT: a Windows desktop session, at the console or over RDP', () => {
+  assert.deepStrictEqual(detectReader({ SESSIONNAME: 'Console' }, 'win32'), { reader: 'unknown', why: null })
+  assert.deepStrictEqual(detectReader({ SESSIONNAME: 'RDP-Tcp#0' }, 'win32'), { reader: 'unknown', why: null })
+})
+
+test('STAYS SILENT: no SESSIONNAME off Windows, where it never exists', () => {
+  for (const platform of ['darwin', 'linux']) {
+    assert.deepStrictEqual(detectReader({}, platform), { reader: 'unknown', why: null })
+  }
+})
+
+test('STAYS SILENT: no platform named is no platform rule', () => {
+  assert.deepStrictEqual(detectReader({}), { reader: 'unknown', why: null })
+  assert.deepStrictEqual(resolveReader({}, {}), { reader: 'unknown', why: null })
+})
+
 
 // The exact environment this feature was written from: a local Warp CLI on the
 // dev machine, with the operator reading on a phone. `ENTRYPOINT` says `cli`,
@@ -266,6 +308,9 @@ test('an unknown reader is not announced and not warned about', async () => {
   delete process.env.SSH_CONNECTION
   delete process.env.SSH_TTY
   delete process.env.CLAUDE_CODE_BRIDGE_SESSION_ID
+  // A DESKTOP SESSION, stated rather than inherited: a Windows CI runner is a
+  // service with no SESSIONNAME, which is a signal of its own.
+  process.env.SESSIONNAME = 'Console'
   try {
     const out = await review(dir)
     assert.doesNotMatch(out, /reader:/, 'nothing to report is reported as nothing')
@@ -280,7 +325,8 @@ test('an unknown reader is not announced and not warned about', async () => {
     process.env.SSH_CONNECTION = saved.SSH_CONNECTION
     process.env.SSH_TTY = saved.SSH_TTY
     process.env.CLAUDE_CODE_BRIDGE_SESSION_ID = saved.CLAUDE_CODE_BRIDGE_SESSION_ID
-    for (const k of ['SSH_CONNECTION', 'SSH_TTY', 'CLAUDE_CODE_BRIDGE_SESSION_ID']) {
+    process.env.SESSIONNAME = saved.SESSIONNAME
+    for (const k of ['SSH_CONNECTION', 'SSH_TTY', 'CLAUDE_CODE_BRIDGE_SESSION_ID', 'SESSIONNAME']) {
       if (saved[k] === undefined) delete process.env[k]
     }
     cleanup(dir)
