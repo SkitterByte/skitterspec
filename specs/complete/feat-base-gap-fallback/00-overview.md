@@ -160,3 +160,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   and `review.html` (page/review code). Re-read both: neither describes the
   base refusal or the page subtitle's base, so neither is wrong and `Docs:`
   stays `reference`.
+- 2026-11-18 — Completed; all phases done, tests green.
