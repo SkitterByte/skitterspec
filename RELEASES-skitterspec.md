@@ -5,6 +5,11 @@ What's new for users of skitterspec. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 23.17.0 — 18 Nov 2026
+
+### Review
+- **New** — On Windows, a review run with no desktop session (a Mac driving a VM, ssh, a scheduled task) now leaves out the local link and leads with network, with no wrapper variable to set.
+
 ## 23.16.0 — 17 Nov 2026
 
 ### Env
