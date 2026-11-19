@@ -101,7 +101,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Stamps that survive a rebase, and `verify` | ⬜ | [01-freshness-stamps.md](01-freshness-stamps.md) |
+| 1 | Stamps that survive a rebase, and `verify` | ✅ | [01-freshness-stamps.md](01-freshness-stamps.md) |
 | 2 | `complete.checks` and `spec-env checks` | ⬜ | [02-complete-checks.md](02-complete-checks.md) |
 | 3 | Wire `/spec-complete`, this repo, and docs | ⬜ | [03-wire-and-docs.md](03-wire-and-docs.md) |
 
@@ -113,3 +113,6 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 - 2026-11-19 — Spec created, from `feat-local-install` landing six fresh
   pages as stale and `review.html` found unstamped.
+- 2026-11-19 — Phase 1: `verify` exits 1 on a refused name — it is a
+  write, not a report, so the always-exit-0 rule for reports does not cover
+  it.

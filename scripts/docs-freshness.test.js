@@ -24,6 +24,7 @@ const {
   checkSpecs,
   impact,
   stale,
+  verify,
 } = require('./docs-freshness.js')
 
 const SCRIPT = path.join(__dirname, 'docs-freshness.js')
@@ -281,6 +282,103 @@ test('an unknown verified commit is cannot tell — never fresh', () => {
   assert.deepStrictEqual(r.fresh, [])
   assert.deepStrictEqual(r.stale, [])
   assert.match(r.cannotTell[0].reason, /not in this clone/)
+})
+
+// --- a stamp rewritten by landing ------------------------------------------------
+
+// The landing case: a page stamped on a spec branch, the branch rebased onto a
+// base that moved, then fast-forwarded. The stamp names the pre-rebase commit.
+function landedByRebase() {
+  const root = makeRepo()
+  write(root, 'src/f.js', 'one\n')
+  write(root, 'other.txt', 'a\n')
+  write(root, 'docs/a.html', 'placeholder\n')
+  commitAll(root, 'base')
+  git(root, 'switch', '-q', '-c', 'feature')
+  write(root, 'src/f.js', 'two\n')
+  const stamped = commitAll(root, 'feature code')
+  write(root, 'docs/a.html', pageHtml(['src/**'], stamped))
+  commitAll(root, 'docs, stamped on the branch')
+  git(root, 'switch', '-q', 'main')
+  write(root, 'other.txt', 'b\n')
+  commitAll(root, 'base moved on')
+  git(root, 'switch', '-q', 'feature')
+  git(root, 'rebase', '-q', 'main')
+  git(root, 'switch', '-q', 'main')
+  git(root, 'merge', '-q', '--ff-only', 'feature')
+  return { root, stamped }
+}
+
+test('STAYS SILENT: a stamp rewritten by a rebase-landing reads fresh', () => {
+  const { root, stamped } = landedByRebase()
+  assert.throws(() => git(root, 'merge-base', '--is-ancestor', stamped, 'HEAD'), 'precondition: the stamp is an orphan')
+  const r = stale(root)
+  assert.deepStrictEqual(r.stale, [], 'not stale')
+  assert.deepStrictEqual(r.cannotTell, [])
+  assert.deepStrictEqual(r.fresh, ['a.html'])
+})
+
+test('covered drift after a rebased stamp still reads stale', () => {
+  const { root } = landedByRebase()
+  write(root, 'src/f.js', 'three\n')
+  commitAll(root, 'real drift')
+  const r = stale(root)
+  assert.deepStrictEqual(r.stale.map((s) => [s.page, s.commits]), [['a.html', 1]])
+})
+
+test('a stamp with no twin on HEAD is cannot tell — never stale', () => {
+  const root = makeRepo()
+  write(root, 'src/f.js', 'one\n')
+  write(root, 'docs/a.html', 'placeholder\n')
+  commitAll(root, 'base')
+  git(root, 'switch', '-q', '-c', 'abandoned')
+  write(root, 'src/f.js', 'never landed\n')
+  const orphan = commitAll(root, 'work that went nowhere')
+  git(root, 'switch', '-q', 'main')
+  write(root, 'docs/a.html', pageHtml(['src/**'], orphan))
+  commitAll(root, 'page stamped with the orphan')
+  const r = stale(root)
+  assert.deepStrictEqual(r.stale, [])
+  assert.deepStrictEqual(r.fresh, [])
+  assert.match(r.cannotTell[0].reason, /rewritten .*no commit on HEAD matches/)
+})
+
+// --- verify ----------------------------------------------------------------------
+
+test('verify stamps each named page with HEAD, and only those', () => {
+  const root = makeRepo()
+  write(root, 'docs/a.html', pageHtml(['src/**'], 'old'))
+  write(root, 'docs/b.html', pageHtml(['src/**'], 'old'))
+  write(root, 'src/f.js', 'x\n')
+  const head = commitAll(root, 'base')
+  const r = verify(root, ['a'])
+  assert.deepStrictEqual(r.done, ['a.html'])
+  assert.strictEqual(parseCoverage(fs.readFileSync(path.join(root, 'docs/a.html'), 'utf8')).verified, head.slice(0, 12))
+  assert.strictEqual(parseCoverage(fs.readFileSync(path.join(root, 'docs/b.html'), 'utf8')).verified, 'old')
+})
+
+test('verify refuses an unknown page and writes nothing', () => {
+  const root = makeRepo()
+  write(root, 'docs/a.html', pageHtml(['src/**'], 'old'))
+  write(root, 'src/f.js', 'x\n')
+  commitAll(root, 'base')
+  const r = verify(root, ['a', 'nope'])
+  assert.match(r.error, /no such page: nope/)
+  assert.strictEqual(parseCoverage(fs.readFileSync(path.join(root, 'docs/a.html'), 'utf8')).verified, 'old')
+  assert.throws(() => execFileSync(process.execPath, [SCRIPT, 'verify', 'nope'], { cwd: root, stdio: 'pipe' }), 'a refused write exits 1')
+})
+
+test('the reports name verify beside a flagged page', () => {
+  const root = makeRepo()
+  write(root, 'src/f.js', 'one\n')
+  write(root, 'docs/a.html', 'placeholder\n')
+  const first = commitAll(root, 'base')
+  write(root, 'docs/a.html', pageHtml(['src/**'], first))
+  commitAll(root, 'coverage')
+  write(root, 'src/f.js', 'two\n')
+  commitAll(root, 'drift')
+  const out = execFileSync(process.execPath, [SCRIPT, 'stale'], { cwd: root, encoding: 'utf8' })
+  assert.match(out, /a\.html — re-read it: .* then: node scripts\/docs-freshness\.js verify a/)
 })
 
 // --- CLI: advisory means exit 0, including on cannot-tell ----------------------

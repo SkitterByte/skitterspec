@@ -284,6 +284,47 @@ function impact(root = process.cwd(), base) {
 // --- stale ------------------------------------------------------------------
 
 /**
+ * The commit on HEAD a `verified` stamp stands for.
+ *
+ * A stamp written on a spec branch names a commit that LANDING REWRITES:
+ * `integrate` rebases, so the stamped commit becomes an orphan with a twin on
+ * HEAD. Counting `<orphan>..HEAD` then takes in every rebased commit, and a page
+ * that was fresh reads stale the moment its spec lands. So a stamp that is not
+ * an ancestor of HEAD is matched to its twin by `git patch-id` — the same change
+ * under a new parent — within `merge-base..HEAD`.
+ *
+ * WHAT WOULD FOOL THIS: a rebase that CHANGED the commit (a resolved conflict)
+ * gives the twin a different patch-id, so no match is found. That is answered
+ * `null` — cannot tell — and never stale: the page may well be fresh, and the
+ * absence of a match is not evidence that it is not (negative-checks rule 4).
+ *
+ * Returns `{ ref, rewritten }` — `rewritten` set when a twin stood in — or null.
+ */
+function anchorFor(root, verified) {
+  try {
+    git(root, ['merge-base', '--is-ancestor', verified, 'HEAD'])
+    return { ref: verified, rewritten: null }
+  } catch {
+    // not an ancestor — look for its rewritten twin below
+  }
+  try {
+    const idOf = (patch) => (execFileSync('git', ['patch-id', '--stable'], { cwd: root, input: patch, encoding: 'utf8' }).split(' ')[0] || '').trim()
+    const want = idOf(git(root, ['show', '--format=', verified]))
+    if (!want) return null
+    const base = git(root, ['merge-base', verified, 'HEAD']).trim()
+    const log = git(root, ['log', '-p', '--format=commit %H', `${base}..HEAD`])
+    const ids = execFileSync('git', ['patch-id', '--stable'], { cwd: root, input: log, encoding: 'utf8', maxBuffer: 1 << 28 })
+    for (const line of ids.split('\n')) {
+      const [id, commit] = line.trim().split(' ')
+      if (id === want && commit) return { ref: commit, rewritten: verified }
+    }
+  } catch {
+    // any git failure here is cannot-tell, below
+  }
+  return null
+}
+
+/**
  * Pages with commits since their `verified` watermark touching their covers.
  * The globs go to git as `:(glob)` pathspecs — the same semantics
  * `globToRegExp` implements for `impact`.
@@ -302,12 +343,20 @@ function stale(root = process.cwd()) {
       results.cannotTell.push({ page: p.name, reason: `verified '${p.verified}' is not in this clone` })
       continue
     }
+    const anchor = anchorFor(root, p.verified)
+    if (!anchor) {
+      results.cannotTell.push({
+        page: p.name,
+        reason: `verified '${p.verified}' was rewritten (a rebase?) and no commit on HEAD matches it`,
+      })
+      continue
+    }
     let log
     try {
       log = git(root, [
         'log',
         '--oneline',
-        `${p.verified}..HEAD`,
+        `${anchor.ref}..HEAD`,
         '--',
         ...p.covers.map((g) => `:(glob)${g}`),
       ])
@@ -324,6 +373,34 @@ function stale(root = process.cwd()) {
   }
   return results
 }
+
+// --- verify -----------------------------------------------------------------
+
+/**
+ * Record a re-read: stamp each named page's `verified:` with HEAD. The one
+ * action for "I re-read it and it is right", which as a hand edit was skipped.
+ * Every name is checked before any page is written, so a typo changes nothing.
+ * Names are page names without `.html`, as the reports print them.
+ */
+function verify(root = process.cwd(), names = []) {
+  const pages = new Map(listPages(root).map((p) => [p.name.replace(/\.html$/, ''), p]))
+  const unknown = names.filter((n) => !pages.has(n.replace(/\.html$/, '')))
+  if (names.length === 0) return { error: 'name at least one page' }
+  if (unknown.length) return { error: `no such page: ${unknown.join(', ')} (pages: ${[...pages.keys()].join(', ')})` }
+  const head = git(root, ['rev-parse', '--short=12', 'HEAD']).trim()
+  const done = []
+  for (const n of names) {
+    const p = pages.get(n.replace(/\.html$/, ''))
+    const file = path.join(root, p.page)
+    const html = fs.readFileSync(file, 'utf8')
+    const next = html.replace(/^verified:\s*\S+$/m, `verified: ${head}`)
+    if (next !== html) fs.writeFileSync(file, next)
+    done.push(p.name)
+  }
+  return { head, done }
+}
+
+const verifyHint = (page) => `node scripts/docs-freshness.js verify ${page.replace(/\.html$/, '')}`
 
 // --- CLI --------------------------------------------------------------------
 
@@ -364,7 +441,7 @@ function main(argv) {
       console.log('  nothing to flag — re-read nothing')
     } else {
       for (const f of r.flagged) {
-        console.log(`  ${f.page} — re-read it: ${f.hits.length} covered change(s)`)
+        console.log(`  ${f.page} — re-read it: ${f.hits.length} covered change(s) · fine as it is? ${verifyHint(f.page)}`)
         for (const h of f.hits.slice(0, 5)) console.log(`      ${h}`)
         if (f.hits.length > 5) console.log(`      … and ${f.hits.length - 5} more`)
       }
@@ -376,17 +453,26 @@ function main(argv) {
     console.log('docs:stale — commits since each page was verified (advisory, exits 0)')
     for (const c of r.cannotTell) console.log(`  ${c.page} — cannot tell — ${c.reason}`)
     for (const s of r.stale) {
-      console.log(`  ${s.page} — re-read it: ${s.commits} commit(s) since ${s.verified}`)
+      console.log(`  ${s.page} — re-read it: ${s.commits} commit(s) since ${s.verified} · then: ${verifyHint(s.page)}`)
     }
     if (r.stale.length === 0 && r.cannotTell.length === 0) {
       console.log('  every page is fresh at its verified commit')
     }
     if (r.stale.length > 0) {
-      console.log('  after re-reading, bump that page\'s `verified:` to the current HEAD')
+      console.log('  re-reading a page and fixing what moved is the work; `verify` records that you did')
     }
     return 0
   }
-  console.log('usage: node scripts/docs-freshness.js <check | impact [base] | stale>')
+  if (cmd === 'verify') {
+    const r = verify(root, argv.slice(1))
+    if (r.error) {
+      console.log(`docs:verify — refused, nothing written: ${r.error}`)
+      return 1
+    }
+    console.log(`docs:verify — stamped verified: ${r.head} on ${r.done.join(', ')}`)
+    return 0
+  }
+  console.log('usage: node scripts/docs-freshness.js <check | impact [base] | stale | verify <page...>>')
   console.log('  advisory reports over the coverage blocks in docs/*.html — always exit 0')
   return 0
 }
@@ -396,6 +482,8 @@ if (require.main === module) {
 }
 
 module.exports = {
+  anchorFor,
+  verify,
   parseCoverage,
   globToRegExp,
   matchesAny,
