@@ -61,7 +61,14 @@ real-time scanning in a VM. A release that should take minutes took hours.
    tests over real repos that only check planner logic are rewritten against
    the pure planners (`planUp`, `planResume`, `blockersFrom` …). A real-git
    test stays wherever only git can show the behaviour.
-6. **Out of scope: making CI's Windows job stop a release.** `release.yml` is
+6. **Cache the engine's read-only git calls per process.** On the Mac the suite
+   spawns 18,100 subprocesses, and about half are the engine asking git the
+   same question again within one command (`rev-parse`, `symbolic-ref`,
+   `worktree list`, `status`). A memo around those reads, cleared by any write
+   the same process makes, cuts them. Every real command gets faster on
+   Windows too, so the commit carries a `Release-Note:` even though the spec
+   is a chore.
+7. **Out of scope: making CI's Windows job stop a release.** `release.yml` is
    separate from `ci.yml`, and that is its own design question.
 
 ## Solution overview
@@ -80,6 +87,8 @@ real-time scanning in a VM. A release that should take minutes took hours.
 |---------|--------|--------|
 | CLI command | update | `scripts/release.js <pkg>[,<pkg>…]`: one test pass per batch |
 | Service | add | `fixture()` in `packages/common/test/helpers/repo.js` |
+| Service | update | engine git reader: per-process memo of read-only calls |
+| CLI command | add | `scripts/spawn-census.js` (a `--require` hook) |
 | Business rule | update | RELEASING.md: Defender exclusions; batch releases |
 
 ## Phases
@@ -91,8 +100,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Measure, and Defender exclusions | ✅ | [01-measure-and-exclude.md](01-measure-and-exclude.md) |
 | 2 | One test pass per release batch | ✅ | [02-batch-release.md](02-batch-release.md) |
-| 3 | Fixture copies for the slowest files | ⬜ | [03-fixture-copies.md](03-fixture-copies.md) |
-| 4 | Planner logic to pure tests, then confirm the target | ⬜ | [04-pure-tests.md](04-pure-tests.md) |
+| 3 | Fixture copies for the slowest files | ✅ | [03-fixture-copies.md](03-fixture-copies.md) |
+| 4 | Cache the engine's repeated git reads | ⬜ | [04-engine-git-cache.md](04-engine-git-cache.md) |
+| 5 | Planner logic to pure tests, then confirm the target | ⬜ | [05-pure-tests.md](05-pure-tests.md) |
 
 ## Open questions
 
@@ -108,3 +118,13 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   Mac. Defender real-time protection was already off in the VM, so Decision 2's
   lever bought nothing here, and the target now rests on phases 3 and 4. The
   four slowest files account for about a quarter of in-test time.
+- 2026-11-19 — Phase 3 measured spawns, not just files. The suite spawns
+  18,100 subprocesses on the Mac, and Windows pays about 200 ms for each, so
+  spawn count is the cost. Test scaffolding is about 29% of spawns, engine
+  re-reads about half, and `node` children are few but expensive. Fixture
+  copies alone cannot reach the target, so a new phase 4 caches the engine's
+  git reads. Pure tests move to phase 5, and `scripts/spawn-census.js` is
+  committed to measure every phase.
+- 2026-11-19 — Phase 3 closed after three conversions and a 3.4% suite-wide
+  spawn cut. The rest of the scaffold conversions move to phase 5, after the
+  engine cache, where the ranking will have changed.

@@ -125,4 +125,94 @@ function repoFor(dir) {
   return repo
 }
 
-module.exports = { makeRepo, repoFor, nestedPrefix, git }
+/**
+ * Build a fixture once, and hand every test its own copy
+ * (chore-fast-windows-suite).
+ *
+ * `build(root, ...args)` runs ONCE per distinct `args` into a template under
+ * the temp dir. Each call then copies that template, and its
+ * `../<name>-wt` worktree folder if `build` made one, to a fresh temp root and
+ * returns the new root. A test still gets a repo of its own, while the dozen
+ * `git` processes that built it run once per file instead of once per test.
+ * On Windows each one costs about 200 ms.
+ *
+ * Worktrees and remotes survive the copy, as long as they live under `root`
+ * or its `-wt` folder: every file where git keeps an absolute path is
+ * re-pointed at the copy (see `repoint`).
+ *
+ * WHAT WOULD FOOL THIS: anything `build` creates OUTSIDE `root` and its `-wt`
+ * folder, such as a bare remote in another temp dir. Every copy would share
+ * that one remote, and a test that pushes would leak into the next. Such a
+ * scaffold keeps building its remote per test, after the copy.
+ */
+function fixture(name, build) {
+  const templates = new Map()
+  const wtOf = (root) => path.resolve(root, `../${path.basename(root)}-wt`)
+  process.once('exit', () => {
+    for (const tpl of templates.values()) {
+      for (const tree of [tpl, wtOf(tpl)]) {
+        try {
+          fs.rmSync(tree, { recursive: true, force: true })
+        } catch {}
+      }
+    }
+  })
+  return function copy(...args) {
+    const key = JSON.stringify(args)
+    if (!templates.has(key)) {
+      const tpl = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), name)))
+      build(tpl, ...args)
+      templates.set(key, tpl)
+    }
+    const tpl = templates.get(key)
+    const root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), name)))
+    fs.cpSync(tpl, root, { recursive: true, verbatimSymlinks: true })
+    const roots = [root]
+    const tpls = [tpl]
+    if (fs.existsSync(wtOf(tpl))) {
+      fs.cpSync(wtOf(tpl), wtOf(root), { recursive: true, verbatimSymlinks: true })
+      roots.push(wtOf(root))
+      tpls.push(wtOf(tpl))
+    }
+    repoint(roots, tpls)
+    return root
+  }
+}
+
+// Swap the template's paths for the copy's wherever git keeps an absolute
+// path: a worktree's `.git` file, each git dir's `config` (a remote that is a
+// folder beside the repo) and `worktrees/*/gitdir`. git writes these with
+// forward slashes on Windows, so both spellings are replaced.
+function repoint(roots, tpls) {
+  const pairs = []
+  roots.forEach((root, i) => {
+    pairs.push([tpls[i], root], [tpls[i].split(path.sep).join('/'), root.split(path.sep).join('/')])
+  })
+  const swap = (file) => {
+    const before = fs.readFileSync(file, 'utf8')
+    let text = before
+    for (const [from, to] of pairs) text = text.split(from).join(to)
+    if (text !== before) fs.writeFileSync(file, text)
+  }
+  // A git dir is a `.git` folder or a bare repo (`*.git`); a `.git` FILE is a
+  // worktree's link. Not entered: node_modules, and anything inside a git dir
+  // beyond the two files that hold paths.
+  const walk = (dir, depth) => {
+    if (depth > 4) return
+    for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, ent.name)
+      if (ent.isFile() && ent.name === '.git') swap(p)
+      else if (ent.isDirectory() && ent.name.endsWith('.git')) {
+        if (fs.existsSync(path.join(p, 'config'))) swap(path.join(p, 'config'))
+        const links = path.join(p, 'worktrees')
+        for (const name of fs.existsSync(links) ? fs.readdirSync(links) : []) {
+          const gitdir = path.join(links, name, 'gitdir')
+          if (fs.existsSync(gitdir)) swap(gitdir)
+        }
+      } else if (ent.isDirectory() && ent.name !== 'node_modules') walk(p, depth + 1)
+    }
+  }
+  for (const root of roots) walk(root, 0)
+}
+
+module.exports = { makeRepo, repoFor, nestedPrefix, git, fixture }

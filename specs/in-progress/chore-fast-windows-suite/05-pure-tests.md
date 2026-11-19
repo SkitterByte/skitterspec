@@ -2,7 +2,7 @@
 github_issue_id: "#259"
 ---
 
-# Phase 4 — Planner logic to pure tests, then confirm the target ⬜
+# Phase 5 — Planner logic to pure tests, then confirm the target ⬜
 
 > Spec: [00-overview.md](00-overview.md) · **Status:** Not started
 
@@ -11,6 +11,9 @@ the Windows run is under 5 minutes. Proven by the final measurement.
 
 ## Tasks
 
+- [ ] Re-rank by spawn census after phase 4, and move any remaining
+      hand-rolled scaffold to `fixture()` where it still saves 5 seconds or
+      more on the VM.
 - [ ] From the re-measured ranking, mark each slow CLI test as either
       **planner-only** (its assertions are about a plan's text or JSON) or
       **git-behaviour** (ranges, worktrees, remotes, real refusals).

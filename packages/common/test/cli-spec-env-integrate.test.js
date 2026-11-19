@@ -9,6 +9,7 @@ const { execFileSync } = require('node:child_process')
 
 const { run } = require('../src/cli.js')
 const { shellPath } = require('../src/env/project.js')
+const { fixture } = require('./helpers/repo.js')
 
 // A path as the engine prints it in a command — quoted when it has to be, which
 // a Windows path (backslashes) always is — escaped for use inside a RegExp.
@@ -45,8 +46,8 @@ async function runQuiet(argv) {
 
 // Build a primary checkout on `main` with an isolated spec, plus a real worktree
 // on the spec's branch holding one commit ahead of main (so integrate has work).
-function scaffoldRepoWithWorktree(extraConfig = {}) {
-  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-int-')))
+// Built once per config and copied per test (helpers/repo.js `fixture`).
+const scaffoldCopy = fixture('skitterspec-int-', (dir, extraConfig) => {
   git(dir, 'init', '-q')
   git(dir, 'config', 'user.email', 'test@example.com')
   git(dir, 'config', 'user.name', 'Test')
@@ -71,8 +72,11 @@ function scaffoldRepoWithWorktree(extraConfig = {}) {
   fs.writeFileSync(path.join(worktree, 'change.txt'), 'work\n')
   git(worktree, 'add', '-A')
   git(worktree, 'commit', '-q', '-m', 'phase 1')
+})
 
-  return { dir, worktree }
+function scaffoldRepoWithWorktree(extraConfig = {}) {
+  const dir = scaffoldCopy(extraConfig)
+  return { dir, worktree: path.resolve(dir, `../${path.basename(dir)}-wt`, 'x') }
 }
 
 function cleanup(dir) {

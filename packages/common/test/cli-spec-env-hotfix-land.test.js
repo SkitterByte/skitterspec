@@ -18,6 +18,7 @@ const path = require('node:path')
 const { execFileSync } = require('node:child_process')
 
 const { run } = require('../src/cli.js')
+const { fixture } = require('./helpers/repo.js')
 
 function git(cwd, ...args) {
   return execFileSync('git', ['-C', cwd, ...args], { stdio: ['ignore', 'pipe', 'ignore'] })
@@ -49,8 +50,10 @@ process.stdout.write(JSON.stringify({ tag, version: '1.0.0-hotfix.1', baseTag: '
   return { command: `node ${stub}`, calls }
 }
 
-function scaffold(hotfix = {}, extra = {}) {
-  const root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-hfland-')))
+// Built once per (hotfix, extra) and copied per test (helpers/repo.js
+// `fixture`). The bare remote and the worktree both live under root, so each
+// copy gets its own.
+const scaffoldCopy = fixture('skitterspec-hfland-', (root, hotfix, extra) => {
   const dir = path.join(root, 'repo')
   fs.mkdirSync(dir)
   git(dir, 'init', '-q')
@@ -88,7 +91,11 @@ function scaffold(hotfix = {}, extra = {}) {
   )
   git(wt, 'add', '-A')
   git(wt, 'commit', '-q', '-m', 'chore(spec): complete hotfix-login')
-  return { root, dir, wt, remote }
+})
+
+function scaffold(hotfix = {}, extra = {}) {
+  const root = scaffoldCopy(hotfix, extra)
+  return { root, dir: path.join(root, 'repo'), wt: path.join(root, 'wt', 'login'), remote: path.join(root, 'remote.git') }
 }
 
 async function hotfix(dir, verb, ...extra) {

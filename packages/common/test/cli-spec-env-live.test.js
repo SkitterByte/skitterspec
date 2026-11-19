@@ -8,6 +8,7 @@ const path = require('node:path')
 const { execFileSync } = require('node:child_process')
 
 const { run } = require('../src/cli.js')
+const { fixture } = require('./helpers/repo.js')
 const { writeReceipt } = require('../src/env/live.js')
 
 // Live-git tests for `spec-env live status`. Exercise the real anchor path: the
@@ -37,8 +38,8 @@ async function runQuiet(argv) {
   return out
 }
 
-function scaffoldRepo() {
-  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-live-')))
+// Both scaffolds are built once and copied per test (helpers/repo.js `fixture`).
+function buildRepo(dir) {
   git(dir, 'init', '-q')
   git(dir, 'config', 'user.email', 'test@example.com')
   git(dir, 'config', 'user.name', 'Test')
@@ -54,8 +55,9 @@ function scaffoldRepo() {
   git(dir, 'add', '-A')
   git(dir, 'commit', '-q', '-m', 'init')
   git(dir, 'branch', '-M', 'main') // guarantee the base branch is `main`
-  return dir
 }
+const repoCopy = fixture('skitterspec-live-', buildRepo)
+const scaffoldRepo = () => repoCopy()
 
 function cleanup(dir) {
   try {
@@ -111,8 +113,8 @@ test('live status shows the feature in control and the receipt when held', async
 })
 
 // A primary checkout on main with a spec + a worktree on feat/x, one commit ahead.
-function scaffoldRepoWithSpecWorktree() {
-  const dir = scaffoldRepo()
+const specWorktreeCopy = fixture('skitterspec-live-', (dir) => {
+  buildRepo(dir)
   const specDir = path.join(dir, 'specs', 'in-progress', 'feat-x')
   fs.mkdirSync(specDir, { recursive: true })
   fs.writeFileSync(path.join(specDir, '00-overview.md'), '# X\n\n> **Stack:** worktree\n')
@@ -123,7 +125,11 @@ function scaffoldRepoWithSpecWorktree() {
   fs.writeFileSync(path.join(worktree, 'change.txt'), 'work\n')
   git(worktree, 'add', '-A')
   git(worktree, 'commit', '-q', '-m', 'phase work')
-  return { dir, worktree }
+})
+
+function scaffoldRepoWithSpecWorktree() {
+  const dir = specWorktreeCopy()
+  return { dir, worktree: path.resolve(dir, `../${path.basename(dir)}-wt`, 'x') }
 }
 
 test('live take switches the primary checkout to the branch and writes a receipt', async () => {
