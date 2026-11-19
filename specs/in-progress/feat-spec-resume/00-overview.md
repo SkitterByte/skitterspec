@@ -149,7 +149,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Engine: `Blocked on:` reader, `#N` across branches, `spec-env resume` | ✅ | [01-engine-resume.md](01-engine-resume.md) |
 | 2 | `/spec-resume` skill and the doors' hand-off | ✅ | [02-resume-skill.md](02-resume-skill.md) |
-| 3 | Parking: `/spec-park`, planned blockers, `/spec-next` and `/spec-complete` | ⬜ | [03-parking.md](03-parking.md) |
+| 3 | Parking: `/spec-park`, planned blockers, `/spec-next` and `/spec-complete` | ✅ | [03-parking.md](03-parking.md) |
 | 4 | Surfacing: `/spec-todo` and the tracker summary block | ⬜ | [04-surfacing.md](04-surfacing.md) |
 
 ## Open questions
@@ -172,3 +172,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   off to a bare `/spec-next`, not by building itself. The doors' change sits in
   the four provider intake seams. Follow-up surfaced: Jira's intake seam runs
   `spec-sync linked`, which Jira does not ship; not in scope here.
+- 2026-11-19 — Phase 3: `blocking` added to the `spec-env resume` answer for
+  `/spec-next` to read, rather than a separate engine verb. `/spec-park` edits
+  and commits the header itself, with no `spec-env park` verb. The planned-wait
+  grill is `/spec` Phase A item 11, so Open questions moves to item 12.

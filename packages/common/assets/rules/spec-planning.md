@@ -19,6 +19,7 @@ and lifecycle stay consistent. Each sets a status on the spec header
 | `/spec-reviewed` | Pick up a review approved on the page — offered by its code, claimed on your word | (unchanged) | (unchanged) |
 | `/spec-epic-next` | Name the epic member that can start now, as the `/spec-start` to type in a new tab — a picker when several can; reads only | (unchanged) | (unchanged) |
 | `/spec-resume` | Go back into a spec already in flight, by name or `#N`. It rebuilds the worktree when this machine has none, shows what it is blocked on, and acts on the message given with it. It starts nothing | (unchanged) | (unchanged) |
+| `/spec-park` | Park a spec in flight on something outside the repo: a `Blocked on:` line on the spec or a phase, committed on its branch. The worktree stays | (unchanged) | (unchanged) |
 | `/spec-to-main` | Land the branch on the base (rebase + ff) **without** finishing — for running the work in CI / a shared env mid-spec; repeatable | `In Progress` (unchanged) | (unchanged) |
 | `/spec-complete` | Verify all phases done + tests green; land + tear down | `Complete` | `specs/complete/` |
 | `/spec-cancel` | Record progress, stamp a reason on the header; tear down | `Cancelled` | `specs/cancelled/` |
@@ -907,6 +908,15 @@ Every spec header carries:
   only that phase.
 - `> **Lanes:**` — on an epic, optional: how many members may be in flight at
   once.
+- `> **Blocked on:**`: on a spec, or on one phase file. It records that the
+  spec, or that phase, waits on something outside the repo: a deploy, another
+  project's release, a soak. The value is free text, with an optional
+  `(until YYYY-MM-DD)` that `/spec-todo` reads. `/spec` writes the planned
+  ones, `/spec-park` writes the ad-hoc ones, and `/spec-resume` clears them on
+  the record. `/spec-next` stops before building past one, and
+  `/spec-complete` reports one still standing. **Not `Waits on:`.** That one
+  is an epic wait the engine can observe on the base branch. This one is a
+  condition only a person can judge, so nothing ever counts it as met.
 
 **Under a provider's default `pull`, these three are the tracker's** —
 `Status:`, `Developer:` and the State log — and new specs carry

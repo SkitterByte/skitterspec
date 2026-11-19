@@ -343,7 +343,7 @@ Usage:
                                                   (advisory — always exits 0)
                                 status            list provisioned specs + port blocks
                                 resolve <spec>    print resolved slug/type/branch/paths
-                                resume <spec|#N>  an in-flight spec: its blockers, and the plan
+                                resume [spec|#N]  an in-flight spec: its blockers, and the plan
                                                   to rebuild its worktree from its branch
                                                   (prints commands; creates nothing)
                                 base              fetch, list baseBranchPattern matches
@@ -4551,6 +4551,16 @@ function specEnvResume(dir, config, arg, flags = {}) {
     copies.push({ folder: b.folder, bucket: b.bucket, origin: 'branch', local: b.local, ref: b.ref, overview: b.overview, phases: b.phases })
   }
 
+  // Bare means what every bare spec-env verb means: the worktree you are
+  // standing in, else the sole provisioned spec. Neither answering leaves the
+  // argument empty, and findTarget refuses that rather than guessing.
+  if (!arg) {
+    try {
+      arg = resolveSpecWithWorktree(dir, config).folder
+    } catch {
+      arg = ''
+    }
+  }
   const identifierField = config.branch && config.branch.identifierField
   const found = findTarget(arg, copies, identifierField)
   if (found.refused) {

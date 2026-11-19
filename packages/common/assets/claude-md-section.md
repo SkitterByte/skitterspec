@@ -37,6 +37,10 @@ session there and shows what it was blocked on. Then it acts on the message:
 feedback on the shipped work becomes tasks, "the deploy is out" clears the
 blocker, and a question gets an answer from the spec. It never starts
 anything. `/spec #N` on a ticket that already has a spec offers it instead.
+**`/spec-park "<reason>"`** records the wait in the first place, as a
+`Blocked on:` line. `/spec` writes the planned ones ("phase 4 waits until
+phase 3 has run in prod a week"), and `/spec-next` stops before building
+past either kind.
 
 **Handing the review back.** The page takes marks: tick `✓ accept` per file as
 you read, note anything against a line or a whole file, answer the questions a

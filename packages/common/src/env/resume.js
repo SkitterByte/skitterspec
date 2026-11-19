@@ -69,6 +69,24 @@ function blockers(copy) {
   return out
 }
 
+/**
+ * The blocker that stands in front of the NEXT build, or null.
+ *
+ * The next build is the first phase not `✅` — the one `/spec-next` would
+ * pick. A spec-level blocker holds every phase; a phase's own holds only that
+ * phase. A blocker on a LATER phase is not this build's business and says
+ * nothing: a spec planned to wait at phase 4 builds phases 1–3 unhindered.
+ * Nothing left to build means nothing to block.
+ */
+function blockingNext(copy) {
+  const all = blockers(copy)
+  const phases = ((copy && copy.phases) || []).filter((p) => p && typeof p.text === 'string')
+  const heading = (t) => (t.split('\n').find((l) => /^#\s/.test(l)) || '').trim()
+  const next = [...phases].sort((a, b) => a.n - b.n).find((p) => !heading(p.text).endsWith('✅'))
+  if (!next) return null
+  return all.find((b) => b.where === 'spec') || all.find((b) => b.where === next.n) || null
+}
+
 // A frontmatter field off an overview's text — the in-memory twin of
 // resolve.js `readFrontmatterField`, for copies read off a branch.
 function frontmatterField(text, field) {
@@ -151,6 +169,7 @@ function planResume(target, env) {
     identifier: frontmatterField(target.overview, env.identifierField),
     progress: { done: progress.done, total: progress.total, current: progress.current },
     blockers: blockers(target),
+    blocking: blockingNext(target),
     worktree: { path: env.worktreePath, present: Boolean(env.worktreeExists) },
   }
   if (target.bucket !== 'in-progress') {
@@ -202,7 +221,7 @@ function resumeLines(r) {
   lines.push(
     `  phases:    ${total ? `${done} of ${total} done${current ? `, phase ${current} in progress` : ''}` : 'no phase files'}`,
   )
-  for (const b of r.blockers) lines.push(`  blocked:   ${blockerLine(b)}`)
+  for (const b of r.blockers) lines.push(`  blocked:   ${blockerLine(b)}${r.blocking && b.where === r.blocking.where ? '  ← holds the next build' : ''}`)
   if (!r.ok) {
     lines.push(`  refused:   ${r.refused}`)
     return lines
@@ -215,4 +234,4 @@ function resumeLines(r) {
   return lines
 }
 
-module.exports = { blockers, parseBlockedOn, findTarget, planResume, resumeLines, blockerLine, frontmatterField, sameRef }
+module.exports = { blockers, blockingNext, parseBlockedOn, findTarget, planResume, resumeLines, blockerLine, frontmatterField, sameRef }

@@ -96,7 +96,15 @@ not write the spec until this is resolved.
       answer **either way**: a flag name, or `none: <one-line reason>`. "No" is a
       decision and belongs in the header; silence is not. Skip entirely when the
       config is absent — that project does not use flags.
-  11. **Open questions** — anything still undecided.
+  11. **Waits outside the repo**: does any phase only make sense once
+      something happens elsewhere? For example, an earlier phase deployed and
+      running for logs, another project's release, or a soak of N days. Each
+      becomes that phase file's `> **Blocked on:**` line (template below),
+      with `(until YYYY-MM-DD)` only when a date was given. `/spec-next` stops
+      before building that phase, and `/spec-resume` is how it goes on. This
+      is free text, a condition only a person can judge, which is what sets it
+      apart from an epic member's `Waits on:`. With no such wait, write none.
+  12. **Open questions** — anything still undecided.
 
 Stop grilling when there are no unresolved branches that would change the spec.
 Briefly play back the agreed understanding before writing.
@@ -353,6 +361,9 @@ order). Each phase file uses this template:
 # Phase 1 — <goal> ⬜
 
 > Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> **Blocked on:** <only when this phase waits on something outside the repo
+> (Phase A item 11) — the condition, plus "(until YYYY-MM-DD)" if dated.
+> Omit the line entirely otherwise>
 
 **Goal:** <one line — what this phase delivers and how it's proven>.
 

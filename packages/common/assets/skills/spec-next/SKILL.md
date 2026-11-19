@@ -215,6 +215,24 @@ once at the start, so each phase is asked as it is built.
 not matter for this phase, and the bypass is that knowledge on the record. What
 it rules out is the silent build.
 
+**Then ask whether the spec is parked.** Run
+`skitterspec spec-env resume <spec> --json` and read `blocking`. It is the
+`> **Blocked on:**` line that holds this build: the spec's own line, or this
+phase's. A line on a later phase is not this build's business, and the engine
+leaves it out.
+
+- **`blocking: null`**: carry on in silence. This is the usual case.
+- **Anything else**: stop with the `⏸` block before marking anything started.
+  `Why` quotes the blocker, with its `until` date where it has one. `Next` is
+  `/spec-resume <spec> <what happened>`, which is the exit. It hears that the
+  condition is met, clears the line on the record, and builds.
+
+**No bypass is offered here, and none is needed.** Unlike an epic wait, a
+blocker is a condition only a person can judge (a deploy, another project's
+release, a week in prod), so the person who knows it is met says so to
+`/spec-resume`, and that clears it with a Changelog line. A build past one
+without a word would be exactly the silent step this check exists to stop.
+
 Mark it started: set the phase-file heading to `🔄` and its `> **Status:**` to
 `In progress`, and flip the matching row in the overview phase index to `🔄`.
 

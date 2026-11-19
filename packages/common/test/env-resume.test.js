@@ -3,7 +3,7 @@
 const { test } = require('node:test')
 const assert = require('node:assert')
 
-const { blockers, parseBlockedOn, findTarget, planResume, resumeLines } = require('../src/env/resume.js')
+const { blockers, blockingNext, parseBlockedOn, findTarget, planResume, resumeLines } = require('../src/env/resume.js')
 
 // The engine behind `spec-env resume` (feat-spec-resume), pure half.
 
@@ -133,4 +133,32 @@ test('the text report carries ticket, progress, each blocker and the plan', () =
   assert.match(text, /1 of 2 done/)
   assert.match(text, /blocked: {3}phase 2 — deploy/)
   assert.match(text, /git worktree add \/wt\/x feat\/x/)
+})
+
+const ph = (n, mark, blocked) => ({ n, text: `# Phase ${n} ${mark}\n${blocked ? `\n> **Blocked on:** ${blocked}\n` : ''}` })
+
+test('the next unfinished phase\'s own blocker holds the next build', () => {
+  const b = blockingNext({ overview: overview(), phases: [ph(1, '✅'), ph(2, '⬜', 'prod deploy of phase 1')] })
+  assert.deepStrictEqual(b, { where: 2, text: 'prod deploy of phase 1', until: null })
+})
+
+test('a spec-level blocker holds whichever phase is next', () => {
+  const b = blockingNext({ overview: overview('> **Blocked on:** LSC release\n'), phases: [ph(1, '🔄')] })
+  assert.strictEqual(b.where, 'spec')
+})
+
+// STAYS SILENT: a wait planned for phase 4 must not stop phases 1–3.
+test('a blocker on a LATER phase does not hold the next build', () => {
+  assert.strictEqual(blockingNext({ overview: overview(), phases: [ph(1, '✅'), ph(2, '⬜'), ph(3, '⬜', '7 days in prod')] }), null)
+})
+
+test('with every phase done there is nothing left to block', () => {
+  assert.strictEqual(blockingNext({ overview: overview('> **Blocked on:** x\n'), phases: [ph(1, '✅')] }), null)
+})
+
+test('the resume answer carries the blocker that holds the next build, and the text marks it', () => {
+  const target = copy('feat-x', 'in-progress', 'worktree', { phases: [ph(1, '✅'), ph(2, '⬜', 'deploy')] })
+  const r = planResume(target, { ...ENV, worktreeExists: true })
+  assert.deepStrictEqual(r.blocking, { where: 2, text: 'deploy', until: null })
+  assert.match(resumeLines(r).join('\n'), /phase 2 — deploy {2}← holds the next build/)
 })

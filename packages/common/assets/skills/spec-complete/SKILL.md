@@ -35,6 +35,13 @@ Before marking complete, confirm the work is actually finished:
 - If genuinely incomplete work remains, **stop and tell the user** rather than
   forcing completion. Offer to finish it (`/spec-next`) or to complete with the
   remaining items explicitly listed as deferred.
+- **Report any blocker still standing; never refuse over one.** Run
+  `skitterspec spec-env resume <spec> --json` and read `blockers`. Each
+  `> **Blocked on:**` line still in the spec goes in the report's `Notes`,
+  quoted with its `until` date where it has one. A spec can finish with a wait
+  still written down: the soak may have been dropped, or the deploy may have
+  happened without anyone saying so. The line staying in the completed spec is
+  the record of that, and nothing is gated on it. With none, say nothing.
 - **Check for pre-existing uncommitted changes — before you touch anything.**
   Run `git status`. Anything already uncommitted is the *user's* work (a
   half-finished phase, a stray fix) and must not be swept into the completion

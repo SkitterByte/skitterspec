@@ -50,3 +50,31 @@ test('every provider\'s intake door offers /spec-resume for an already-adopted t
     assert.doesNotMatch(seam, /\*\*stop\*\* and point them at that spec/, provider)
   }
 })
+
+const read = (name) => fs.readFileSync(path.join(__dirname, '..', 'assets', 'skills', name, 'SKILL.md'), 'utf8')
+
+test('/spec-park needs a reason, writes Blocked on:, and keeps the worktree', () => {
+  const park = read('spec-park')
+  assert.match(park, /\*\*A reason is required\.\*\*/)
+  assert.match(park, /> \*\*Blocked on:\*\* <reason> \(until <YYYY-MM-DD>\)/)
+  assert.match(park, /\*\*The worktree stays\.\*\*/)
+  assert.doesNotMatch(park, /spec-env down/)
+})
+
+test('/spec-next stops before a blocked phase and names /spec-resume as the exit', () => {
+  const next = read('spec-next')
+  assert.match(next, /skitterspec spec-env resume <spec> --json` and read `blocking`/)
+  assert.match(next, /`\/spec-resume <spec> <what happened>`/)
+})
+
+// STAYS SILENT: a wait still written down when the work is done is reported,
+// never a reason to refuse completion.
+test('/spec-complete reports a standing blocker and never refuses over one', () => {
+  assert.match(read('spec-complete'), /\*\*Report any blocker still standing; never refuse over one\.\*\*/)
+})
+
+test('/spec grills for waits outside the repo and has a phase-file line for them', () => {
+  const spec = read('spec')
+  assert.match(spec, /\*\*Waits outside the repo\*\*/)
+  assert.match(spec, /> \*\*Blocked on:\*\* <only when this phase waits/)
+})
