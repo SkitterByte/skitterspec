@@ -207,3 +207,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   can fetch an unscoped name when the local bin is missing. The bun row in
   `PACKAGE_MANAGERS` is speculative — no spec asked for it and no known
   project uses bun — so it is left as is until one does.
+- 2026-11-19 — Completed; all phases done, tests green.
