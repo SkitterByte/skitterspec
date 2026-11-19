@@ -200,7 +200,7 @@ const {
 const { planPrune, liveSlugsForSpecs, reconcileRegistry } = require('./env/prune.js')
 const { planIntegrate, planIntegrateCheckout, planIntegratePr, planIntegrateDocs } = require('./env/integrate.js')
 const { specBranchDocs, preferBranches } = require('./env/specbranches.js')
-const { findTarget, planResume, resumeLines } = require('./env/resume.js')
+const { findTarget, planResume, resumeLines, blockingNext } = require('./env/resume.js')
 const { parseRemote, prFor, prPlanCommand, prAbandonCommand, preferRemoteBase } = require('./env/host.js')
 const { collectDisposition } = require('./env/disposition.js')
 const { planHandoff } = require('./env/handoff.js')
@@ -933,7 +933,20 @@ function repoBlockers(repo, specs) {
   } catch {
     return []
   }
-  return readBlockers(reviewsDirFor(repo, config), specs, config.review && config.review.required)
+  // Each spec's own copy — its worktree where it has one, since base reads
+  // `backlog` for the life of a spec and holds none of its Blocked on: edits.
+  // A spec that cannot be resolved or read is not parked, it is unknown.
+  const parked = {}
+  for (const spec of specs) {
+    try {
+      const copy = readSpecCopy(resolveSpecWithWorktree(repo, config, spec).path)
+      const b = copy && blockingNext(copy)
+      if (b) parked[spec] = b
+    } catch {
+      // cannot tell — say nothing
+    }
+  }
+  return readBlockers(reviewsDirFor(repo, config), specs, config.review && config.review.required, parked)
 }
 
 /**

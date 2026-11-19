@@ -96,7 +96,7 @@ function lastPrompt(g) {
  *   - `gates`   `{ [spec]: gateState(...) }`; a missing or `unknown` state is
  *               cannot-tell, and says nothing
  */
-function blockersFrom({ specs, passes = [], gates = {} }) {
+function blockersFrom({ specs, passes = [], gates = {}, parked = {} }) {
   const want = new Set(specs)
   const out = []
   for (const p of passes) {
@@ -105,6 +105,13 @@ function blockersFrom({ specs, passes = [], gates = {} }) {
   for (const spec of specs) {
     const g = gates[spec]
     if (g && g.state === 'armed') out.push({ spec, kind: 'gate', phase: g.gate ? g.gate.phase : null })
+  }
+  // A spec parked on something outside the repo (feat-spec-resume): the line
+  // that holds its next build, from `spec-env resume`'s `blockingNext`. A wait
+  // planned for a later phase holds nothing yet and is not listed.
+  for (const spec of specs) {
+    const b = parked[spec]
+    if (b) out.push({ spec, kind: 'parked', where: b.where, text: b.text, until: b.until })
   }
   return out
 }
@@ -118,11 +125,11 @@ function blockersFrom({ specs, passes = [], gates = {} }) {
  * @param {string[]} specs   its in-flight spec names
  * @param {boolean} [required]  `review.required`; false opts the gates out
  */
-function readBlockers(reviews, specs, required) {
-  if (!fs.existsSync(reviews)) return []
+function readBlockers(reviews, specs, required, parked = {}) {
+  if (!fs.existsSync(reviews)) return blockersFrom({ specs, parked })
   const gates = {}
   for (const spec of specs) gates[spec] = gateState({ ...readGate(path.join(reviews, `${spec}.html`), spec), required })
-  return blockersFrom({ specs, passes: waitingPasses(reviews).passes, gates })
+  return blockersFrom({ specs, passes: waitingPasses(reviews).passes, gates, parked })
 }
 
 /**
@@ -211,6 +218,14 @@ const ageText = (at, now) => {
 }
 
 function blockedText(b, now) {
+  if (b.kind === 'parked') {
+    const where = b.where === 'spec' ? '' : ` (phase ${b.where})`
+    // Compared as local calendar days: a wait "until" a date has run out once
+    // that day has begun, not at UTC midnight.
+    const due = b.until && b.until <= localDay(now)
+    const until = b.until ? (due ? ` · until ${b.until}, now passed — ready to resume` : ` · until ${b.until}`) : ''
+    return `${b.spec} — parked${where}: ${b.text}${until} · /spec-resume ${b.spec}`
+  }
   if (b.kind === 'gate') return `${b.spec} — gate armed${b.phase ? `, phase ${b.phase}` : ''}: a verdict is owed`
   return `${b.spec} — ${b.verdict || 'a'} verdict waiting (${b.code}${b.at ? ageText(b.at, now) : ''})`
 }

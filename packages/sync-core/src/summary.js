@@ -188,6 +188,11 @@ function specBlockInner({ snapshotDir, sections, body, phases }) {
   if (t) parts.push(`**Touches** ${t}`)
   const gating = headerValue(body, 'Gating')
   if (gating) parts.push(`**Gating** ${gating}`)
+  // A spec parked on something outside the repo (feat-spec-resume). It says
+  // why the ticket is not moving, and never sets its Status: the tracker owns
+  // status. Absent, nothing is written, so an unparked block is unchanged.
+  const blocked = headerValue(body, 'Blocked on')
+  if (blocked && blocked !== '—') parts.push(`**Blocked on** ${blocked}`)
   const progress = progressLine(phases)
   if (progress) parts.push(progress)
   parts.push(`**Spec** \`${specPath(snapshotDir)}\``)
@@ -239,7 +244,11 @@ function progressLine(phases) {
 function phaseBlockInner(phase) {
   const goal = String((phase && phase.goal) || '').trim() || String((phase && phase.name) || '').trim()
   const { ticked, total } = taskCounts(phase)
-  return total ? `${goal}\n\n**Progress** ${ticked} of ${total} tasks` : goal
+  const blocked = headerValue(((phase && phase.lines) || []).join('\n'), 'Blocked on')
+  const parts = [goal]
+  if (blocked && blocked !== '—') parts.push(`**Blocked on** ${blocked}`)
+  if (total) parts.push(`**Progress** ${ticked} of ${total} tasks`)
+  return parts.join('\n\n')
 }
 
 module.exports = {

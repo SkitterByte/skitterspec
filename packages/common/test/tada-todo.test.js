@@ -11,7 +11,7 @@ const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 
-const { activityTimes, lastActiveDay, leftOf, blockersFrom, readBlockers, buildTodo, formatTodo } = require('../src/tada/todo.js')
+const { activityTimes, lastActiveDay, leftOf, blockersFrom, readBlockers, buildTodo, formatTodo, blockedText } = require('../src/tada/todo.js')
 const { renderTadaPage } = require('../src/tada/page.js')
 const { tadaQuery, readTadaQuery, recapKey, renderServedTada } = require('../src/tada/serve.js')
 
@@ -315,4 +315,29 @@ test('stays silent: no ideas, or a count that could not be read, prints nothing'
     assert.ok(!('ideas' in todo.projects[0]), `ideas: ${ideas}`)
     assert.doesNotMatch(formatTodo(todo), /ideas:/)
   }
+})
+
+// Parked specs (feat-spec-resume, phase 4): a spec waiting on something outside
+// the repo reads as parked, with the way back, rather than as stalled.
+
+test('a parked spec is a blocker that names its wait and /spec-resume', () => {
+  const out = blockersFrom({ specs: ['feat-a'], parked: { 'feat-a': { where: 3, text: 'LSC release', until: null } } })
+  assert.deepStrictEqual(out, [{ spec: 'feat-a', kind: 'parked', where: 3, text: 'LSC release', until: null }])
+  assert.strictEqual(blockedText(out[0], new Date(2026, 10, 19)), 'feat-a — parked (phase 3): LSC release · /spec-resume feat-a')
+})
+
+test('a dated wait says ready to resume once its day has begun, and not before', () => {
+  const b = { spec: 'feat-a', kind: 'parked', where: 'spec', text: 'a week in prod', until: '2026-11-19' }
+  assert.match(blockedText(b, new Date(2026, 10, 18, 23, 59)), /until 2026-11-19 · \/spec-resume/)
+  assert.match(blockedText(b, new Date(2026, 10, 19, 0, 1)), /until 2026-11-19, now passed — ready to resume/)
+})
+
+// STAYS SILENT: a parked entry for a spec no longer in flight is history.
+test('a parked spec that is no longer in flight is not listed', () => {
+  assert.deepStrictEqual(blockersFrom({ specs: ['feat-b'], parked: { 'feat-a': { where: 'spec', text: 'x', until: null } } }), [])
+})
+
+test('a repo that never rendered a review still reports its parked specs', () => {
+  const out = readBlockers('/nonexistent/reviews', ['feat-a'], true, { 'feat-a': { where: 'spec', text: 'deploy', until: null } })
+  assert.deepStrictEqual(out.map((b) => b.kind), ['parked'])
 })

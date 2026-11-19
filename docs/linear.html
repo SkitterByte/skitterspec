@@ -5,7 +5,7 @@ covers:
   - packages/skitterspec-linear/**
   - packages/sync-core/**
   - packages/provider-kit/**
-verified: f97e26bb9822
+verified: 5cefa2838986
 -->
 <html lang="en">
 <head>
@@ -573,7 +573,7 @@ verified: f97e26bb9822
     <p class="reveal" style="color:var(--ink-faint); font-size:.85rem; margin-top:14px; font-family:var(--font-mono); max-width:70ch; line-height:1.65;">The spec body travels as the issue <b style="color:var(--ink-soft)">description</b>, each phase as a <b style="color:var(--ink-soft)">sub-issue</b> (name, goal, state, and its task list as a read-only checklist), and the lifecycle folder sets the workflow state. Nothing is read back, so a box ticked in Linear is overwritten. Push diffs against a committed last-pushed snapshot, so only what changed is sent — IDs stamped back into the markdown.</p>
 
     <h3 style="margin-top:44px; font-size:1.05rem;" class="reveal">Or: the issue carries a summary, and the spec stays in git</h3>
-    <p class="reveal" style="max-width:70ch;">The mapping above is <span class="mono">mapping.description: "spec"</span>, which is what a config written before the setting existed gets. With <span class="mono">"summary"</span> (what a new config is written with) the issue body holds a delimited <b>block</b> instead: the spec's summary, its acceptance criteria, the surfaces it touches, its gating and its progress (<span class="mono">62% · phase 3 of 4</span>), with a pointer to the spec. Push splices that block into whatever the description already holds, so anything your team writes around it survives every push, and an edit is reported only if it lands <em>inside</em> the block. Phase sub-issues get a block too: their goal and <span class="mono">n of m tasks</span>, with the task list staying in git. <span class="mono">mapping.phases: "none"</span> drops the sub-issues altogether.</p>
+    <p class="reveal" style="max-width:70ch;">The mapping above is <span class="mono">mapping.description: "spec"</span>, which is what a config written before the setting existed gets. With <span class="mono">"summary"</span> (what a new config is written with) the issue body holds a delimited <b>block</b> instead: the spec's summary, its acceptance criteria, the surfaces it touches, its gating, what it is <b>blocked on</b> when it has been parked, and its progress (<span class="mono">62% · phase 3 of 4</span>), with a pointer to the spec. Push splices that block into whatever the description already holds, so anything your team writes around it survives every push, and an edit is reported only if it lands <em>inside</em> the block. Phase sub-issues get a block too: their goal, a phase's own blocker, and <span class="mono">n of m tasks</span>, with the task list staying in git. <span class="mono">mapping.phases: "none"</span> drops the sub-issues altogether.</p>
     <p class="reveal" style="color:var(--ink-faint); font-size:.85rem; margin-top:10px; font-family:var(--font-mono); max-width:70ch; line-height:1.65;"><b style="color:var(--ink-soft)">Provisional:</b> Linear marks the block with a heading (<span class="mono">summary.delimiter: "heading"</span>) until a measured run settles which delimiter survives Linear's editor. If a delimiter is edited by hand, the push names it and leaves the block unwritten rather than guess.</p>
 
     <h3 style="margin-top:52px; font-size:1.15rem;" class="reveal">Who owns what — no reconciliation, because there's one owner</h3>

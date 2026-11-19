@@ -150,7 +150,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | Engine: `Blocked on:` reader, `#N` across branches, `spec-env resume` | ✅ | [01-engine-resume.md](01-engine-resume.md) |
 | 2 | `/spec-resume` skill and the doors' hand-off | ✅ | [02-resume-skill.md](02-resume-skill.md) |
 | 3 | Parking: `/spec-park`, planned blockers, `/spec-next` and `/spec-complete` | ✅ | [03-parking.md](03-parking.md) |
-| 4 | Surfacing: `/spec-todo` and the tracker summary block | ⬜ | [04-surfacing.md](04-surfacing.md) |
+| 4 | Surfacing: `/spec-todo` and the tracker summary block | ✅ | [04-surfacing.md](04-surfacing.md) |
 
 ## Open questions
 
@@ -176,3 +176,6 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   `/spec-next` to read, rather than a separate engine verb. `/spec-park` edits
   and commits the header itself, with no `spec-env park` verb. The planned-wait
   grill is `/spec` Phase A item 11, so Open questions moves to item 12.
+- 2026-11-19 — Phase 4: parked specs are a third `/spec-todo` blocker kind,
+  next to waiting verdicts and armed gates. The tracker shows a phase's blocker
+  on that phase's sub-issue rather than lifting it onto the spec's ticket.

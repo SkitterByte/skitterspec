@@ -245,3 +245,29 @@ test('the real phase parser feeds progress: a nested and a wrapped task count on
   })
   assert.match(normalizeLocal(dir, C).description, /\*\*Progress\*\* 50% · phase 1 of 2/)
 })
+
+// --- parked (feat-spec-resume) ------------------------------------------------
+
+test('a parked spec says what it is blocked on, after Gating', () => {
+  const dir = specDir({ overview: FULL.replace('> **Gating:** flag inbox-sort\n', '> **Gating:** flag inbox-sort\n> **Blocked on:** LSC release (until 2026-12-01)\n') })
+  const { description } = normalizeLocal(dir, C)
+  assert.match(description, /\*\*Gating\*\* flag inbox-sort\n\n\*\*Blocked on\*\* LSC release \(until 2026-12-01\)/)
+  assert.doesNotMatch(description, /Status/)
+})
+
+test('a phase parked on a deploy says so in its own sub-issue block, before its progress', () => {
+  const dir = specDir({
+    overview: FULL,
+    phases: { '01-build.md': '# Phase 1 — Build ⬜\n\n> **Blocked on:** phase 0 live a week\n\n**Goal:** make the thing.\n\n## Tasks\n\n- [ ] one\n' },
+  })
+  assert.match(normalizeLocal(dir, C).subIssues[0].goal, /make the thing\.\n\n\*\*Blocked on\*\* phase 0 live a week\n\n\*\*Progress\*\* 0 of 1 tasks/)
+})
+
+// STAYS SILENT: an unparked spec's blocks are byte-identical to before, so no
+// existing ticket reads as drifted after an upgrade.
+test('without a Blocked on: line neither block gains anything', () => {
+  const p = normalizeLocal(specDir({ overview: FULL }), C)
+  assert.doesNotMatch(p.description, /Blocked on/)
+  assert.doesNotMatch(p.subIssues[0].goal, /Blocked on/)
+  assert.match(p.subIssues[0].goal, /make the thing\.\n\n\*\*Progress\*\* 1 of 2 tasks/)
+})
