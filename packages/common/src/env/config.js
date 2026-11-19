@@ -204,6 +204,11 @@ const DEFAULT_CONFIG = Object.freeze({
   // branch where a spec's tokens mean nothing. Normalised to `{ run, when }`,
   // `when` null for an always-run entry. Default: none.
   afterLand: Object.freeze([]),
+  // `/spec-complete` runs each `checks` command in the spec's worktree before it
+  // lands (`spec-env checks`) and relays the output. Advisory: a failed check is
+  // reported and never stops the land. Shell strings, run as written. Default:
+  // none.
+  complete: Object.freeze({ checks: Object.freeze([]) }),
   // Host dev servers started on the spec's port block by `spec-env dev up`.
   // Each: { name, command, portVar, health?, frontPort? }. Default: none.
   dev: Object.freeze([]),
@@ -430,6 +435,7 @@ function defaults() {
     setup: [],
     setupTriggers: [],
     afterLand: [],
+    complete: { checks: [] },
     dev: [],
     proxy: { ...DEFAULT_CONFIG.proxy },
     registry: DEFAULT_CONFIG.registry,
@@ -695,6 +701,11 @@ function mergeConfig(base, parsed) {
   // `setup`, which `{ setup: true }` expands from.
   if (Array.isArray(parsed.afterLand)) {
     base.afterLand = normalizeAfterLand(parsed.afterLand, base.setupTriggers)
+  }
+
+  // Same rule as `setup`: a stray entry is dropped, never thrown on.
+  if (isObject(parsed.complete) && Array.isArray(parsed.complete.checks)) {
+    base.complete.checks = parsed.complete.checks.filter((c) => typeof c === 'string' && c.trim())
   }
 
   if (Array.isArray(parsed.dev)) {

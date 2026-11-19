@@ -43,6 +43,7 @@ const SPEC_ENV_VERBS = Object.freeze([
   'live',
   'review',
   'stage',
+  'checks',
   'status',
   'resolve',
   'base',
@@ -336,6 +337,8 @@ Usage:
                                                    --run-reviewers runs review.reviewers)
                                 stage [spec]      split the uncommitted tree into this spec's
                                                   documents and everything else
+                                checks [spec]     run complete.checks in the spec's worktree
+                                                  (advisory — always exits 0)
                                 status            list provisioned specs + port blocks
                                 resolve <spec>    print resolved slug/type/branch/paths
                                 base              fetch, list baseBranchPattern matches
@@ -4719,6 +4722,20 @@ function provisionedBranches(dir, config) {
  * Re-anchoring would silently answer about the wrong checkout, so the tree read
  * is printed rather than assumed.
  */
+// `spec-env checks [spec]` — run the project's `complete.checks` in the spec's
+// worktree, for `/spec-complete` to relay before it lands. Always exits 0: the
+// checks inform the completion and never stop it (`env/checks.js`).
+function specEnvChecks(dir, config, specArg, flags = {}) {
+  const spec = resolveSpecWithWorktree(dir, config, specArg)
+  const { runChecks, formatChecks } = require('./env/checks.js')
+  const results = runChecks(config.complete.checks, { cwd: spec.projectPath || spec.worktreePath })
+  if (flags.json) {
+    process.stdout.write(JSON.stringify({ spec: spec.folder, checks: results }, null, 2) + '\n')
+    return
+  }
+  process.stdout.write(formatChecks(spec.folder, results) + '\n')
+}
+
 function specEnvStage(dir, config, specArg, flags = {}, invokedFrom = dir) {
   const spec = resolveSpecWithWorktree(dir, config, specArg)
 
@@ -8177,6 +8194,9 @@ async function specEnvDispatch(sub, dir, config, positional, flags, present, inv
       break
     case 'stage':
       specEnvStage(dir, config, positional[0], flags, invokedFrom)
+      break
+    case 'checks':
+      specEnvChecks(dir, config, positional[0], flags)
       break
     case 'review':
       // `serve` is the one review sub-action rather than a verb of its own: it
