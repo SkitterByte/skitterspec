@@ -46,6 +46,7 @@ const SPEC_ENV_VERBS = Object.freeze([
   'checks',
   'status',
   'resolve',
+  'resume',
   'base',
   'nospec',
   'main',
@@ -199,6 +200,7 @@ const {
 const { planPrune, liveSlugsForSpecs, reconcileRegistry } = require('./env/prune.js')
 const { planIntegrate, planIntegrateCheckout, planIntegratePr, planIntegrateDocs } = require('./env/integrate.js')
 const { specBranchDocs, preferBranches } = require('./env/specbranches.js')
+const { findTarget, planResume, resumeLines } = require('./env/resume.js')
 const { parseRemote, prFor, prPlanCommand, prAbandonCommand, preferRemoteBase } = require('./env/host.js')
 const { collectDisposition } = require('./env/disposition.js')
 const { planHandoff } = require('./env/handoff.js')
@@ -341,6 +343,9 @@ Usage:
                                                   (advisory — always exits 0)
                                 status            list provisioned specs + port blocks
                                 resolve <spec>    print resolved slug/type/branch/paths
+                                resume <spec|#N>  an in-flight spec: its blockers, and the plan
+                                                  to rebuild its worktree from its branch
+                                                  (prints commands; creates nothing)
                                 base              fetch, list baseBranchPattern matches
                                                   newest-first, mark the base, and name
                                                   specs forked from an older match
@@ -4495,6 +4500,111 @@ function specEnvResolve(dir, config, specArg, flags = {}) {
 }
 
 /**
+ * `skitterspec spec-env resume <name|#N> [--json]` (feat-spec-resume)
+ *
+ * Which in-flight spec the argument means, what it is blocked on, and — where
+ * this machine has no worktree for it — the commands that rebuild one from its
+ * branch. Plans and prints; creates nothing, moves nothing, asks no tracker.
+ * A refusal exits 1.
+ *
+ * Every copy of the spec this clone can see is read — the checkout it runs
+ * from, each live worktree, and each spec branch (local, then remote-tracking,
+ * never fetched) — because under `land.specDocs: "branch"` an in-flight spec
+ * may exist nowhere else than its branch, and on the base branch its bucket
+ * reads `backlog` whatever it really is. `env/resume.js` picks which copy
+ * speaks.
+ */
+function specEnvResume(dir, config, arg, flags = {}) {
+  const git = gitReader(dir)
+  const prefix = prefixOf(config)
+  const ownTree = (folder) => resolveSpecless(folder, dir, config, { spec: true }).worktreePath
+  const copies = []
+  const roots = [dir, ...[...liveWorktreePaths(git)].filter((p) => !sameDir(p, dir))]
+  for (const root of roots) {
+    const project = sameDir(root, dir) ? dir : projectIn(root, prefix)
+    for (const bucket of BUCKETS) {
+      let folders
+      try {
+        folders = fs.readdirSync(path.join(project, 'specs', bucket), { withFileTypes: true })
+      } catch {
+        continue
+      }
+      for (const entry of folders) {
+        if (!entry.isDirectory()) continue
+        const folder = entry.name
+        // Another spec's worktree carries every base spec too; only a spec's
+        // OWN tree speaks for it, and the checkout this ran from speaks last.
+        const own = sameDir(ownTree(folder), root)
+        if (!own && !sameDir(root, dir)) continue
+        const copy = readSpecCopy(path.join(project, 'specs', bucket, folder))
+        if (copy) copies.push({ folder, bucket, origin: own ? 'worktree' : 'here', ...copy })
+      }
+    }
+  }
+  let base = null
+  try {
+    base = resolveBaseBranch(config, git)
+  } catch {
+    // An unresolvable base hides branch-only specs; the disk copies still answer.
+  }
+  for (const b of specBranchDocs(git, config, base)) {
+    copies.push({ folder: b.folder, bucket: b.bucket, origin: 'branch', local: b.local, ref: b.ref, overview: b.overview, phases: b.phases })
+  }
+
+  const identifierField = config.branch && config.branch.identifierField
+  const found = findTarget(arg, copies, identifierField)
+  if (found.refused) {
+    process.exitCode = 1
+    const r = { ok: false, refused: found.refused, refusedOnly: true }
+    process.stdout.write(flags.json ? JSON.stringify({ ok: false, refused: found.refused }, null, 2) + '\n' : resumeLines(r).join('\n') + '\n')
+    return
+  }
+  const target = found.target
+  const remote = baseRemote(config)
+  let branch
+  if (target.origin === 'branch') {
+    branch = target.ref.replace(/^refs\/heads\//, '').replace(new RegExp(`^refs/remotes/${remote}/`), '')
+  } else {
+    try {
+      branch = resolveSpecWithWorktree(dir, config, target.folder).branch
+    } catch {
+      branch = resolveSpecless(target.folder, dir, config, { spec: true }).branch
+    }
+  }
+  const worktreePath = ownTree(target.folder)
+  const r = planResume(target, {
+    branch,
+    worktreePath,
+    worktreeExists: fs.existsSync(worktreePath),
+    localBranch: git(['show-ref', '--verify', '--quiet', `refs/heads/${branch}`]) !== null,
+    remoteBranch: git(['show-ref', '--verify', '--quiet', `refs/remotes/${remote}/${branch}`]) !== null,
+    remote,
+    identifierField,
+  })
+  if (!r.ok) process.exitCode = 1
+  process.stdout.write(flags.json ? JSON.stringify(r, null, 2) + '\n' : resumeLines(r).join('\n') + '\n')
+}
+
+// A spec folder's overview and phase files, or null when it has no overview.
+function readSpecCopy(specDir) {
+  let overview
+  try {
+    overview = fs.readFileSync(path.join(specDir, '00-overview.md'), 'utf8')
+  } catch {
+    return null
+  }
+  const phases = []
+  for (const f of fs.readdirSync(specDir).filter((n) => /^(?!00-)\d{2}-.*\.md$/.test(n)).sort()) {
+    try {
+      phases.push({ n: Number(f.slice(0, 2)), text: fs.readFileSync(path.join(specDir, f), 'utf8') })
+    } catch {
+      // An unreadable phase file is left out, never counted as done or blocked.
+    }
+  }
+  return { overview, phases }
+}
+
+/**
  * `skitterspec spec-env base [--json] [--use-fallback | --unpin]`
  *
  * Which branch is the base, how it was found, and — under `baseBranchPattern` —
@@ -8188,6 +8298,9 @@ async function specEnvDispatch(sub, dir, config, positional, flags, present, inv
       break
     case 'resolve':
       specEnvResolve(dir, config, positional[0], flags)
+      break
+    case 'resume':
+      specEnvResume(dir, config, positional[0], flags)
       break
     case 'base':
       specEnvBase(dir, config, flags)

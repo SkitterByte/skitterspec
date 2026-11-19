@@ -85,7 +85,7 @@ const BIN = 'skitterspec-azure-boards'
 
 const PROGRAM = 'spec-sync'
 const specHelpers = kit.makeSpecHelpers({ program: PROGRAM })
-const { resolveSnapshotDir, specIdentifier, listSpecs, listSpecsLive, resolveOrExit, warnToErr, verifyLines } = specHelpers
+const { resolveSnapshotDir, specIdentifier, listSpecs, listSpecsLive, listSpecsWithBranches, resolveOrExit, warnToErr, verifyLines } = specHelpers
 
 // A work item identifier: the constant AB prefix and a number. A bare number
 // is accepted on input and normalised, so a stamp can be copied from the
@@ -1033,7 +1033,7 @@ function specSyncVerify(dir, config, specArg, flags, out) {
 }
 
 function specSyncLinked(dir, config, flags, out) {
-  const specs = listSpecs(dir, config)
+  const specs = listSpecsWithBranches(dir, config)
   if (flags.json) {
     out.write(JSON.stringify(specs, null, 2) + '\n')
     return 0
@@ -1043,7 +1043,7 @@ function specSyncLinked(dir, config, flags, out) {
     return 0
   }
   const lines = [`${PROGRAM} linked:`]
-  for (const s of specs) lines.push(`  ${s.identifier || '—'}\t${s.spec}  (${s.bucket})`)
+  for (const s of specs) lines.push(`  ${s.identifier || '—'}\t${s.spec}  (${s.bucket}${s.source === 'branch' ? `, on ${s.ref}` : ''})`)
   lines.push(`  ${specs.filter((s) => s.identifier).length}/${specs.length} linked`)
   out.write(lines.join('\n') + '\n')
   return 0

@@ -21,7 +21,10 @@ const {
   findSpecFolder,
   resolveSpec,
   liveWorktreePaths,
+  resolveBaseBranch,
 } = require('@skitterbyte/skitterspec-common/src/env/resolve.js')
+const { specBranchDocs } = require('@skitterbyte/skitterspec-common/src/env/specbranches.js')
+const { frontmatterField } = require('@skitterbyte/skitterspec-common/src/env/resume.js')
 const { loadEnvConfig } = require('@skitterbyte/skitterspec-common/src/env/config.js')
 const { primaryAnchor, attachProject, projectIn } = require('@skitterbyte/skitterspec-common/src/env/project.js')
 const { readSnapshot, parseFrontmatter, lintPhases, fieldsOf, projectionOf, compareStored, comparableDescription } = require('@skitterbyte/skitterspec-sync-core')
@@ -180,6 +183,48 @@ function makeSpecHelpers({ program = 'spec-sync' } = {}) {
     return [...byName.values()].sort((a, b) => a.spec.localeCompare(b.spec))
   }
 
+  // `listSpecs`, plus the specs that exist ONLY on their own branch
+  // (`source: 'branch'`, with the `ref` they were read from). Under
+  // `land.specDocs: "branch"` an in-flight spec has no copy on base and, on a
+  // machine that never provisioned it, no worktree either — so a ticket that
+  // already has a spec read as unadopted, and `/spec #N` began a second one.
+  // Read off local then remote-tracking spec branches, never fetched.
+  //
+  // WHAT WOULD FOOL THIS: a remote that was never fetched (its specs are absent
+  // — the old answer, never a wrong one), and a spec branch renamed away from
+  // `branch.pattern` (not found). Anything unreadable adds nothing.
+  function listSpecsWithBranches(dir, config) {
+    const live = listSpecs(dir, config)
+    const git = (args) => {
+      try {
+        return execFileSync('git', ['-C', dir, ...args], { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] }).trim()
+      } catch {
+        return null
+      }
+    }
+    let docs
+    try {
+      const anchor = primaryAnchor(dir, git)
+      const env = loadEnvConfig(anchor.dir || dir)
+      if (!env.present) return live
+      docs = specBranchDocs(git, env.config, resolveBaseBranch(env.config, git))
+    } catch {
+      return live
+    }
+    const field = fieldsOf(config).identifier
+    const seen = new Set(live.map((s) => s.spec))
+    const extra = docs
+      .filter((d) => !seen.has(d.folder))
+      .map((d) => ({
+        spec: d.folder,
+        bucket: d.bucket,
+        identifier: frontmatterField(d.overview, field),
+        source: 'branch',
+        ref: d.ref.replace(/^refs\/(heads|remotes)\//, ''),
+      }))
+    return [...live, ...extra].sort((a, b) => a.spec.localeCompare(b.spec))
+  }
+
   // Resolve a spec argument to its folder, or null with a message on stdout.
   // EVERY failure path here must print and EVERY caller must return a non-zero
   // code: a push skill checks $? before it applies a plan, so a resolve failure
@@ -253,7 +298,7 @@ function makeSpecHelpers({ program = 'spec-sync' } = {}) {
     return lines
   }
 
-  return { resolveSnapshotDir, specIdentifier, linkedIdentifier, listSpecs, listSpecsLive, resolveOrExit, warningLines, warnToErr, verifyLines }
+  return { resolveSnapshotDir, specIdentifier, linkedIdentifier, listSpecs, listSpecsLive, listSpecsWithBranches, resolveOrExit, warningLines, warnToErr, verifyLines }
 }
 
 module.exports = { makeSpecHelpers }

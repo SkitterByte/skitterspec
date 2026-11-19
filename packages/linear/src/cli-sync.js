@@ -144,7 +144,7 @@ const { applySpecPlan, heldFlags, heldOverMcp } = require('@skitterbyte/skitters
 // (`src/specs.js`), keyed by this provider's `config.fields`. `linkedIdentifier`
 // keeps a config-free arity below for its many local callers.
 const specHelpers = require('@skitterbyte/skitterspec-provider-kit/src/specs.js').makeSpecHelpers({ program: 'spec-sync' })
-const { resolveSnapshotDir, specIdentifier, listSpecs, listSpecsLive, resolveOrExit, warningLines, warnToErr } = specHelpers
+const { resolveSnapshotDir, specIdentifier, listSpecs, listSpecsLive, listSpecsWithBranches, resolveOrExit, warningLines, warnToErr } = specHelpers
 const { expandStateArgs, specColumn, specCell } = require('@skitterbyte/skitterspec-provider-kit/src/list-rows.js')
 
 // The stamp key is fixed for this provider, so the config-free arity survives
@@ -160,7 +160,7 @@ const linkedIdentifier = (overviewPath) =>
  * issue twice, without reading Linear back.
  */
 function specSyncLinked(dir, config, flags, out) {
-  const specs = listSpecs(dir, config)
+  const specs = listSpecsWithBranches(dir, config)
   if (flags.json) {
     out.write(JSON.stringify(specs, null, 2) + '\n')
     return
@@ -171,7 +171,7 @@ function specSyncLinked(dir, config, flags, out) {
   }
   const lines = ['spec-sync linked:']
   for (const s of specs) {
-    lines.push(`  ${s.identifier || '—'}\t${s.spec}  (${s.bucket})`)
+    lines.push(`  ${s.identifier || '—'}\t${s.spec}  (${s.bucket}${s.source === 'branch' ? `, on ${s.ref}` : ''})`)
   }
   const n = specs.filter((s) => s.identifier).length
   lines.push(`  ${n}/${specs.length} linked`)

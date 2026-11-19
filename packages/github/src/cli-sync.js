@@ -74,7 +74,7 @@ const { epicIdentifiers, epicOf, keepSpecIssues, groupUnderEpics } = require('@s
 const PROGRAM = 'spec-sync'
 const BIN = 'skitterspec-github'
 const specHelpers = kit.makeSpecHelpers({ program: PROGRAM })
-const { resolveSnapshotDir, specIdentifier, listSpecs, listSpecsLive, resolveOrExit, warnToErr, verifyLines } = specHelpers
+const { resolveSnapshotDir, specIdentifier, listSpecs, listSpecsLive, listSpecsWithBranches, resolveOrExit, warnToErr, verifyLines } = specHelpers
 
 // An issue reference as typed: `#123` or `123`. Stamped as `#123`.
 const ID_RE = /^#?\d+$/
@@ -687,7 +687,7 @@ function specSyncVerify(dir, config, specArg, flags, out) {
 }
 
 function specSyncLinked(dir, config, flags, out) {
-  const specs = listSpecs(dir, config)
+  const specs = listSpecsWithBranches(dir, config)
   if (flags.json) {
     out.write(JSON.stringify(specs, null, 2) + '\n')
     return 0
@@ -697,7 +697,7 @@ function specSyncLinked(dir, config, flags, out) {
     return 0
   }
   const lines = [`${PROGRAM} linked:`]
-  for (const s of specs) lines.push(`  ${s.identifier || '—'}\t${s.spec}  (${s.bucket})`)
+  for (const s of specs) lines.push(`  ${s.identifier || '—'}\t${s.spec}  (${s.bucket}${s.source === 'branch' ? `, on ${s.ref}` : ''})`)
   lines.push(`  ${specs.filter((s) => s.identifier).length}/${specs.length} linked`)
   out.write(lines.join('\n') + '\n')
   return 0

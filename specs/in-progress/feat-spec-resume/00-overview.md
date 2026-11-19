@@ -147,7 +147,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Engine: `Blocked on:` reader, `#N` across branches, `spec-env resume` | ⬜ | [01-engine-resume.md](01-engine-resume.md) |
+| 1 | Engine: `Blocked on:` reader, `#N` across branches, `spec-env resume` | ✅ | [01-engine-resume.md](01-engine-resume.md) |
 | 2 | `/spec-resume` skill and the doors' hand-off | ⬜ | [02-resume-skill.md](02-resume-skill.md) |
 | 3 | Parking: `/spec-park`, planned blockers, `/spec-next` and `/spec-complete` | ⬜ | [03-parking.md](03-parking.md) |
 | 4 | Surfacing: `/spec-todo` and the tracker summary block | ⬜ | [04-surfacing.md](04-surfacing.md) |
@@ -160,3 +160,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 - 2026-11-19 — Spec created. Prompted by `/spec 999 - <deployed upload
   feedback>` routing into a start before finding #999's existing spec.
+- 2026-11-19 — Phase 1: resume plans its own worktree attach rather than calling
+  `spec-env up`, which cannot resolve a spec that exists only on its branch. `#N`
+  is read through `branch.identifierField` in the base engine. `linked` is
+  extended in github, linear and azure-boards; jira ships no `linked`. It keeps
+  the base listing and appends branch-only rows, so existing JSON consumers see
+  the same rows plus new ones. The `spec-env resume` row in
+  `docs/reference.html` landed in phase 1, because the docs-claims test requires
+  every dispatched verb to be documented.
