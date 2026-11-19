@@ -124,3 +124,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   local branch, rather than both copies, so one branch gives one line.
   `resync` already runs `convertCommitted` in local scope, so the report
   lives there and covers `init --local` and `update` from one call site.
+- 2026-11-19 — Completed; all phases done, tests green.
