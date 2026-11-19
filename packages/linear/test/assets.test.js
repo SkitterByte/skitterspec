@@ -686,7 +686,7 @@ const specSync = () => fs.readFileSync(path.join(ASSETS, 'skills', 'spec-sync', 
 
 test('/spec-sync always states the full invocation, never a bare command', () => {
   const text = specSync()
-  assert.match(text, /pnpm exec skitterspec-linear spec-sync/, 'shows the runnable invocation')
+  assert.match(text, /\{\{exec\}\} skitterspec-linear spec-sync/, 'shows the runnable invocation, runner filled at install')
   assert.match(text, /never on `?PATH`?/i, 'says why the bare command fails')
   for (const line of text.split('\n')) {
     assert.ok(

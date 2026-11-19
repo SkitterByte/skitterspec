@@ -54,7 +54,7 @@ Store it in the user-level credentials store (outside every repo, `0600`),
 **in your own terminal — not through an assistant**:
 
 ```sh
-pnpm exec skitterspec-azure-boards spec-sync credentials set --org-url https://dev.azure.com/<org>
+{{exec}} skitterspec-azure-boards spec-sync credentials set --org-url https://dev.azure.com/<org>
 # Azure DevOps PAT for https://dev.azure.com/<org> (hidden): ●●●●●●●●
 ```
 
@@ -84,7 +84,7 @@ bucket→state names — validating them against the types' real states
 `spec-sync init-config`. By hand instead:
 
 ```sh
-pnpm exec skitterspec-azure-boards spec-sync init-config \
+{{exec}} skitterspec-azure-boards spec-sync init-config \
   --org-url https://dev.azure.com/<org> \
   --project <project> \
   --state complete=Done
@@ -111,7 +111,7 @@ deploys** carry the reasoning.
 ## 4. Check — `spec-sync doctor`
 
 ```sh
-pnpm exec skitterspec-azure-boards spec-sync doctor --check-remote
+{{exec}} skitterspec-azure-boards spec-sync doctor --check-remote
 ```
 
 Every row reports `ok`, or names the exact command that fixes it. `missing`
@@ -140,20 +140,20 @@ types' state names.
 1. **Doctor** — every row ok:
 
    ```sh
-   pnpm exec skitterspec-azure-boards spec-sync doctor --check-remote
+   {{exec}} skitterspec-azure-boards spec-sync doctor --check-remote
    ```
 
 2. **States** — the types' state list:
 
    ```sh
-   pnpm exec skitterspec-azure-boards spec-sync states --json > states.json
+   {{exec}} skitterspec-azure-boards spec-sync states --json > states.json
    ```
 
 3. **Mint** — on a test spec with at least one phase and a task checklist:
 
    ```sh
-   pnpm exec skitterspec-azure-boards spec-sync plan <spec> --workspace-states states.json --json > plan.json
-   pnpm exec skitterspec-azure-boards spec-sync apply <spec> --plan plan.json
+   {{exec}} skitterspec-azure-boards spec-sync plan <spec> --workspace-states states.json --json > plan.json
+   {{exec}} skitterspec-azure-boards spec-sync apply <spec> --plan plan.json
    ```
 
    In Boards: the work item and its children exist, states match the buckets,
@@ -167,8 +167,8 @@ types' state names.
    linking push:
 
    ```sh
-   pnpm exec skitterspec-azure-boards spec-sync stamp <spec> --issue AB#123
-   pnpm exec skitterspec-azure-boards spec-sync preserve <spec>
+   {{exec}} skitterspec-azure-boards spec-sync stamp <spec> --issue AB#123
+   {{exec}} skitterspec-azure-boards spec-sync preserve <spec>
    ```
 
    The original description appears as a comment headed **Original report**
@@ -181,7 +181,7 @@ types' state names.
    every child as a stale ref) and:
 
    ```sh
-   pnpm exec skitterspec-azure-boards spec-sync verify <spec> --stored readback.json
+   {{exec}} skitterspec-azure-boards spec-sync verify <spec> --stored readback.json
    ```
 
    "round-tripped intact", exit 0.
@@ -189,7 +189,7 @@ types' state names.
 7. **Released** — over a range with `Refs:` trailers:
 
    ```sh
-   pnpm exec skitterspec-azure-boards spec-sync released <tag>..HEAD
+   {{exec}} skitterspec-azure-boards spec-sync released <tag>..HEAD
    ```
 
    Tickets counted, unreferenced commits reported, an earlier tracker's
@@ -201,7 +201,7 @@ types' state names.
    and:
 
    ```sh
-   pnpm exec skitterspec-azure-boards spec-sync status <spec> --remote item.json
+   {{exec}} skitterspec-azure-boards spec-sync status <spec> --remote item.json
    ```
 
    The edit is reported; the next apply replaces it and says so loudly.

@@ -19,6 +19,7 @@ const {
   shippedSkills,
   shippedRules,
   linkTargetFor,
+  planRelink,
 } = require('./claude-relink.js')
 
 const ROOT = path.join(__dirname, '..')
@@ -39,6 +40,9 @@ const CLAUDE = path.join(ROOT, '.claude')
 // rather than accused (`.claude/rules/negative-checks.md` rule 4: route the
 // cannot-tell case to inaction). The cost of the other default is a red suite on
 // a healthy partial install.
+// An entry whose asset carries the `{{exec}}` token is the exception: it must
+// be a rendered COPY, like a command, and `planRelink` is what says so — a
+// link there, or a copy still holding the token, is the fault instead.
 function copiesWhereLinksBelong(names, installDir) {
   const bad = []
   for (const name of names) {
@@ -49,7 +53,9 @@ function copiesWhereLinksBelong(names, installDir) {
     } catch {
       continue // not installed here — see above
     }
-    if (!st.isSymbolicLink()) bad.push(name)
+    const [plan] = planRelink([name], installDir)
+    if (plan.state === 'rendered') continue
+    if (plan.state === 'render' || !st.isSymbolicLink()) bad.push(name)
   }
   return bad
 }
@@ -399,5 +405,39 @@ test('stays silent: nothing to point at is not a missing link', () => {
     assert.deepStrictEqual(plan, [{ name: 'nowhere', state: 'absent' }])
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true })
+  }
+})
+
+// An asset carrying the `{{exec}}` token is installed as a rendered COPY, the
+// way a command is. A link there hands Claude a placeholder; a copy that
+// drifted from its asset is stale. Both are actionable — and a current
+// rendered copy stays silent.
+test('a token-bearing entry must be a current rendered copy', () => {
+  const root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-render-')))
+  try {
+    const assets = path.join(root, 'packages', 'github', 'assets', 'rules')
+    const install = path.join(root, '.claude', 'rules')
+    fs.mkdirSync(assets, { recursive: true })
+    fs.mkdirSync(install, { recursive: true })
+    fs.writeFileSync(path.join(assets, 'trail.md'), 'run `{{exec}} skitterspec-github spec-sync ref`\n')
+    fs.writeFileSync(path.join(assets, 'plain.md'), 'no token\n')
+    fs.symlinkSync('../../packages/github/assets/rules/plain.md', path.join(install, 'plain.md'))
+    const target = path.join(install, 'trail.md')
+
+    fs.symlinkSync('../../packages/github/assets/rules/trail.md', target)
+    assert.strictEqual(planRelink(['trail.md'], install)[0].state, 'render', 'a link must become a copy')
+
+    const { applyRelink } = require('./claude-relink.js')
+    applyRelink(planRelink(['trail.md'], install), install, root)
+    assert.ok(!fs.lstatSync(target).isSymbolicLink(), 'now a copy')
+    assert.doesNotMatch(fs.readFileSync(target, 'utf8'), /\{\{exec\}\}/, 'token filled')
+    assert.strictEqual(planRelink(['trail.md'], install)[0].state, 'rendered', 'a current copy is silent')
+    assert.deepStrictEqual(copiesWhereLinksBelong(['trail.md', 'plain.md'], install), [])
+
+    fs.writeFileSync(path.join(assets, 'trail.md'), 'edited `{{exec}} skitterspec-github spec-sync ref`\n')
+    assert.strictEqual(planRelink(['trail.md'], install)[0].state, 'render', 'a stale copy is re-rendered')
+    assert.strictEqual(planRelink(['plain.md'], install)[0].state, 'linked', 'stays silent: ordinary links')
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
   }
 })

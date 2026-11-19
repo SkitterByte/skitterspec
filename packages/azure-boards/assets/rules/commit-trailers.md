@@ -23,7 +23,7 @@ Refs: AB#29
 Get the value from the engine rather than reading it off a spec by hand:
 
 ```
-pnpm exec skitterspec-azure-boards spec-sync ref
+{{exec}} skitterspec-azure-boards spec-sync ref
 ```
 
 Bare, that answers **from the branch** — correct whenever you are committing
@@ -48,7 +48,7 @@ the bare command answers with the old spec's ticket.
 Name the spec instead — still the engine, never a hand-written id:
 
 ```
-pnpm exec skitterspec-azure-boards spec-sync ref feat-distance-prescriptions
+{{exec}} skitterspec-azure-boards spec-sync ref feat-distance-prescriptions
 ```
 
 The branch is not consulted, so this works from `main` too. An unknown spec name

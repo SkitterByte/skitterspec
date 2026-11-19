@@ -202,22 +202,55 @@ function detectRunner(dir, env = process.env) {
   return { runner: 'npx', rung: 'none' }
 }
 
-// Fill a command file's `{{exec}}` placeholders. Kept a pure function of
-// (content, dir) so `managedTargets` can compare against exactly what
-// `installCommands` would write — otherwise every install would hash as
+// The npm package this code was published in, for the cannot-tell rung's
+// `npx -p`. The workspace source (`packages/common`) is private and never
+// published, so it answers with the base distribution — which is what a
+// consumer of the base would fetch anyway.
+function distributionPackage() {
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'))
+    if (!pkg.private && typeof pkg.name === 'string') return pkg.name
+  } catch {
+    /* no readable package.json — fall through to the base */
+  }
+  return '@skitterbyte/skitterspec'
+}
+
+// Fill `{{exec}} <bin>` placeholders — in command files, which pre-execute the
+// CLI, and in the skills, rules and setup docs that tell Claude to run it. Kept
+// a pure function of (content, dir) so `managedTargets` can compare against
+// exactly what an install would write — otherwise every install would hash as
 // customized on the next run.
 //
+// NO RENDERED FORM MAY RESOLVE AN UNSCOPED NAME FROM THE REGISTRY. The bins
+// (`skitterspec`, `skitterspec-<provider>`) are not npm package names: they
+// 404 today, so anyone could publish one. A bare `npx skitterspec` resolves
+// from `node_modules/.bin` while the install is there and FETCHES the stranger's
+// package the moment it is not — a fresh worktree before its install, say. So
+// the local `npx` rung gets `--no-install` (fail rather than fetch), and the
+// cannot-tell rung names the scoped package outright with `-p`.
+//
 // The token is consumed WITH its trailing space, so an empty runner leaves
-// `Bash(skitterspec …)` rather than `Bash( skitterspec …)`. The second pass
-// catches a bare `{{exec}}` in case a template ever lands without one.
-function renderCommand(content, dir) {
-  const { runner } = detectRunner(dir)
-  return content
-    .split('{{exec}} ')
-    .join(runner ? `${runner} ` : '')
-    .split('{{exec}}')
-    .join(runner)
+// `Bash(skitterspec …)` rather than `Bash( skitterspec …)`.
+const EXEC_RE = /\{\{exec\}\}( ?)([A-Za-z0-9._-]*)/g
+
+function renderExec(content, dir, env = process.env) {
+  if (!content.includes('{{exec}}')) return content
+  const { runner, rung } = detectRunner(dir, env)
+  return content.replace(EXEC_RE, (_m, sp, bin) => {
+    if (rung === 'none') return bin ? `npx -p ${distributionPackage()} ${bin}` : 'npx'
+    const prefix = runner === 'npx' ? 'npx --no-install' : runner
+    if (!prefix) return bin
+    return `${prefix}${sp}${bin}`
+  })
 }
+
+// The original name, kept because commands were the first thing rendered.
+const renderCommand = renderExec
+
+// Which managed files carry the token: markdown only. Hooks and JSON templates
+// are copied byte for byte.
+const renderable = (assetRel) => assetRel.endsWith('.md')
 
 // --- composed-assets guard -------------------------------------------------
 //
@@ -338,7 +371,7 @@ function sha1(content) {
 // the bundled content that ships in this distribution's assets.
 function managedTargets(dir) {
   const out = []
-  const add = (assetRel, targetAbs, render = (c) => c) =>
+  const add = (assetRel, targetAbs, render = renderable(assetRel) ? renderExec : (c) => c) =>
     out.push({
       relPath: rel(dir, targetAbs),
       abs: targetAbs,
@@ -346,7 +379,7 @@ function managedTargets(dir) {
     })
   for (const name of SKILLS) add(path.join('skills', name, 'SKILL.md'), path.join(dir, '.claude', 'skills', name, 'SKILL.md'))
   for (const name of COMMANDS)
-    add(path.join('commands', name), path.join(dir, '.claude', 'commands', name), renderCommand)
+    add(path.join('commands', name), path.join(dir, '.claude', 'commands', name))
   for (const name of RULES) add(path.join('rules', name), path.join(dir, '.claude', 'rules', name))
   for (const name of HOOKS) add(path.join('hooks', name), path.join(dir, '.claude', 'hooks', name))
   for (const asset of CORE_FILES) add(asset, path.join(dir, 'specs', '.core', path.basename(asset)))
@@ -526,7 +559,8 @@ function writeFile(dir, target, content, { force }) {
 }
 
 function copyAsset(dir, assetRelPath, targetAbs, opts) {
-  const content = fs.readFileSync(path.join(ASSETS, assetRelPath), 'utf8')
+  const raw = fs.readFileSync(path.join(ASSETS, assetRelPath), 'utf8')
+  const content = renderable(assetRelPath) ? renderExec(raw, dir) : raw
   writeFile(dir, targetAbs, content, opts)
 }
 
@@ -543,11 +577,7 @@ function installSkills(dir, opts) {
 
 function installCommands(dir, opts) {
   for (const name of COMMANDS) {
-    const content = renderCommand(
-      fs.readFileSync(path.join(ASSETS, 'commands', name), 'utf8'),
-      dir,
-    )
-    writeFile(dir, path.join(dir, '.claude', 'commands', name), content, opts)
+    copyAsset(dir, path.join('commands', name), path.join(dir, '.claude', 'commands', name), opts)
   }
 
   // ONLY on the cannot-tell rung, and it warns rather than refusing: `init` has
@@ -557,8 +587,8 @@ function installCommands(dir, opts) {
   if (COMMANDS.length && detectRunner(dir).rung === 'none') {
     report.warnings.push(
       `the skitterspec CLI could not be found here, so the ${COMMANDS.length} slash ` +
-        'command(s) were written to call `npx skitterspec`, which will fail — ' +
-        'install it (npm i -g @skitterbyte/skitterspec, or add it as a dev ' +
+        `command(s) were written to fetch it on every run (\`npx -p ${distributionPackage()}\`) — ` +
+        `install it (npm i -g ${distributionPackage()}, or add it as a dev ` +
         'dependency) and re-run `skitterspec update` to rewrite them',
     )
   }
@@ -1195,4 +1225,6 @@ module.exports = {
   detectPackageManager,
   detectRunner,
   renderCommand,
+  renderExec,
+  distributionPackage,
 }

@@ -80,7 +80,7 @@ stale. That is not push drift and `/spec-push` cannot fix it: it will fail with
 Point the user at the CLI and stop:
 
 ```
-pnpm exec skitterspec-linear spec-sync retarget
+{{exec}} skitterspec-linear spec-sync retarget
 ```
 
 Read-only until `--yes`. Do not attempt the rewrite by hand — the identifiers

@@ -50,7 +50,7 @@ Store the pair in the user-level credentials store (outside every repo,
 `0600`), **in your own terminal — not through an assistant**:
 
 ```sh
-pnpm exec skitterspec-jira spec-sync credentials set --site-url https://<site>.atlassian.net
+{{exec}} skitterspec-jira spec-sync credentials set --site-url https://<site>.atlassian.net
 # Jira account email for https://<site>.atlassian.net: you@example.com
 # Jira API token for you@example.com (hidden): ●●●●●●●●
 ```
@@ -81,7 +81,7 @@ statuses (`spec-sync states`) — then writes `specs/.core/jira.config.json`
 via `spec-sync init-config`. By hand instead:
 
 ```sh
-pnpm exec skitterspec-jira spec-sync init-config \
+{{exec}} skitterspec-jira spec-sync init-config \
   --site-url https://your-site.atlassian.net \
   --project-key PROJ \
   --state complete=Done
@@ -106,7 +106,7 @@ anything was released. A workflow that encodes a pipeline has standard outs
 ## 4. Check — `spec-sync doctor`
 
 ```sh
-pnpm exec skitterspec-jira spec-sync doctor --check-remote
+{{exec}} skitterspec-jira spec-sync doctor --check-remote
 ```
 
 Every row reports `ok`, or names the exact command that fixes it. `missing`
@@ -133,20 +133,20 @@ apply path. `states.json` below is the project's status names.
 1. **Doctor** — every row ok:
 
    ```sh
-   pnpm exec skitterspec-jira spec-sync doctor --check-remote
+   {{exec}} skitterspec-jira spec-sync doctor --check-remote
    ```
 
 2. **States** — the project's statuses list:
 
    ```sh
-   pnpm exec skitterspec-jira spec-sync states --json > states.json
+   {{exec}} skitterspec-jira spec-sync states --json > states.json
    ```
 
 3. **Mint** — on a test spec with at least one phase and a task checklist:
 
    ```sh
-   pnpm exec skitterspec-jira spec-sync plan <spec> --workspace-states states.json --json > plan.json
-   pnpm exec skitterspec-jira spec-sync apply <spec> --plan plan.json
+   {{exec}} skitterspec-jira spec-sync plan <spec> --workspace-states states.json --json > plan.json
+   {{exec}} skitterspec-jira spec-sync apply <spec> --plan plan.json
    ```
 
    In Jira: the issue and its subtasks exist, statuses match the buckets, and
@@ -161,8 +161,8 @@ apply path. `states.json` below is the project's status names.
    onto a spec, and preserve before the linking push:
 
    ```sh
-   pnpm exec skitterspec-jira spec-sync stamp <spec> --issue PROJ-123
-   pnpm exec skitterspec-jira spec-sync preserve <spec>
+   {{exec}} skitterspec-jira spec-sync stamp <spec> --issue PROJ-123
+   {{exec}} skitterspec-jira spec-sync preserve <spec>
    ```
 
    The original description appears as a comment headed **Original report**;
@@ -174,7 +174,7 @@ apply path. `states.json` below is the project's status names.
    every sub-issue as a stale ref) and:
 
    ```sh
-   pnpm exec skitterspec-jira spec-sync verify <spec> --stored readback.json
+   {{exec}} skitterspec-jira spec-sync verify <spec> --stored readback.json
    ```
 
    "round-tripped intact", exit 0.
@@ -182,7 +182,7 @@ apply path. `states.json` below is the project's status names.
 7. **Released** — over a range with `Refs:` trailers:
 
    ```sh
-   pnpm exec skitterspec-jira spec-sync released <tag>..HEAD
+   {{exec}} skitterspec-jira spec-sync released <tag>..HEAD
    ```
 
    Tickets counted, unreferenced commits reported, bookkeeping ignored.
@@ -191,7 +191,7 @@ apply path. `states.json` below is the project's status names.
    and:
 
    ```sh
-   pnpm exec skitterspec-jira spec-sync status <spec> --remote issue.json
+   {{exec}} skitterspec-jira spec-sync status <spec> --remote issue.json
    ```
 
    The edit is reported; the next apply replaces it and says so loudly.

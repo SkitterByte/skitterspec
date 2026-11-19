@@ -351,7 +351,7 @@ test('init warns when no engine could be found, and still installs', async () =>
   try {
     const warnings = lastReport().warnings
     assert.ok(
-      warnings.some((w) => /could not be found/.test(w) && /npx skitterspec/.test(w)),
+      warnings.some((w) => /could not be found/.test(w) && /npx -p @skitterbyte\/skitterspec/.test(w)),
       `expected a cannot-find warning, got ${JSON.stringify(warnings)}`,
     )
     for (const name of COMMANDS) {

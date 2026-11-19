@@ -20,13 +20,13 @@ tell the user how to enable Linear sync and stop.
 
 ## The invocation — always state it
 
-`spec-sync` is a subcommand of a binary that is a **local devDependency**, so it
-is never on `PATH`. Typing `spec-sync` gives `command not found`, which reads as
+`spec-sync` is a subcommand of the provider binary, not a program of its own,
+so it is never on `PATH` by itself. Typing `spec-sync` gives `command not found`, which reads as
 a broken install rather than a wrong invocation. Always run it — and always show
 the user you ran it — in full:
 
 ```
-pnpm exec skitterspec-linear spec-sync <subcommand> [args]
+{{exec}} skitterspec-linear spec-sync <subcommand> [args]
 ```
 
 In a project that installs the Linear superset the binary is
@@ -75,9 +75,9 @@ Say which skill you're handing to and stop; don't reimplement either.
 ## 3. The read-only subcommands
 
 ```
-pnpm exec skitterspec-linear spec-sync linked [--json]
-pnpm exec skitterspec-linear spec-sync states [--via api|mcp] [--json]
-pnpm exec skitterspec-linear spec-sync projects [--via api|mcp] [--json]
+{{exec}} skitterspec-linear spec-sync linked [--json]
+{{exec}} skitterspec-linear spec-sync states [--via api|mcp] [--json]
+{{exec}} skitterspec-linear spec-sync projects [--via api|mcp] [--json]
 ```
 
 - **`linked`** is offline: which specs carry a `linear_identifier`, their bucket,
@@ -98,7 +98,7 @@ pnpm exec skitterspec-linear spec-sync projects [--via api|mcp] [--json]
 ## 4. `verify` — check what the tracker actually stored
 
 ```
-pnpm exec skitterspec-linear spec-sync verify <spec> --stored <file>
+{{exec}} skitterspec-linear spec-sync verify <spec> --stored <file>
 ```
 
 `--stored` is **what Linear currently holds**, read back over MCP:
@@ -118,7 +118,7 @@ by pushing again.
 ## 5. `stamp` — the manual escape hatch
 
 ```
-pnpm exec skitterspec-linear spec-sync stamp <spec> --issue KEY-1 [--url URL] [--sub <ref>=KEY-2 …]
+{{exec}} skitterspec-linear spec-sync stamp <spec> --issue KEY-1 [--url URL] [--sub <ref>=KEY-2 …]
 ```
 
 Writes the ids into the spec's frontmatter without touching Linear. For adopting
@@ -129,7 +129,7 @@ mint a duplicate, so read the values back to the user before writing.
 ## 6. `apply --all <bucket>` — bulk, and the one with real blast radius
 
 ```
-pnpm exec skitterspec-linear spec-sync apply --all <bucket> [--via api|mcp] [--json]
+{{exec}} skitterspec-linear spec-sync apply --all <bucket> [--via api|mcp] [--json]
 ```
 
 **Confirm before running, and state creates and updates separately.** They are
@@ -157,8 +157,8 @@ its object exists, so an interrupted run continues rather than duplicating.
 ## 7. `ref` and `released` — tickets in commits
 
 ```
-pnpm exec skitterspec-linear spec-sync ref [--json]
-pnpm exec skitterspec-linear spec-sync released [<range>] [--json]
+{{exec}} skitterspec-linear spec-sync ref [--json]
+{{exec}} skitterspec-linear spec-sync released [<range>] [--json]
 ```
 
 `ref` prints the ticket for the branch you are on, so a commit can carry
@@ -189,7 +189,7 @@ the report saying which commits it set aside.
 ## 8. `retarget` — after a Linear team is renamed
 
 ```
-pnpm exec skitterspec-linear spec-sync retarget [--yes]
+{{exec}} skitterspec-linear spec-sync retarget [--yes]
 ```
 
 Renaming a Linear team rewrites the key in every issue identifier, and

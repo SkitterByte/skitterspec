@@ -156,7 +156,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Runner token in provider assets | ⬜ | [01-provider-runner.md](01-provider-runner.md) |
+| 1 | Runner token in provider assets | ✅ | [01-provider-runner.md](01-provider-runner.md) |
 | 2 | Fresh `init --local` and scoped `update` | ⬜ | [02-local-init.md](02-local-init.md) |
 | 3 | Convert a committed install | ⬜ | [03-convert.md](03-convert.md) |
 | 4 | Seed the local install into worktrees | ⬜ | [04-worktree-seed.md](04-worktree-seed.md) |
@@ -189,3 +189,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   second contributor's `.claude/specs` files was checked: she has no
   skitterspec install and skitterspec never writes there, so LSC remains a
   single-user repo and the premise stands.
+- 2026-11-19 — Phase 1: this repo dogfoods by symlinking `.claude/` into
+  the assets, and a link to a token-bearing asset would hand Claude a literal
+  `{{exec}}`. `claude-relink` now installs those entries (`spec-sync`,
+  `commit-trailers.md`) as rendered copies, like commands, and re-renders a
+  stale one; the links guard accepts them. Provider `/spec-sync` prose
+  reworded — the binary may now be on `PATH`, the subcommand never is.
+  `bunx` and `yarn` are left as they are: neither was in scope.

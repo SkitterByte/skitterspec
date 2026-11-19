@@ -20,13 +20,13 @@ absent, tell the user how to enable Azure Boards sync and stop.
 
 ## The invocation — always state it
 
-`spec-sync` is a subcommand of a binary that is a **local devDependency**, so it
-is never on `PATH`. Typing `spec-sync` gives `command not found`, which reads as
+`spec-sync` is a subcommand of the provider binary, not a program of its own,
+so it is never on `PATH` by itself. Typing `spec-sync` gives `command not found`, which reads as
 a broken install rather than a wrong invocation. Always run it — and always show
 the user you ran it — in full:
 
 ```
-pnpm exec skitterspec-azure-boards spec-sync <subcommand> [args]
+{{exec}} skitterspec-azure-boards spec-sync <subcommand> [args]
 ```
 
 In a project that installs the Azure Boards superset the binary is
@@ -77,8 +77,8 @@ Say which skill you're handing to and stop; don't reimplement either.
 ## 3. The read-only subcommands
 
 ```
-pnpm exec skitterspec-azure-boards spec-sync linked [--json]
-pnpm exec skitterspec-azure-boards spec-sync states [--via api|mcp] [--json]
+{{exec}} skitterspec-azure-boards spec-sync linked [--json]
+{{exec}} skitterspec-azure-boards spec-sync states [--via api|mcp] [--json]
 ```
 
 - **`linked`** is offline: which specs carry an `azure_identifier`, their
@@ -100,7 +100,7 @@ pnpm exec skitterspec-azure-boards spec-sync states [--via api|mcp] [--json]
 ## 4. `verify` — check what the tracker actually stored
 
 ```
-pnpm exec skitterspec-azure-boards spec-sync verify <spec> --stored <file>
+{{exec}} skitterspec-azure-boards spec-sync verify <spec> --stored <file>
 ```
 
 `--stored` is **what Boards currently holds**, read back over MCP:
@@ -122,7 +122,7 @@ comparison is words, not bytes.
 ## 5. `stamp` — the manual escape hatch
 
 ```
-pnpm exec skitterspec-azure-boards spec-sync stamp <spec> --issue AB#1 [--url URL] [--sub <ref>=AB#2 …]
+{{exec}} skitterspec-azure-boards spec-sync stamp <spec> --issue AB#1 [--url URL] [--sub <ref>=AB#2 …]
 ```
 
 Writes the ids into the spec's frontmatter without touching Boards (it verifies
@@ -134,7 +134,7 @@ the values back to the user before writing.
 ## 6. `apply --all <bucket>` — bulk, and the one with real blast radius
 
 ```
-pnpm exec skitterspec-azure-boards spec-sync apply --all <bucket> [--via api|mcp] [--json]
+{{exec}} skitterspec-azure-boards spec-sync apply --all <bucket> [--via api|mcp] [--json]
 ```
 
 **Confirm before running, and state creates and updates separately.** They are
@@ -162,8 +162,8 @@ its object exists, so an interrupted run continues rather than duplicating.
 ## 7. `ref` and `released` — tickets in commits
 
 ```
-pnpm exec skitterspec-azure-boards spec-sync ref [--json]
-pnpm exec skitterspec-azure-boards spec-sync released [<range>] [--json]
+{{exec}} skitterspec-azure-boards spec-sync ref [--json]
+{{exec}} skitterspec-azure-boards spec-sync released [<range>] [--json]
 ```
 
 `ref` prints the ticket for the branch you are on, so a commit can carry

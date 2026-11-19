@@ -17,7 +17,7 @@ Do the steps in order — each one is checked by the next.
 
 ```
 pnpm add -D @skitterbyte/skitterspec-github
-pnpm exec skitterspec init --isolation
+{{exec}} skitterspec init --isolation
 ```
 
 Install exactly one distribution: the base, or one superset. This one provides
@@ -56,7 +56,7 @@ org-owned boards.
 Then store it **yourself, in your own terminal** — never paste it into a chat:
 
 ```
-pnpm exec skitterspec-github spec-sync credentials set --owner <owner>
+{{exec}} skitterspec-github spec-sync credentials set --owner <owner>
 # GitHub token for github.com/<owner> (classic, repo + project; hidden): ●●●●●●●●
 ```
 
@@ -70,7 +70,7 @@ validates every bucket's Status option against the board, and writes
 `specs/.core/github.config.json` through `spec-sync init-config`. By hand:
 
 ```
-pnpm exec skitterspec-github spec-sync init-config \
+{{exec}} skitterspec-github spec-sync init-config \
   --owner <owner> --repo <repo> --project 7 [--state backlog=Todo]
 ```
 
@@ -80,7 +80,7 @@ is invisible in every one of them and sync reports itself off there.
 ## 5. Check — `spec-sync doctor`
 
 ```
-pnpm exec skitterspec-github spec-sync doctor --check-remote
+{{exec}} skitterspec-github spec-sync doctor --check-remote
 ```
 
 Every row names its own fix: the config, the token, its scopes (classic tokens

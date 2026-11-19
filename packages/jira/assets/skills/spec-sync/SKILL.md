@@ -20,13 +20,13 @@ tell the user how to enable Jira sync and stop.
 
 ## The invocation — always state it
 
-`spec-sync` is a subcommand of a binary that is a **local devDependency**, so it
-is never on `PATH`. Typing `spec-sync` gives `command not found`, which reads as
+`spec-sync` is a subcommand of the provider binary, not a program of its own,
+so it is never on `PATH` by itself. Typing `spec-sync` gives `command not found`, which reads as
 a broken install rather than a wrong invocation. Always run it — and always show
 the user you ran it — in full:
 
 ```
-pnpm exec skitterspec-jira spec-sync <subcommand> [args]
+{{exec}} skitterspec-jira spec-sync <subcommand> [args]
 ```
 
 In a project that installs the Jira superset the binary is
@@ -75,8 +75,8 @@ Say which skill you're handing to and stop; don't reimplement either.
 ## 3. The read-only subcommands
 
 ```
-pnpm exec skitterspec-jira spec-sync linked [--json]
-pnpm exec skitterspec-jira spec-sync states [--via api|mcp] [--json]
+{{exec}} skitterspec-jira spec-sync linked [--json]
+{{exec}} skitterspec-jira spec-sync states [--via api|mcp] [--json]
 ```
 
 - **`linked`** is offline: which specs carry a `jira_identifier`, their bucket,
@@ -99,7 +99,7 @@ pnpm exec skitterspec-jira spec-sync states [--via api|mcp] [--json]
 ## 4. `verify` — check what the tracker actually stored
 
 ```
-pnpm exec skitterspec-jira spec-sync verify <spec> --stored <file>
+{{exec}} skitterspec-jira spec-sync verify <spec> --stored <file>
 ```
 
 `--stored` is **what Jira currently holds**, read back over MCP:
@@ -120,7 +120,7 @@ markdown at the boundary, so the comparison is words, not bytes.
 ## 5. `stamp` — the manual escape hatch
 
 ```
-pnpm exec skitterspec-jira spec-sync stamp <spec> --issue PROJ-1 [--url URL] [--sub <ref>=PROJ-2 …]
+{{exec}} skitterspec-jira spec-sync stamp <spec> --issue PROJ-1 [--url URL] [--sub <ref>=PROJ-2 …]
 ```
 
 Writes the keys into the spec's frontmatter without touching Jira. For adopting
@@ -131,7 +131,7 @@ mint a duplicate, so read the values back to the user before writing.
 ## 6. `apply --all <bucket>` — bulk, and the one with real blast radius
 
 ```
-pnpm exec skitterspec-jira spec-sync apply --all <bucket> [--via api|mcp] [--json]
+{{exec}} skitterspec-jira spec-sync apply --all <bucket> [--via api|mcp] [--json]
 ```
 
 **Confirm before running, and state creates and updates separately.** They are
@@ -159,8 +159,8 @@ its object exists, so an interrupted run continues rather than duplicating.
 ## 7. `ref` and `released` — tickets in commits
 
 ```
-pnpm exec skitterspec-jira spec-sync ref [--json]
-pnpm exec skitterspec-jira spec-sync released [<range>] [--json]
+{{exec}} skitterspec-jira spec-sync ref [--json]
+{{exec}} skitterspec-jira spec-sync released [<range>] [--json]
 ```
 
 `ref` prints the ticket for the branch you are on, so a commit can carry

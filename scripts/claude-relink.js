@@ -117,10 +117,24 @@ function sameTree(a, b) {
 //   edited     a real file whose content DIFFERS — somebody's work. Refused.
 //   no-target  no sibling link to learn the convention from, so the target
 //              cannot be established. Refused rather than guessed.
+//
+// And two for an entry whose asset carries the `{{exec}}` runner token. Those
+// must be COPIES, rendered for this checkout, exactly like `.claude/commands/`:
+// a link would hand Claude a skill telling it to run a program called
+// `{{exec}}`.
+//
+//   rendered   a real copy with the token filled; nothing to do
+//   render     a link, a missing entry, or a copy still holding the token —
+//              actionable: copy the asset and fill the token
 function planRelink(names, installDir) {
   const out = []
   for (const name of names) {
     const p = path.join(installDir, name)
+    const rendered = renderedPlan(p, installDir, name)
+    if (rendered) {
+      out.push(rendered)
+      continue
+    }
     let st
     try {
       st = fs.lstatSync(p)
@@ -148,19 +162,139 @@ function planRelink(names, installDir) {
   return out
 }
 
+// Does this tree hold the runner token anywhere? A skill is a directory, a
+// rule a file.
+function holdsExec(p) {
+  let st
+  try {
+    st = fs.statSync(p)
+  } catch {
+    return false
+  }
+  if (st.isFile()) return p.endsWith('.md') && fs.readFileSync(p, 'utf8').includes('{{exec}}')
+  if (!st.isDirectory()) return false
+  return fs.readdirSync(p).some((n) => holdsExec(path.join(p, n)))
+}
+
+// The plan for an entry whose asset carries the token, or null when it does
+// not (the ordinary case, decided by the link rules above). The target comes
+// from the entry's own link where it is one, else from a sibling's.
+function renderedPlan(p, installDir, name) {
+  let st = null
+  try {
+    st = fs.lstatSync(p)
+  } catch {
+    /* not installed */
+  }
+  const target =
+    st && st.isSymbolicLink() ? fs.readlinkSync(p) : linkTargetFor(installDir, name) || sourceTargetFor(installDir, name)
+  if (!target || !holdsExec(path.resolve(installDir, target))) return null
+  const root = path.resolve(installDir, '..', '..')
+  if (st && !st.isSymbolicLink() && sameRendered(p, path.resolve(installDir, target), root)) {
+    return { name, target, state: 'rendered' }
+  }
+  return { name, target, state: 'render' }
+}
+
+// Is this copy exactly the asset with its token filled for this checkout? A
+// copy that has drifted from a since-edited asset is stale, and re-rendering it
+// loses nothing: the copy is generated, never hand-edited.
+function sameRendered(copy, asset, root) {
+  const { renderExec } = require(path.join(__dirname, '..', 'packages', 'common', 'src', 'init.js'))
+  let sc, sa
+  try {
+    sc = fs.statSync(copy)
+    sa = fs.statSync(asset)
+  } catch {
+    return false
+  }
+  if (sc.isFile() && sa.isFile()) {
+    const want = fs.readFileSync(asset, 'utf8')
+    return fs.readFileSync(copy, 'utf8') === (asset.endsWith('.md') ? renderExec(want, root) : want)
+  }
+  if (!sc.isDirectory() || !sa.isDirectory()) return false
+  const ec = fs.readdirSync(copy).sort()
+  const ea = fs.readdirSync(asset).sort()
+  if (ec.length !== ea.length || ec.some((n, i) => n !== ea[i])) return false
+  return ec.every((n) => sameRendered(path.join(copy, n), path.join(asset, n), root))
+}
+
+// A rendered copy has no link of its own to read the target back from, and a
+// sibling's convention can name the wrong package — the rules lane links into
+// `packages/common`, while a provider's rule lives in its own package. So look
+// the entry up in the source packages that ship it. Only reached for a copy,
+// and only trusted when the asset found carries the token.
+function sourceTargetFor(installDir, name) {
+  const root = path.resolve(installDir, '..', '..')
+  const kind = path.basename(installDir)
+  const packages = path.join(root, 'packages')
+  let pkgs
+  try {
+    pkgs = fs.readdirSync(packages)
+  } catch {
+    return null
+  }
+  // Several providers ship a rule by the same name; the one this checkout
+  // installs is the provider its skills link into.
+  const provider = installedProvider(root)
+  pkgs.sort((x, y) => (y === provider) - (x === provider))
+  for (const pkg of pkgs) {
+    if (BUILT.has(pkg)) continue
+    const asset = path.join(packages, pkg, 'assets', kind, name)
+    if (fs.existsSync(asset) && holdsExec(asset)) return path.relative(installDir, asset)
+  }
+  return null
+}
+
+// The provider whose distribution `.claude/skills` links into, or null.
+function installedProvider(root) {
+  const skills = path.join(root, '.claude', 'skills')
+  let entries
+  try {
+    entries = fs.readdirSync(skills)
+  } catch {
+    return null
+  }
+  for (const e of entries) {
+    const p = path.join(skills, e)
+    if (!fs.lstatSync(p).isSymbolicLink()) continue
+    const m = /packages[\\/]skitterspec-([a-z-]+)[\\/]/.exec(fs.readlinkSync(p))
+    if (m) return m[1]
+  }
+  return null
+}
+
+// Copy an asset over the entry and fill its token for this checkout — the same
+// render `skitterspec update` gives a consumer.
+function renderCopy(target, p, root) {
+  const { renderExec } = require(path.join(__dirname, '..', 'packages', 'common', 'src', 'init.js'))
+  fs.rmSync(p, { recursive: true, force: true })
+  fs.cpSync(target, p, { recursive: true, dereference: true })
+  const fill = (q) => {
+    if (fs.statSync(q).isDirectory()) return fs.readdirSync(q).forEach((n) => fill(path.join(q, n)))
+    if (q.endsWith('.md')) fs.writeFileSync(q, renderExec(fs.readFileSync(q, 'utf8'), root))
+  }
+  fill(p)
+}
+
 // The two actionable states, and they end the same way: a symlink where one
 // belongs. `relink` replaces a stale copy, `link` creates one that was never
 // installed — and `rmSync` with `force` is already a no-op on a path that is not
 // there, so the difference is in the classification rather than here.
 //
 // Returns what it did, so the CLI reports rather than the function printing.
-const ACTIONABLE = new Set(['relink', 'link'])
+const ACTIONABLE = new Set(['relink', 'link', 'render'])
 
-function applyRelink(plan, installDir) {
+function applyRelink(plan, installDir, root = ROOT) {
   const done = []
   for (const item of plan) {
     if (!ACTIONABLE.has(item.state)) continue
     const p = path.join(installDir, item.name)
+    if (item.state === 'render') {
+      renderCopy(path.resolve(installDir, item.target), p, root)
+      done.push(item.name)
+      continue
+    }
     fs.rmSync(p, { recursive: true, force: true })
     fs.symlinkSync(item.target, p)
     done.push(item.name)
@@ -192,8 +326,8 @@ function run({ dryRun = false, root = ROOT, log = console.log } = {}) {
       // "linking" covers both actionable states honestly: one replaces a stale
       // copy and one creates what was never there, and both end as a symlink.
       log(`\n${lane.label}: ${dryRun ? 'would link' : 'linking'} ${todo.length}`)
-      for (const i of todo) log(`  ${i.name} -> ${i.target}`)
-      if (!dryRun) applyRelink(todo, lane.dir)
+      for (const i of todo) log(`  ${i.name} ${i.state === 'render' ? '<= (rendered copy of)' : '->'} ${i.target}`)
+      if (!dryRun) applyRelink(todo, lane.dir, root)
       relinked += todo.length
     }
     for (const i of bad) {
@@ -222,6 +356,7 @@ module.exports = {
   planRelink,
   ACTIONABLE,
   applyRelink,
+  holdsExec,
   lanes,
   run,
 }
