@@ -79,6 +79,12 @@ means a `package.json` dependency only one person wants.
    installs and npm-based team installs alike. Local-mode files are
    per-machine, so baking the runner in is correct there; team mode keeps
    today's caveat.
+   **No npx form may resolve an unscoped name from the registry.** The bins
+   `skitterspec` and `skitterspec-<provider>` are not npm package names (they
+   404 today, so anyone could register them). The `npx` rung renders
+   `npx --no-install <bin>` (fails rather than fetches when `node_modules` is
+   missing) and the `none` rung renders `npx -p @skitterbyte/<distribution>
+   <bin>`. This also changes today's rendered command files.
 7. **Converting a committed install is part of `init --local`**:
    `git rm --cached` on the managed tracked files (staged, never committed —
    the operator commits the removal), our hook entries moved from
@@ -93,7 +99,19 @@ means a `package.json` dependency only one person wants.
    `.claude/settings.local.json` and `CLAUDE.local.md` from the primary
    checkout, reusing the seed step (copy fallback where symlinks are
    unavailable). Implicit from the manifest scope — nothing added to the
-   committed `env.config.json`.
+   committed `env.config.json`. Seeding `settings.local.json` deliberately
+   carries that developer's personal permissions into each worktree: in local
+   mode the worktrees are theirs alone.
+10. **`--local` is for a developer alone on a shared repo, never a team.** The
+   hooks and rules are team policy; excluding them strips every other
+   developer and worktree of them. The docs say so, and `init --local` prints
+   it once. A side benefit worth stating: in local mode `update` writes only
+   excluded files, so it never dirties the base branch.
+
+11. **Paths are relative to the git root, not the install folder.** An install
+   may sit below the repo root (LSC: root `LSC App/`, install in
+   `FF.CSC.Solution/`), so exclude entries and `git rm --cached` paths carry
+   the `git rev-parse --show-prefix` prefix.
 
 ## Solution overview
 
@@ -153,3 +171,21 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-11-19 — Spec created. A global/user-scope install (unified provider
   package, ~/.claude plugin-style install) was explored and rejected in
   favour of this; see Decision 1.
+- 2026-11-19 — Impact check from skitterload (team install, pnpm, solo):
+  works as-is — Phase 1 renders its existing `pnpm exec` text byte-identical.
+  Two conversion gaps folded into Phases 2–3: merge into an existing
+  `settings.local.json`, and a markerless CLAUDE section is reported, not
+  moved.
+- 2026-11-19 — Impact check from an Azure Boards project (team install,
+  pnpm, 4 customized files — all already correct): works as-is. Folded in:
+  per-entry hook removal in mixed matcher groups, the team-policy warning
+  (Decision 10), and the deliberate spread of `settings.local.json` into
+  local-mode worktrees (Decision 9).
+- 2026-11-19 — Impact check from LSC (team install, npm, Mac + Windows VM
+  over one checkout): works with two small changes on its side. Phase 1
+  fixes it today (provider files hard-code `pnpm exec` on an npm project).
+  Folded in: npx never resolves an unscoped name (Decision 6), and paths
+  relative to a git root above the install (Decision 11). Its report of a
+  second contributor's `.claude/specs` files was checked: she has no
+  skitterspec install and skitterspec never writes there, so LSC remains a
+  single-user repo and the premise stands.

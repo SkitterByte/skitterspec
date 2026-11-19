@@ -11,7 +11,8 @@ github_issue_id: "#239"
 ## Tasks
 
 - [ ] README and `docs/reference.html`: `init --local`, when to use it (one
-      developer on a shared repo), what stays committed, global CLI install.
+      developer on a shared repo), when NOT to (a team that shares the
+      hooks/rules as policy), what stays committed, global CLI install.
 - [ ] Provider pages (`azure-boards`, `github`, `jira`, `linear`): global
       install as an option; runner no longer assumed to be pnpm.
 - [ ] Bump each edited page's `verified:`.
