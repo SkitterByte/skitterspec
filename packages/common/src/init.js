@@ -6,8 +6,8 @@ const crypto = require('crypto')
 const { execFileSync } = require('child_process')
 
 const { ensureWorktreeDirTrusted } = require('./env/trust.js')
-const { ensureHooks, removeHooks } = require('./env/hooks.js')
-const { repoInfo, expandTokens } = require('./env/resolve.js')
+const { ensureHooks, removeHooks, HOOKS: GATE_HOOKS } = require('./env/hooks.js')
+const { repoInfo, expandTokens, describeBaseBranch, baseRemote } = require('./env/resolve.js')
 const { primaryAnchor } = require('./env/project.js')
 const { setProjectKeys } = require('./env/projectedit.js')
 
@@ -1304,9 +1304,9 @@ function writeLocalExcludes(dir) {
 function convertCommitted(dir) {
   const git = (...args) =>
     execFileSync('git', ['-C', dir, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+  const candidates = [...new Set(localExcludes(dir))].filter((p) => !p.endsWith('/'))
   let tracked
   try {
-    const candidates = [...new Set(localExcludes(dir))].filter((p) => !p.endsWith('/'))
     tracked = git('ls-files', '--', ...candidates).split('\n').filter(Boolean)
   } catch {
     return // not a git repo — writeLocalExcludes says so
@@ -1372,6 +1372,101 @@ function convertCommitted(dir) {
       'the conversion is staged, not committed — commit it (/commit) and teammates who pull it lose the install',
     )
   }
+
+  for (const row of branchesCarryingInstall(dir, candidates)) {
+    if (row.cannotTell) {
+      report.warnings.push(`${row.ref}: cannot tell whether it still commits the install — git could not read it`)
+      continue
+    }
+    const what = [`${row.files} managed file(s)`, ...(row.hooks ? [`${row.hooks} hook(s)`] : [])].join(', ')
+    report.suggestions.push(
+      `${row.ref} still commits the install (${what})${row.remote ? ' — as of the last fetch' : ''}. ` +
+        'Anyone working from it still gets the skills: merge this conversion into it, or run ' +
+        '`skitterspec init --local` on it and commit',
+    )
+  }
+}
+
+// The long-lived branches — the base, `hotfix.releaseBranch`, the remote's
+// default — that still commit the install this conversion takes out of git.
+// A conversion is per branch, so a quarter branch converted and a `master` left
+// as it was still hands every teammate on `master` the whole workflow.
+// Feature branches are not asked: they catch up when they merge the base.
+//
+// Each name is read as its remote-tracking ref where one exists (what
+// teammates pull), else as the local branch. The branch being converted is
+// skipped — its own state is the staged conversion above.
+//
+// WHAT WOULD FOOL THIS: remote-tracking refs are as of the last fetch, and this
+// never fetches. A branch cleaned on the remote since then is still reported
+// (and says "as of the last fetch"); one that regained the install is missed.
+// A base that does not resolve (the gap between release branches) is not a
+// candidate at all, so it is skipped rather than reported clean.
+function branchesCarryingInstall(dir, candidates) {
+  const read = (args) => {
+    try {
+      return execFileSync('git', ['-C', dir, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim()
+    } catch {
+      return null
+    }
+  }
+  let config = null
+  try {
+    config = require('./env/config.js').loadEnvConfig(dir).config
+  } catch {
+    /* unreadable config — the base still resolves from git alone */
+  }
+  const remote = baseRemote(config)
+  const names = []
+  try {
+    const { base } = describeBaseBranch(config, read)
+    if (base) names.push(base)
+  } catch {
+    /* cannot tell — no candidate */
+  }
+  const release = config && config.hotfix && typeof config.hotfix.releaseBranch === 'string' && config.hotfix.releaseBranch.trim()
+  if (release) names.push(release)
+  const head = read(['symbolic-ref', '--short', `refs/remotes/${remote}/HEAD`])
+  if (head) names.push(head.startsWith(`${remote}/`) ? head.slice(remote.length + 1) : head)
+
+  const current = read(['symbolic-ref', '--short', 'HEAD'])
+  const rows = []
+  for (const name of new Set(names)) {
+    if (name === current) continue
+    const exists = (ref) => read(['show-ref', '--verify', '--quiet', ref]) !== null
+    const ref = exists(`refs/remotes/${remote}/${name}`) ? `${remote}/${name}` : exists(`refs/heads/${name}`) ? name : null
+    if (!ref) continue
+    const listed = read(['ls-tree', '-r', '--name-only', ref, '--', ...candidates])
+    if (listed === null) {
+      rows.push({ ref, cannotTell: true })
+      continue
+    }
+    const files = listed.split('\n').filter(Boolean).length
+    const hooks = hooksAt(read, ref)
+    if (hooks === null) {
+      rows.push({ ref, cannotTell: true })
+      continue
+    }
+    if (files || hooks) rows.push({ ref, files, hooks, remote: ref !== name })
+  }
+  return rows
+}
+
+// Our hook entries in a ref's committed `.claude/settings.json` — 0 when it has
+// none or no such file, null when the file is there and not JSON.
+function hooksAt(read, ref) {
+  const text = read(['show', `${ref}:./.claude/settings.json`])
+  if (text === null) return 0
+  let parsed
+  try {
+    parsed = JSON.parse(text)
+  } catch {
+    return null
+  }
+  const pre = parsed && parsed.hooks && Array.isArray(parsed.hooks.PreToolUse) ? parsed.hooks.PreToolUse : []
+  return pre
+    .flatMap((group) => (group && Array.isArray(group.hooks) ? group.hooks : []))
+    .filter((h) => h && typeof h.command === 'string' && GATE_HOOKS.some((k) => k.re.test(h.command))).length
 }
 
 async function init({ dir, force, claudeMd, mode, isolation, workspaceMode, gating, project, local = false }) {

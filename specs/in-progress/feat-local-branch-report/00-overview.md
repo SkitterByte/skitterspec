@@ -107,7 +107,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Branch report at conversion and update | ⬜ | [01-branch-report.md](01-branch-report.md) |
+| 1 | Branch report at conversion and update | ✅ | [01-branch-report.md](01-branch-report.md) |
 | 2 | Docs | ⬜ | [02-docs.md](02-docs.md) |
 
 ## Open questions
@@ -119,3 +119,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-11-19 — Spec created, from LSC: `master` kept 42 managed files after
   the `2026/Q4` conversion, and colleagues working from it still got the
   skills.
+- 2026-11-19 — Phase 1: each branch name is read once, as its
+  remote-tracking ref where one exists (what teammates pull), else as the
+  local branch, rather than both copies, so one branch gives one line.
+  `resync` already runs `convertCommitted` in local scope, so the report
+  lives there and covers `init --local` and `update` from one call site.

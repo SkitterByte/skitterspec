@@ -310,6 +310,103 @@ test('stays silent: settings.json holding only foreign hooks is untouched', asyn
   }
 })
 
+// --- long-lived branches that still commit the install -------------------------
+
+// A remote's view without a remote: point origin's refs at a commit, as a fetch
+// would have left them.
+const fakeOrigin = (dir, branch, sha) => {
+  git(dir, 'update-ref', `refs/remotes/origin/${branch}`, sha)
+  git(dir, 'symbolic-ref', 'refs/remotes/origin/HEAD', `refs/remotes/origin/${branch}`)
+}
+const carrying = () => lastReport().suggestions.filter((s) => /still commits the install/.test(s))
+
+test('the remote default branch still carrying the install is reported until it is clean', async () => {
+  const dir = repo()
+  try {
+    await teamInit(dir)
+    commitAll(dir, 'team install')
+    const team = git(dir, 'rev-parse', 'HEAD')
+    git(dir, 'branch', 'master', team)
+    fakeOrigin(dir, 'master', team)
+
+    await localInit(dir)
+    assert.strictEqual(carrying().length, 1)
+    assert.match(carrying()[0], /^origin\/master still commits the install \(\d+ managed file\(s\), 3 hook\(s\)\) — as of the last fetch\./)
+
+    git(dir, 'commit', '-q', '-m', 'convert')
+    await quiet(() => resync(dir))
+    assert.strictEqual(carrying().length, 1, 'update repeats it while origin/master carries it')
+
+    fakeOrigin(dir, 'master', git(dir, 'rev-parse', 'HEAD'))
+    await quiet(() => resync(dir))
+    assert.deepStrictEqual(carrying(), [], 'silent once the branch is clean')
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('hotfix.releaseBranch is checked even when a base pattern matches nothing', async () => {
+  const dir = repo()
+  try {
+    await teamInit(dir)
+    fs.writeFileSync(
+      path.join(dir, 'specs', '.core', 'env.config.json'),
+      JSON.stringify({ baseBranchPattern: '20??/Q?', hotfix: { releaseBranch: 'master' } }, null, 2),
+    )
+    commitAll(dir, 'team install')
+    git(dir, 'branch', 'master')
+    await localInit(dir)
+    assert.strictEqual(carrying().length, 1)
+    assert.match(carrying()[0], /^master still commits the install/)
+    assert.doesNotMatch(carrying()[0], /last fetch/, 'a local branch is not described as fetched')
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('a long-lived branch git cannot read is cannot-tell, never clean', async () => {
+  const dir = repo()
+  try {
+    await teamInit(dir)
+    commitAll(dir, 'team install')
+    git(dir, 'switch', '-q', '-c', 'master')
+    fs.writeFileSync(path.join(dir, '.claude', 'settings.json'), '{ not json')
+    commitAll(dir, 'broken settings')
+    git(dir, 'switch', '-q', 'main')
+    fakeOrigin(dir, 'master', git(dir, 'rev-parse', 'master'))
+    await localInit(dir)
+    assert.deepStrictEqual(carrying(), [])
+    assert.ok(lastReport().warnings.some((w) => /^origin\/master: cannot tell/.test(w)))
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('stays silent: no remote, a feature branch carrying it, or a team install', async () => {
+  const dir = repo()
+  try {
+    await teamInit(dir)
+    commitAll(dir, 'team install')
+    git(dir, 'branch', 'feat/x')
+    await localInit(dir)
+    assert.deepStrictEqual(carrying(), [], 'the current branch and a feature branch are not reported')
+    assert.ok(!lastReport().warnings.some((w) => /cannot tell whether/.test(w)))
+  } finally {
+    cleanup(dir)
+  }
+  const team = repo()
+  try {
+    await teamInit(team)
+    commitAll(team, 'team install')
+    git(team, 'branch', 'master')
+    fakeOrigin(team, 'master', git(team, 'rev-parse', 'HEAD'))
+    await quiet(() => resync(team))
+    assert.deepStrictEqual(carrying(), [], 'a team install reports nothing')
+  } finally {
+    cleanup(team)
+  }
+})
+
 // --- seeding a local install into worktrees -----------------------------------
 
 const { localSeedFiles } = require('../src/init.js')
