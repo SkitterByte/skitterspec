@@ -143,3 +143,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   Windows gate", and the sub-5-minute target is dropped (Decision 7).
   Phases 1–3 stand: batch releases, the timing and census tools, and
   `fixture()`.
+- 2026-11-19 — Completed; all phases done, tests green. Deferred on purpose: phase 3's remaining fixture conversions and its VM re-measure (marked `[~]`), dropped when Windows moved to CI.
