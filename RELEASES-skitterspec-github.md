@@ -5,6 +5,34 @@ What's new for users of skitterspec-github. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 2.16.0 — 19 Nov 2026
+
+**Highlights:** `/spec-resume <spec|#ticket> [message]` takes you back into a spec that was waiting on a deploy or another project. It rebuilds the worktree if this machine has none, and acts on what you tell it, whether that is feedback, "it's released", or a question. `/spec #N` on a ticket that already has a spec now offers it instead of starting over.
+
+### Env
+- **New** — `skitterspec spec-env resume <spec|#ticket>` finds an in-progress spec even when it exists only on its branch, says what it is blocked on, and prints how to rebuild its worktree. `spec-sync linked` now lists those branch-only specs too, so a ticket that already has a spec is no longer mistaken for a new one.
+- **New** — Projects can now list their own end-of-spec checks under complete.checks; spec-env checks runs them in the spec's worktree and reports each result without ever blocking a land.
+- **New** — With a local install, every spec worktree now gets your skitterspec skills, rules and hooks too, still kept out of git.
+- **Fixed** — `spec-env resume` prints a worktree command that works on Windows paths.
+
+### Hooks
+- **Fixed** — The main, project and review guards now work in a worktree with no node_modules of its own, such as a fresh /spec worktree, and say so when they cannot find skitterspec at all.
+
+### Install
+- **New** — Running init --local on a repo where skitterspec is already committed now converts it in place: the install stays on your machine and the removal is staged for you to commit.
+- **New** — You can now set skitterspec up in a shared repo just for yourself with init --local: its skills, rules and hooks stay on your machine and out of git, and only your specs are committed.
+- **Fixed** — Ticketing skills now call skitterspec the way your project actually installs it - npm, pnpm, yarn or a global install - instead of assuming pnpm, and never download an unofficial package when the local install is missing.
+
+### Skills
+- **New** — `/spec-park "<reason>"` records what a spec is waiting on (a deploy, another project's release, a week in prod), and specs can plan those waits per phase. `/spec-next` stops before building past one, and `/spec-resume` picks the work back up once it is met.
+- **New** — `/spec-resume <spec|#ticket> [message]` takes you back into a spec that was waiting on a deploy or another project. It rebuilds the worktree if this machine has none, and acts on what you tell it, whether that is feedback, "it's released", or a question. `/spec #N` on a ticket that already has a spec now offers it instead of starting over.
+
+### Spec Complete
+- **New** — /spec-complete now runs the checks you list under complete.checks before it lands and reports what each one found, so an end-of-spec step like a docs review is never forgotten.
+
+### Todo
+- **New** — A parked spec now reads as parked rather than stalled. `/spec-todo` names what it is waiting on and says when a dated wait has run out, and its ticket shows the blocker in its summary.
+
 ## 2.15.0 — 18 Nov 2026
 
 ### Env
