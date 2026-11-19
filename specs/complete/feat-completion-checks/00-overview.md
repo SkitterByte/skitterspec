@@ -128,3 +128,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   the checks. A page's `verify` belongs after the spec's last code commit —
   stamping before it leaves that commit counted as drift — so `index` and
   `reference` are verified in a commit of their own after this phase.
+- 2026-11-19 — Completed; all phases done, tests green.
