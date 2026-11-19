@@ -125,8 +125,9 @@ The `docs/*.html` pages carry coverage blocks, specs carry a `> **Docs:**`
 header (page names, or `none: <one-line reason>` — a bare `none` doesn't
 count), and `node scripts/docs-freshness.js <check|impact|stale>` reports —
 advisory, always exit 0 — which specs have no answer and which pages to re-read.
-`impact` runs at spec completion; `stale` prints with every `scripts/release.js`
-plan. The full convention lives in `.claude/rules/docs-freshness.md`.
+`impact` runs at every spec completion (it is this repo's `complete.checks`
+entry); `stale` prints with every `scripts/release.js` plan; `verify <page>`
+records a re-read by stamping the page. The full convention lives in `.claude/rules/docs-freshness.md`.
 
 <!-- skittership:start -->
 ## Release tooling

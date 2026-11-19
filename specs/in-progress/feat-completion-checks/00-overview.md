@@ -12,7 +12,7 @@ github_url: "https://github.com/SkitterByte/skitterspec/issues/246"
 > **Raised:** 2026-11-19
 > **Area:** scripts/docs-freshness.js, packages/common/src/env/config.js, packages/common/src/cli.js, packages/common/assets/skills/spec-complete, packages/common/assets/core/env.config.md, specs/.core/env.config.json, .claude/rules/docs-freshness.md, CLAUDE.md, docs
 > **Stack:** worktree
-> **Docs:** reference
+> **Docs:** index, reference
 
 ## Summary
 
@@ -103,7 +103,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Stamps that survive a rebase, and `verify` | ✅ | [01-freshness-stamps.md](01-freshness-stamps.md) |
 | 2 | `complete.checks` and `spec-env checks` | ✅ | [02-complete-checks.md](02-complete-checks.md) |
-| 3 | Wire `/spec-complete`, this repo, and docs | ⬜ | [03-wire-and-docs.md](03-wire-and-docs.md) |
+| 3 | Wire `/spec-complete`, this repo, and docs | ✅ | [03-wire-and-docs.md](03-wire-and-docs.md) |
 
 ## Open questions
 
@@ -121,3 +121,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   verb's `--help` line, the two verb lists and its `reference.html` row came
   forward from phase 3, because the docs-claims tests require them the
   moment the verb is dispatched.
+- 2026-11-19 — Phase 3: `spec-env checks` reads `complete.checks` from the
+  primary checkout's config, like every engine key — so the entry this spec
+  adds runs from the next spec on, not on its own completion. `impact` flagged
+  `index.html` (it covers the skills); its `/spec-complete` step now mentions
+  the checks. A page's `verify` belongs after the spec's last code commit —
+  stamping before it leaves that commit counted as drift — so `index` and
+  `reference` are verified in a commit of their own after this phase.

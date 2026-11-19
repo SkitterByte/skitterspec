@@ -87,8 +87,13 @@ page against. `node scripts/docs-freshness.js stale` (run as part of
 `scripts/release.js`) lists pages whose covered code has commits since their
 `verified`; `impact [base]` lists pages a branch changed out from under. Both
 are advisory and always exit 0 — a hit means *re-read this page*, not *this page
-is wrong*. After re-reading, fix whatever moved and bump that page's `verified:`
-to the current HEAD.
+is wrong*. After re-reading, fix whatever moved and run
+`node scripts/docs-freshness.js verify <page>` to stamp it — even when nothing
+moved, since a re-read with no stamp is invisible to `stale`. `impact` runs at
+every spec completion, as this repo's `complete.checks` entry. A stamp made on a
+spec branch survives the rebase that lands it: `stale` matches the rewritten
+commit to its twin on HEAD by patch-id, and says `cannot tell` when there is
+none.
 
 This does not reopen the no-version-notes rule above. That rejected a
 **displayed** claim, which rots visibly and helplessly; `verified` is

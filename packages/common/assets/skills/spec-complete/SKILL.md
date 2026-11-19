@@ -40,6 +40,20 @@ Before marking complete, confirm the work is actually finished:
   half-finished phase, a stray fix) and must not be swept into the completion
   commit: offer `/commit` and **stop**. Everything this skill writes in steps 3–4
   is its own, and step 4 commits that.
+- **Run the project's completion checks**, once the suite is green:
+
+  ```
+  skitterspec spec-env checks <spec>
+  ```
+
+  It runs each `complete.checks` command from `env.config.json` in the spec's
+  worktree — the project's own end-of-spec questions, such as a docs report —
+  and always exits 0. Relay what each printed into `Notes`. A check marked
+  `failed` makes the run `⚠️`; it **never stops the completion or the land**,
+  because a check's output is a reason to look again, not proof of a fault.
+  Where a check names a fix you can make now (re-read a page, then record it),
+  offer it — the operator answers. `no completion checks configured` is the
+  usual answer and says nothing in the report.
 
 
 ### An epic — complete after its members
@@ -190,7 +204,8 @@ the shape; this section carries only what is specific here.
 
 `Notes` carries the after-land commands step 6 ran, and where, and any it
 skipped because the land matched no `when` — or, on a failure, the command that failed and the ones that did not run. A project with
-no `afterLand` says nothing about it.
+no `afterLand` says nothing about it. It also carries what each completion
+check reported (§2) — a project with none says nothing about them either.
 
 **Report this spec and no other.** A completion is the moment it is most
 tempting to survey what is left — what else is in flight, what is in the

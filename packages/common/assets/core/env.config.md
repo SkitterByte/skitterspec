@@ -229,6 +229,14 @@ through to a documented conservative default; see the field notes below.
   // relies on {slug}-style tokens is a poor one to reuse.
   "afterLand": [],
 
+  // The project's own end-of-spec checks. `/spec-complete` runs them with
+  // `spec-env checks <spec>` in the spec's worktree once the suite is green,
+  // before it lands, and relays each one's output in its report. Shell strings,
+  // run as written. ADVISORY: a non-zero exit is reported as `failed` and makes
+  // the run ⚠️ — it never stops the land. A non-string entry is dropped.
+  //   "complete": { "checks": ["node scripts/docs-freshness.js impact"] }
+  "complete": { "checks": [] },
+
   // Host dev servers `spec-env dev up <spec>` starts on the spec's port block
   // (for apps that run via `pnpm dev` on the host, not inside the Docker stack).
   // An array so UI + API (or more) are supervised independently; [] = none.

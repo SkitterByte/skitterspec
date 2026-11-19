@@ -22,7 +22,9 @@ Every new spec records, in its header, which docs pages the change makes wrong:
   same logic as the `Gating:` header.)
 - Updating a named page is a normal task in the spec's phases, done in the same
   commit as the code it describes — and that commit bumps the page's
-  `verified:` to its own HEAD.
+  `verified:` (`node scripts/docs-freshness.js verify <page>`). Stamping on the
+  spec branch is safe: landing rebases that commit, and `stale` matches the
+  rewritten stamp to its twin on `main` by patch-id.
 - `node scripts/docs-freshness.js check` lists active specs
   (`specs/backlog/`, `specs/in-progress/`) with no usable answer — including
   specs that live only on their own branch (`land.specDocs: "branch"`), read
@@ -32,13 +34,17 @@ Every new spec records, in its header, which docs pages the change makes wrong:
 
 ## The two reports
 
-- **`node scripts/docs-freshness.js impact [base]`** — run at spec completion
-  (before `/spec-complete`): pages whose covered code this branch changed
-  without the page being edited. Its output belongs in the completion report's
-  `Notes` row.
+- **`node scripts/docs-freshness.js impact [base]`** — run by `/spec-complete`
+  on every spec, as this repo's `complete.checks` entry: pages whose covered
+  code this branch changed without the page being edited. Its output lands in
+  the completion report's `Notes` row.
 - **`node scripts/docs-freshness.js stale`** — printed by `scripts/release.js`
   with every release plan: pages with commits since their `verified`. Re-read a
-  listed page, fix what moved, bump its `verified:`.
+  listed page, fix what moved, and run `verify <page>`.
+- **`node scripts/docs-freshness.js verify <page...>`** — records a re-read:
+  stamps each named page's `verified:` with HEAD. A page you re-read and found
+  right still gets this — a re-read with no stamp is invisible to `stale`.
+  It refuses an unknown name and writes nothing, exiting 1.
 
 Both always exit 0. A hit means *re-read this page*, never *this page is
 wrong* — and anything the tool cannot answer prints `cannot tell`, never
