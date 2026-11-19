@@ -108,7 +108,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Branch report at conversion and update | ✅ | [01-branch-report.md](01-branch-report.md) |
-| 2 | Docs | ⬜ | [02-docs.md](02-docs.md) |
+| 2 | Docs | ✅ | [02-docs.md](02-docs.md) |
 
 ## Open questions
 
