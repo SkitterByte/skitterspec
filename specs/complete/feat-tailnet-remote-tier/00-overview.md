@@ -146,3 +146,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   were removed with the tier. `remote` follows the loopback bind as well as
   `allowNetwork`. With a `file://` page `waitCovers` is empty, and no wait line
   prints.
+- 2026-11-19 — Completed; all phases done, tests green.
