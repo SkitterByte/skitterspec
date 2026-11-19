@@ -12,7 +12,7 @@ covers:
   - packages/common/src/env/epicpage.js
   - packages/common/assets/hooks/review-gate.cjs
   - packages/common/assets/rules/spec-reports.md
-verified: af9743a38b85
+verified: f97e26bb9822
 -->
 <html lang="en">
 <head>
@@ -645,7 +645,7 @@ verified: af9743a38b85
     <div class="section-head reveal">
       <div class="eyebrow">Where it sits in the loop</div>
       <h2>The work happens in a worktree. You shouldn't have to go there to read it.</h2>
-      <p class="lede">A phase is built on its own branch in its own checkout, so <span class="mono" style="font-size:.9em">git diff</span> in your terminal answers about the base branch. (In PR mode the page measures against the remote image of base where its ref exists locally, so a stale local base never widens the range.) The page is rendered the moment the phase's tests go green — after the build, before the commit, which is exactly the moment a review is about.</p>
+      <p class="lede">A phase is built on its own branch in its own checkout, so <span class="mono" style="font-size:.9em">git diff</span> in your terminal answers about the base branch. (In PR mode the page measures against the remote image of base where its ref exists locally, so a stale local base never widens the range.) Under a rolling base (<span class="mono" style="font-size:.9em">baseBranchPattern</span>) in the gap between release branches, when the base was pinned to the fallback, the page says so beside the range — <span class="mono" style="font-size:.9em">everything since master — no 20??/Q? branch on origin — pinned for the gap</span> — because &ldquo;since master&rdquo; would otherwise read as a decision nobody made. The page is rendered the moment the phase's tests go green — after the build, before the commit, which is exactly the moment a review is about.</p>
     </div>
 
     <div class="pipeline reveal">
