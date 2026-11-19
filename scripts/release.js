@@ -183,11 +183,12 @@ function tagName(name, version) {
 }
 
 /**
- * The suite's steps — native, then Linux, then Windows where each gate says
- * run — with `restore` naming what a red run leaves behind. Shared by a
- * single release and a batch, so a batch runs each suite exactly once.
+ * The suite's steps — native, then Linux where its gate says run — with
+ * `restore` naming what a red run leaves behind. Shared by a single release
+ * and a batch, so a batch runs each suite exactly once. Windows is not here:
+ * release.yml runs it before anything is staged (see `windowsNote`).
  */
-function verifySteps({ linux, windows, root, restore }) {
+function verifySteps({ linux, root, restore }) {
   const steps = []
   steps.push({
     phase: 'local',
@@ -240,21 +241,6 @@ function verifySteps({ linux, windows, root, restore }) {
     })
   }
 
-  // AND ON WINDOWS, through whatever command the releaser configured — see
-  // `windowsGate`. Last, because it is the slowest of the three: a failure
-  // common to every platform has already surfaced by the time it starts.
-  // Through `sh -c` because the command is the releaser's whole line
-  // (`vm pnpm test`), quoting and all.
-  if (windows.state === 'run') {
-    steps.push({
-      phase: 'local',
-      kind: 'verify',
-      cmd: windows.command,
-      argv: ['sh', '-c', windows.command],
-      desc: 'run the same suite on Windows',
-      restore,
-    })
-  }
   return steps
 }
 
@@ -275,8 +261,8 @@ function buildPlan({
   // The Linux gate's verdict, decided by `linuxGate` and passed in so buildPlan
   // stays pure — a test states the world rather than needing a Docker daemon.
   linux = { state: 'unknown', why: 'not asked' },
-  // The Windows gate's verdict, from `windowsGate` — same reason as above.
-  windows = { state: 'unknown', why: 'not asked' },
+  // Set when the releaser still asks for a local Windows run (`windowsNote`).
+  windowsNote = null,
   root = ROOT,
 }) {
   const tag = tagName(name, nextVersion)
@@ -318,7 +304,7 @@ function buildPlan({
   // runs. Nothing is staged or committed yet at this point, so a red suite
   // leaves exactly two unstaged files behind — execute() names them.
   if (!skipTests) {
-    steps.push(...verifySteps({ linux, windows, root, restore: needsBump ? [`${dirRel}/package.json`, notesFile] : [] }))
+    steps.push(...verifySteps({ linux, root, restore: needsBump ? [`${dirRel}/package.json`, notesFile] : [] }))
   }
 
   if (needsBump) {
@@ -385,7 +371,7 @@ function buildPlan({
     level,
     skipTests,
     linux,
-    windows,
+    windowsNote,
     steps,
     followUp,
   }
@@ -411,14 +397,14 @@ function buildBatchPlan(
     level = 'plan',
     skipTests = false,
     linux = { state: 'unknown', why: 'not asked' },
-    windows = { state: 'unknown', why: 'not asked' },
+    windowsNote = null,
     root = ROOT,
   } = {},
 ) {
   const order = Object.keys(PACKAGES)
   const members = [...entries]
     .sort((a, b) => order.indexOf(a.name) - order.indexOf(b.name))
-    .map((e) => buildPlan({ ...e, level, skipTests: true, linux, windows, root }))
+    .map((e) => buildPlan({ ...e, level, skipTests: true, linux, root }))
   // A member's steps split at its stage: the version and notes before the
   // suites, the add, commit and tag after.
   const isPre = (st) => st.kind === 'write-version' || (st.argv && st.argv[1] === 'scripts/release-notes.js')
@@ -427,7 +413,7 @@ function buildBatchPlan(
   )
   const steps = [
     ...members.flatMap((m) => m.steps.filter(isPre)),
-    ...(skipTests ? [] : verifySteps({ linux, windows, root, restore })),
+    ...(skipTests ? [] : verifySteps({ linux, root, restore })),
     ...members.flatMap((m) => m.steps.filter((st) => !isPre(st))),
   ]
   // ONE TAG PER PUSH. More than three tags in a single push creates no GitHub
@@ -437,7 +423,7 @@ function buildBatchPlan(
     ...members.map((m) => `git push origin ${m.tag}`),
     ...members.map((m) => `npm run approve ${m.name} ${m.nextVersion}   # after the run stages it`),
   ]
-  return { batch: true, members, level, skipTests, linux, windows, steps, followUp }
+  return { batch: true, members, level, skipTests, linux, windowsNote, steps, followUp }
 }
 
 // --- guards (pure; fed real git output by the CLI) --------------------------
@@ -483,39 +469,22 @@ function linuxGate({ dockerAvailable, skip = false } = {}) {
 }
 
 /**
- * THE RELEASE'S WINDOWS GATE — decide whether to run the suite on Windows too.
+ * WINDOWS RUNS IN CI NOW, before anything is staged (chore-fast-windows-suite).
  *
- * Windows ran only in `ci.yml`, after the push, and a tag pushed red cannot be
- * taken back. Three Windows-only failures in a row were found that way
- * (bug-afterswitch-tests-windows, bug-review-serve-spawn-sh,
- * bug-no-shell-test-windows), the last right after five tags went out.
+ * This tool used to run the suite in the releaser's Windows VM, because
+ * ci.yml's Windows job ran beside release.yml rather than before it, and three
+ * Windows-only failures were found only after tags went out. release.yml now
+ * runs the Windows suite itself and stages only once it is green. That is the
+ * same guarantee, without 22 minutes in a VM on every release.
  *
- * There is no Windows container to reach for, so the run is whatever the
- * releaser says it is: `SKITTERSPEC_RELEASE_WINDOWS` holds the whole command
- * (`vm pnpm test`), set on the machine that owns the VM — never committed,
- * since nobody else's machine can run it. The VM must see THIS checkout through
- * a shared folder: the tree under test is the one about to be tagged, with the
- * bump written and not yet committed.
- *
- * THREE ANSWERS, the same as Linux, and only `run` does anything:
- *
- *   - `run`     — a command is set and nobody opted out.
- *   - `skipped` — `--skip-windows`, on the record in the plan.
- *   - `unknown` — no command set. Not evidence the tree is bad, so it never
- *                blocks a release (`.claude/rules/negative-checks.md` rule 4);
- *                it is said out loud instead.
- *
- * WHAT WOULD FOOL IT: a share that serves a stale copy of the tree, or a
- * wrapper that exits 0 when the suite inside it failed. Either reads as a
- * green Windows run. The exit status is the only thing trusted here.
- *
- * Pure: the caller reads the environment.
+ * `--skip-windows` and `SKITTERSPEC_RELEASE_WINDOWS` are still accepted, so
+ * a shell profile or a habit does not turn into an error. Either one gets this
+ * note and changes nothing else. Null means neither was given.
  */
-function windowsGate({ command, skip = false } = {}) {
-  if (skip) return { state: 'skipped', why: '--skip-windows was passed' }
-  const cmd = String(command || '').trim()
-  if (!cmd) return { state: 'unknown', why: 'SKITTERSPEC_RELEASE_WINDOWS not set' }
-  return { state: 'run', why: null, command: cmd }
+function windowsNote({ command, skip = false } = {}) {
+  const asked = skip ? '--skip-windows' : String(command || '').trim() ? 'SKITTERSPEC_RELEASE_WINDOWS' : null
+  if (!asked) return null
+  return `${asked} is ignored — Windows runs in CI (release.yml) before anything is staged`
 }
 
 // Is there a Docker daemon to run the Linux suite in? A missing binary, a
@@ -609,9 +578,7 @@ function formatPlan(plan) {
     lines.push('         the suite below runs on this machine only')
   }
   // The same rule as Linux: a gate that did not run says so, every time.
-  if (!plan.skipTests && plan.windows && plan.windows.state !== 'run') {
-    lines.push(`  note:  Windows run skipped — ${plan.windows.why}`)
-  }
+  if (plan.windowsNote) lines.push(`  note:  ${plan.windowsNote}`)
   lines.push('')
   lines.push('  steps:')
   for (const step of plan.steps) {
@@ -718,10 +685,8 @@ Levels (a bare run is a dry-run and changes nothing):
   --skip-linux   cut the release without the second, Linux run of the suite.
                  The native run still happens. Skipped automatically, with a
                  note, when there is no running Docker.
-  --skip-windows cut the release without the Windows run. It runs only when
-                 SKITTERSPEC_RELEASE_WINDOWS holds a command (e.g. 'vm pnpm
-                 test') that runs the suite in a VM sharing this checkout;
-                 unset, the plan says it was skipped.
+  --skip-windows accepted and ignored: the Windows suite runs in CI
+                 (release.yml), and the stage waits for it.
 
 The suite runs after the version is written and before anything is staged, so
 guards that read the version being released — the migration guide's, for one —
@@ -799,8 +764,8 @@ function main(argv) {
   // Asked once, here, so the printed plan and the executed plan cannot
   // disagree about whether Linux was checked.
   const linux = linuxGate({ dockerAvailable: dockerAvailable(), skip: opts.skipLinux })
-  const windows = windowsGate({ command: process.env.SKITTERSPEC_RELEASE_WINDOWS, skip: opts.skipWindows })
-  const common = { level, skipTests: opts.skipTests, linux, windows, root: ROOT }
+  const note = windowsNote({ command: process.env.SKITTERSPEC_RELEASE_WINDOWS, skip: opts.skipWindows })
+  const common = { level, skipTests: opts.skipTests, linux, windowsNote: note, root: ROOT }
   const plan = entries.length > 1 ? buildBatchPlan(entries, common) : buildPlan({ ...entries[0], ...common })
 
   console.log(formatPlan(plan))
@@ -837,7 +802,7 @@ module.exports = {
   assertCleanTree,
   assertTagAvailable,
   linuxGate,
-  windowsGate,
+  windowsNote,
   LINUX_IMAGE,
   formatPlan,
   verifyFailureMessage,

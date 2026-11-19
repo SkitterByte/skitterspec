@@ -27,7 +27,7 @@ const {
   verifyFailureMessage,
   parseArgs,
   linuxGate,
-  windowsGate,
+  windowsNote,
   LINUX_IMAGE,
 } = require('./release.js')
 
@@ -734,58 +734,36 @@ test('docsStaleAdvisory is quiet-positive on a fresh tree', () => {
   assert.ok(lines.length >= 1)
 })
 
-// --- the Windows run ---------------------------------------------------------
+// --- Windows is CI's (chore-fast-windows-suite) ------------------------------
 //
-// Windows used to run only in CI, after the tag. The releaser's own VM runs it
-// first, through a command they configure; unconfigured, the plan says so.
+// release.yml runs the Windows suite and stages only after it passes, so this
+// tool no longer runs one locally. The old flag and variable are accepted and
+// produce a note, so a shell profile or a habit does not become an error.
 
-const windowsStep = (p) => p.steps.find((s) => s.desc === 'run the same suite on Windows')
-const RUN = windowsGate({ command: 'vm pnpm test' })
+const isWindowsStep = (s) => /windows/i.test(`${s.desc} ${s.cmd}`)
 
-test('a configured Windows command runs as a verify step, through the shell', () => {
-  assert.deepStrictEqual(RUN, { state: 'run', why: null, command: 'vm pnpm test' })
-  const step = windowsStep(plan({ windows: RUN }))
-  assert.ok(step, 'the Windows run is a step of the plan')
-  assert.strictEqual(step.kind, 'verify', 'and a failure stops the release')
-  assert.deepStrictEqual(step.argv, ['sh', '-c', 'vm pnpm test'])
-  assert.strictEqual(step.cmd, 'vm pnpm test', 'shown as the releaser wrote it')
-  assert.deepStrictEqual(step.restore, ['packages/skitterspec/package.json', 'RELEASES-skitterspec.md'])
-})
-
-test('the Windows run comes after native and Linux, and before the commit', () => {
-  const p = plan({ linux: linuxGate({ dockerAvailable: true }), windows: RUN })
-  const at = (pred) => p.steps.findIndex(pred)
-  const win = p.steps.indexOf(windowsStep(p))
-  assert.ok(win > at((s) => s.cmd === 'pnpm test'))
-  assert.ok(win > p.steps.indexOf(linuxStep(p)))
-  assert.ok(win < at((s) => /^git commit/.test(s.cmd)))
-  assert.ok(win < at((s) => /^git tag/.test(s.cmd)))
-})
-
-test('STAYS SILENT: an unset command blocks nothing, and says so', () => {
-  for (const command of [undefined, '', '   ']) {
-    const gate = windowsGate({ command })
-    assert.deepStrictEqual(gate, { state: 'unknown', why: 'SKITTERSPEC_RELEASE_WINDOWS not set' })
-    const p = plan({ windows: gate })
-    assert.strictEqual(windowsStep(p), undefined, 'no Windows step')
-    assert.ok(p.steps.some((s) => /^git tag/.test(s.cmd)), 'and the release still tags')
-    assert.match(formatPlan(p), /Windows run skipped — SKITTERSPEC_RELEASE_WINDOWS not set/)
+test('no plan runs a Windows suite locally', () => {
+  for (const p of [plan({ linux: linuxGate({ dockerAvailable: true }) }), plan({ windowsNote: windowsNote({ command: 'vm pnpm test' }) })]) {
+    assert.deepStrictEqual(p.steps.filter(isWindowsStep), [])
   }
 })
 
-test('--skip-windows is on the record, and a configured run says nothing extra', () => {
-  const gate = windowsGate({ command: 'vm pnpm test', skip: true })
-  assert.strictEqual(gate.state, 'skipped')
-  assert.strictEqual(windowsStep(plan({ windows: gate })), undefined)
-  assert.match(formatPlan(plan({ windows: gate })), /--skip-windows was passed/)
-  assert.doesNotMatch(formatPlan(plan({ windows: RUN })), /Windows run skipped/)
+test('the old variable or flag is noted as ignored, and changes nothing else', () => {
+  const byVar = windowsNote({ command: 'vm pnpm test' })
+  const byFlag = windowsNote({ skip: true })
+  assert.match(byVar, /SKITTERSPEC_RELEASE_WINDOWS is ignored — Windows runs in CI \(release\.yml\)/)
+  assert.match(byFlag, /--skip-windows is ignored/)
+  const quiet = plan({})
+  const noted = plan({ windowsNote: byVar })
+  assert.deepStrictEqual(noted.steps, quiet.steps)
+  assert.match(formatPlan(noted), /note: {2}SKITTERSPEC_RELEASE_WINDOWS is ignored/)
   assert.strictEqual(parseArgs(['n', 'r', 'skitterspec', 'patch', '--skip-windows']).skipWindows, true)
 })
 
-test('--skip-tests skips the Windows run too', () => {
-  const p = plan({ skipTests: true, windows: RUN })
-  assert.strictEqual(windowsStep(p), undefined)
-  assert.doesNotMatch(formatPlan(p), /Windows run skipped/, 'the skip-tests note already says it')
+// STAYS SILENT: a releaser who never set either sees nothing about Windows.
+test('with neither the flag nor the variable, the plan says nothing about Windows', () => {
+  assert.strictEqual(windowsNote({ command: '' }), null)
+  assert.doesNotMatch(formatPlan(plan({})), /Windows/)
 })
 
 // --- batches (chore-fast-windows-suite) -------------------------------------
@@ -797,16 +775,15 @@ test('--skip-tests skips the Windows run too', () => {
 const entry = (name, dirRel, currentVersion, nextVersion) => ({ name, npm: `@skitterbyte/${name}`, dirRel, currentVersion, nextVersion })
 const BASE = entry('skitterspec', 'packages/skitterspec', '1.0.0', '1.1.0')
 const GH = entry('skitterspec-github', 'packages/skitterspec-github', '2.0.0', '2.1.0')
-const WIN = { state: 'run', command: 'win-suite' }
 
 test('a batch runs each suite once, between every bump and every commit', () => {
-  const p = buildBatchPlan([GH, BASE], { linux: { state: 'run' }, windows: WIN })
+  const p = buildBatchPlan([GH, BASE], { linux: { state: 'run' } })
   const verify = p.steps.filter((s) => s.kind === 'verify')
-  assert.strictEqual(verify.length, 3, 'native, Linux and Windows, once each')
+  assert.strictEqual(verify.length, 2, 'native and Linux, once each')
   const idx = (pred) => p.steps.findIndex(pred)
   const lastWrite = p.steps.map((s) => s.kind === 'write-version' || (s.argv && s.argv[1] === 'scripts/release-notes.js')).lastIndexOf(true)
   assert.ok(lastWrite < idx((s) => s.kind === 'verify'), 'every bump is on disk before the first suite')
-  assert.ok(p.steps.lastIndexOf(verify[2]) < idx((s) => s.argv && s.argv[1] === 'add'), 'nothing is staged before the last suite')
+  assert.ok(p.steps.lastIndexOf(verify[1]) < idx((s) => s.argv && s.argv[1] === 'add'), 'nothing is staged before the last suite')
 })
 
 test('a batch cuts the base first, whatever order it was named in', () => {

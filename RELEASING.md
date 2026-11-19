@@ -90,11 +90,11 @@ The tool escalates by flag — **a bare run changes nothing**:
 node scripts/release.js skitterspec,skitterspec-linear,skitterspec-github minor --yes
 ```
 
-Every bump and notes file is written first, and the native, Linux and Windows
-suites run **once** over that tree. Each package is then committed and tagged,
+Every bump and notes file is written first, and the native and Linux suites
+run **once** over that tree. Each package is then committed and tagged,
 base first, whatever order you named them in. The code under test is the same
 for every package in a batch, so running the suites per package bought nothing
-but time: five releases cut one at a time ran the Windows VM five times. Any
+but time: five releases cut one at a time ran the suites five times. Any
 package that would refuse (nothing to ship, a taken tag) refuses the whole
 batch before anything is written. Push the branch, then
 **each tag on its own**, as the plan prints it. More than three tags in one push creates no
@@ -334,34 +334,24 @@ family, different image, different filesystem semantics under a bind mount. It
 closes the macOS-vs-Linux gap that has bitten twice. It is not CI parity, and
 nothing here should be read as saying the tag is safe because this passed.
 
-### And a third time, on Windows — where you have a VM
+### Windows is CI's, before anything is staged
 
-Windows ran only in `ci.yml`, after the push. Three Windows-only failures in a
-row were found that way (`bug-afterswitch-tests-windows`,
-`bug-review-serve-spawn-sh`, `bug-no-shell-test-windows`), the last right after
-five tags had gone out. There is no Windows container to reach for, so the run
-is whatever command you configure, on the machine that owns the VM:
+Windows used to be checked here too, in the releaser's own VM
+(`SKITTERSPEC_RELEASE_WINDOWS`). Three Windows-only failures in a row
+(`bug-afterswitch-tests-windows`, `bug-review-serve-spawn-sh`,
+`bug-no-shell-test-windows`) had been found only after tags went out, because
+`ci.yml`'s Windows job ran beside `release.yml` rather than before it. Now
+`release.yml` runs the Windows suite itself and the stage job waits for it, so
+the same guarantee holds without a 22-minute VM run on every release. See
+**Nothing stages until Windows is green** above.
 
-```
-export SKITTERSPEC_RELEASE_WINDOWS='vm pnpm test'
-```
+`--skip-windows` and `SKITTERSPEC_RELEASE_WINDOWS` are still accepted, so a
+shell profile does not turn into an error. Either one prints a note that it is
+ignored, and changes nothing else.
 
-- **The VM must see this checkout through a shared folder.** The tree under
-  test has to be the one about to be tagged, with the version bump written and
-  not yet committed. A separate clone in the VM would test something else.
-- **It runs last**, after native and Linux, through `sh -c`, and only its exit
-  status counts. A red run stops the release exactly like the other two.
-- **Unset is not a failure.** The step is dropped, the plan prints
-  `note:  Windows run skipped — SKITTERSPEC_RELEASE_WINDOWS not set`, and the
-  release proceeds.
-- **`--skip-windows`** skips a configured run on the record, and
-  `--skip-tests` drops it along with the others.
-- **Never commit the variable anywhere.** It names a VM that exists on one
-  machine. The same reasoning applies to `SKITTERSPEC_READER`.
-
-**What would fool it:** a share serving a stale copy of the tree, or a wrapper
-that exits 0 when the suite inside it failed. Either reads as a green Windows
-run.
+**The VM is still useful for chasing a Windows-only failure by hand.**
+`vm pnpm test` (or the `skitterspec-win-suite` wrapper) runs the suite there
+against this checkout. The notes below are for that.
 
 **Check Defender before blaming the code.** The suite builds hundreds of
 throwaway git repos and starts a process for nearly every test, and real-time
@@ -382,8 +372,8 @@ Add-MpPreference -ExclusionPath 'C:\Code\skitterspec-tmp'
 
 `Remove-MpPreference -ExclusionPath <path>` undoes either line. On this repo's
 VM real-time protection was already off, so the 22-minute run was Windows
-process and filesystem overhead, not scanning. That cost is what
-`chore-fast-windows-suite` phases 3 and 4 go after.
+process and filesystem overhead, not scanning: about 17,000 subprocesses, on
+4 CPUs against the Mac's 18. `scripts/spawn-census.js` counts them by kind.
 
 **Finding what is slow.** `scripts/suite-timings.js` is a `node --test`
 reporter that ranks test files by the time spent in their tests:

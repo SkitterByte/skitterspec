@@ -109,7 +109,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 2 | One test pass per release batch | ✅ | [02-batch-release.md](02-batch-release.md) |
 | 3 | Fixture copies for the slowest files | ✅ | [03-fixture-copies.md](03-fixture-copies.md) |
 | 4 | Stage only after Windows passes, in CI | ✅ | [04-ci-windows-gate.md](04-ci-windows-gate.md) |
-| 5 | Retire the local Windows gate | ⬜ | [05-retire-local-windows.md](05-retire-local-windows.md) |
+| 5 | Retire the local Windows gate | ✅ | [05-retire-local-windows.md](05-retire-local-windows.md) |
 
 ## Open questions
 
