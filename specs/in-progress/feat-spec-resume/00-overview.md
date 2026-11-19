@@ -148,7 +148,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Engine: `Blocked on:` reader, `#N` across branches, `spec-env resume` | ✅ | [01-engine-resume.md](01-engine-resume.md) |
-| 2 | `/spec-resume` skill and the doors' hand-off | ⬜ | [02-resume-skill.md](02-resume-skill.md) |
+| 2 | `/spec-resume` skill and the doors' hand-off | ✅ | [02-resume-skill.md](02-resume-skill.md) |
 | 3 | Parking: `/spec-park`, planned blockers, `/spec-next` and `/spec-complete` | ⬜ | [03-parking.md](03-parking.md) |
 | 4 | Surfacing: `/spec-todo` and the tracker summary block | ⬜ | [04-surfacing.md](04-surfacing.md) |
 
@@ -168,3 +168,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   the same rows plus new ones. The `spec-env resume` row in
   `docs/reference.html` landed in phase 1, because the docs-claims test requires
   every dispatched verb to be documented.
+- 2026-11-19 — Phase 2: resume builds by committing its spec edits and handing
+  off to a bare `/spec-next`, not by building itself. The doors' change sits in
+  the four provider intake seams. Follow-up surfaced: Jira's intake seam runs
+  `spec-sync linked`, which Jira does not ship; not in scope here.

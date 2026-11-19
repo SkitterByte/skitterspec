@@ -33,6 +33,14 @@ neither acts on one: a session works on the project it was started in, and a
 hook refuses its writes and lifecycle commands anywhere else until you type
 `/allow-project <name>`.
 
+**Coming back to a spec** that waited on a deploy, another project or a soak
+is **`/spec-resume <name|#N> [message]`**. It finds the spec even if it exists
+only on its branch, rebuilds its worktree if this machine has none, moves the
+session there and shows what it was blocked on. Then it acts on the message:
+feedback on the shipped work becomes tasks, "the deploy is out" clears the
+blocker, and a question gets an answer from the spec. It never starts
+anything. `/spec #N` on a ticket that already has a spec offers it instead.
+
 **Handing the review back.** The page takes marks: tick `✓ accept` per file as
 you read, note anything against a line or a whole file, answer the questions a
 written review asked — then **end it in a decision**. At the end of a phase the

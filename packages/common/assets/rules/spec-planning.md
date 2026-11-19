@@ -18,6 +18,7 @@ and lifecycle stay consistent. Each sets a status on the spec header
 | `/spec-next` | Build the next phase of the spec this session is in (re-run per phase) | `In Progress` (unchanged) | (unchanged) |
 | `/spec-reviewed` | Pick up a review approved on the page — offered by its code, claimed on your word | (unchanged) | (unchanged) |
 | `/spec-epic-next` | Name the epic member that can start now, as the `/spec-start` to type in a new tab — a picker when several can; reads only | (unchanged) | (unchanged) |
+| `/spec-resume` | Go back into a spec already in flight, by name or `#N`. It rebuilds the worktree when this machine has none, shows what it is blocked on, and acts on the message given with it. It starts nothing | (unchanged) | (unchanged) |
 | `/spec-to-main` | Land the branch on the base (rebase + ff) **without** finishing — for running the work in CI / a shared env mid-spec; repeatable | `In Progress` (unchanged) | (unchanged) |
 | `/spec-complete` | Verify all phases done + tests green; land + tear down | `Complete` | `specs/complete/` |
 | `/spec-cancel` | Record progress, stamp a reason on the header; tear down | `Cancelled` | `specs/cancelled/` |

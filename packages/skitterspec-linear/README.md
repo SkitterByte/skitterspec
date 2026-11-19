@@ -85,6 +85,7 @@ them. Your `specs/` content and live `.core` config are never touched.
 | `/spec-diff` | Read what a phase changed, on a page you can mark up |
 | `/spec-reviewed` | Pick up a verdict pressed when nothing was waiting for it |
 | `/spec-epic-next` | Name the epic member that can start now, to start in a new tab |
+| `/spec-resume` | Go back into a spec in flight, by name or ticket, and act on a message |
 | `/spec-to-main` | Land the branch mid-spec, without finishing it |
 | `/spec-complete` | Verify, land, tear down |
 | `/spec-cancel` | Record why, stamp the header, tear down |

@@ -31,6 +31,7 @@ the governing `spec-planning.md` rule, and the `specs/` folder structure. The li
 | `/spec-incident` | (Incident) Capture a live outage as a record written during it; fixes are separate linked specs | `In Progress` | `specs/in-progress/` |
 | `/no-spec` | Work with no spec — a bump, a rename — on its own branch and page | `—` | (none) |
 | `/spec-epic-next` | Name the epic member that can start now, to start in a new tab | (unchanged) | (unchanged) |
+| `/spec-resume` | Go back into a spec in flight, by name or ticket, rebuilding its worktree if needed | (unchanged) | (unchanged) |
 | `/spec-to-main` | Land the branch on the base mid-spec, without finishing | (unchanged) | (unchanged) |
 | `/spec-init` | Bootstrap/repair this workflow in a project (idempotent) | — | — |
 | `/spec-diff` | Read what changed, on a page you can mark up and hand back | `—` | (unchanged) |

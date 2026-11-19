@@ -24,8 +24,14 @@ Then:
 
 1. **Exclude what's already adopted.** Run `skitterspec spec-sync linked --json`
    and drop any issue whose identifier is already stamped on a spec. If the user
-   named such an issue directly, **stop** and point them at that spec — one issue
-   never becomes two specs.
+   named such an issue directly, it already has a spec, and one issue never
+   becomes two specs. **Offer `/spec-resume <ref>`** instead, carrying the rest
+   of what they wrote as its message: feedback on shipped work, or "the deploy
+   is out", belongs to the spec that is already in flight. Confirm it, as kind
+   routing does (`.claude/rules/spec-planning.md`), and invoke it in-session on
+   a yes. On a no, stop and name the spec. That spec may exist only on its
+   branch, which `linked` reads too, so a missing `specs/` folder here is not
+   evidence that the issue is free.
 2. **Read the issue** with the discovered issue-read tool: title, description,
    labels, reporter, URL. If Linear isn't connected, say so and offer to carry on
    without it — a spec written from the user's own description is still a spec.

@@ -25,8 +25,14 @@ Then:
 
 1. **Exclude what's already adopted.** Run `skitterspec spec-sync linked --json`
    and drop any item whose identifier is already stamped on a spec. If the user
-   named such an item directly, **stop** and point them at that spec — one work
-   item never becomes two specs.
+   named such an item directly, it already has a spec, and one item never
+   becomes two specs. **Offer `/spec-resume <ref>`** instead, carrying the rest
+   of what they wrote as its message: feedback on shipped work, or "the deploy
+   is out", belongs to the spec that is already in flight. Confirm it, as kind
+   routing does (`.claude/rules/spec-planning.md`), and invoke it in-session on
+   a yes. On a no, stop and name the spec. That spec may exist only on its
+   branch, which `linked` reads too, so a missing `specs/` folder here is not
+   evidence that the item is free.
 2. **Read the item** with the discovered work-item-read tool: title,
    description, tags, reporter, URL. If Azure isn't connected, say so and offer
    to carry on without it — a spec written from the user's own description is
