@@ -592,14 +592,13 @@ through to a documented conservative default; see the field notes below.
   // It replaced `serveOnRemote`, which gated serving on the reader — and so
   // handed a local machine a page it could read and not answer. A legacy
   // `serveOnRemote: false` is still read as `serve: "never"`.
-  // Either way NOTHING IS PUBLISHED on a detection: a server is one process
-  // ended by one flag, while a published page is one this tooling cannot
-  // remove, so that half stays an explicit ask. Teardown names a server that
+  // Either way NOTHING IS PUBLISHED: a server is one process ended by one flag,
+  // and nothing in this workflow publishes the page. Teardown names a server that
   // served the last spec, and `spec-env prune` reaps a pidfile whose process is
   // gone. Default: true.
   //
-  // `allowNetwork` and `allowRemote` decide WHICH TIERS a render offers, and
-  // they replaced the engine guessing where the reader was sitting. It guessed
+  // `allowNetwork` decides WHICH TIERS a render offers beyond `local`, and it
+  // replaced the engine guessing where the reader was sitting. It guessed
   // for a while and got it wrong three separate ways in one day: a file:// page
   // on a session detected `unknown`, a LAN URL for a phone that had left the
   // network, and an address that changed underneath a reader mid-session. So
@@ -607,26 +606,21 @@ through to a documented conservative default; see the field notes below.
   // turns it on — and you pick the one that reaches you.
   //
   //   `allowNetwork` — whether the review server binds EVERY INTERFACE, so the
-  //                    page opens on your phone, or loopback only. THIS IS WHAT
-  //                    CHOOSES THE BIND; `reader` no longer does. Default: true,
-  //                    which matches what the engine already did.
-  //   `allowRemote`  — whether PUBLISHING is permitted for EVERY spec. It
-  //                    permits it; it publishes nothing. Default: FALSE,
-  //                    because a published page is one skitterspec cannot
-  //                    delete, so it must never happen unasked. This is the
-  //                    PROJECT DEFAULT: `/spec-remote-review` permits one spec
-  //                    at a time, in a gitignored sidecar beside its page, and
-  //                    never edits this file — `review allow remote --project`
-  //                    is what does.
+  //                    page opens on your phone (`network`, the LAN URL) and
+  //                    over your tailnet (`remote`), or loopback only. THIS IS
+  //                    WHAT CHOOSES THE BIND; `reader` no longer does.
+  //                    Default: true, which matches what the engine already did.
+  //   `allowRemote`  — RETIRED, and ignored if present. It permitted publishing
+  //                    the page as a claude.ai artifact; that tier is gone, and
+  //                    `remote` now names the tailnet address on
+  //                    `allowNetwork`'s switch (feat-tailnet-remote-tier).
   //
-  // `local` and `network` are two doors into ONE ROOM — the page POSTs to
-  // `location.pathname`, so both reach the same server and the same waiting
-  // verdict, and one wait covers both. `remote` is a second store: a verdict
-  // pressed on a published page needs `/spec-reviewed`, because nothing pushes
-  // from an artifact's store into a conversation.
+  // `local`, `network` and `remote` are three doors into ONE ROOM — the page
+  // POSTs to `location.pathname`, so each reaches the same server and the same
+  // waiting verdict, and one wait covers them all.
   //
-  // Both are toggled by `spec-env review allow <tier> --set [on|off]`, where an
-  // empty value toggles — which is what `/spec-remote-review` runs. It writes
+  // It is toggled by `spec-env review allow network --set [on|off]`, where an
+  // empty value toggles. It writes
   // THIS FILE in the primary checkout, so it changes for everyone who pulls and
   // leaves that tree dirty; the engine says so when it does.
   //

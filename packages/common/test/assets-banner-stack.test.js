@@ -7,11 +7,13 @@
  * link, never two"*, and it was written on a real failure: two links handed
  * over, the wait standing behind only one of them, and three verdicts pressed on
  * the published page while each sat unread under a line claiming the run was
- * holding. That evidence is about the STORE, not the count — local and network
- * POST to `location.pathname`, so they reach one server and one pending store,
- * and one wait covers both.
+ * holding. That evidence is about the STORE, not the count — local, network and
+ * remote POST to `location.pathname`, so they reach one server and one pending
+ * store, and one wait covers them all. The published page, the second store,
+ * was retired rather than caveated (feat-tailnet-remote-tier); `remote` is the
+ * tailnet address now.
  *
- * So the rule became **one link per reachable store, each labelled**, and the
+ * So the rule became **one link per door, each labelled, all into one store**, and the
  * stays-silent half of that amendment lives in `assets-offer-last.test.js`:
  * offering two links into DIFFERENT stores without saying which the wait watches
  * is still forbidden, in as many words. Read that test before widening anything
@@ -58,16 +60,20 @@ test('a tier that is off keeps its line and names what turns it on', () => {
 
 // THE LOAD-BEARING REASON. Without it the amendment reads as "more links are
 // fine", which is the failure it was careful not to be.
-test('the rule records why local and network are one store, not two', () => {
-  assert.match(RULE, /\*\*Local and network are two doors into one room\.\*\*/)
+test('the rule records why local, network and remote are one store', () => {
+  assert.match(RULE, /\*\*Local, network and remote are three doors into one room\.\*\*/)
   assert.match(RULE, /fetch\(location\.pathname/)
   assert.match(RULE, /the same\s*\n?pending store/)
-  assert.match(RULE, /One wait covers both/)
+  assert.match(RULE, /One wait covers all three/)
 })
 
-test('the rule keeps remote as a second store with its own caveat', () => {
-  assert.match(RULE, /\*\*`remote` keeps the caveat it always had\.\*\*/)
-  assert.match(RULE, /a verdict here needs `\/spec-reviewed`/)
+test('the rule makes remote the tailnet, and keeps no second-store caveat', () => {
+  assert.match(RULE, /\| `remote` \| the tailnet URL/)
+  assert.match(RULE, /fourth amendment/)
+  // STAYS SILENT: the published tier and its caveat are gone, not reworded.
+  assert.doesNotMatch(RULE, /`remote` keeps the caveat it always had/)
+  assert.doesNotMatch(RULE, /a verdict here needs `\/spec-reviewed`/)
+  assert.doesNotMatch(RULE, /spec-remote-review/)
 })
 
 test('the stack is written out once, and said to be written out once', () => {
@@ -82,7 +88,7 @@ test('the stack is written out once, and said to be written out once', () => {
 
 test('the absolute one-link wording is gone from the rule and the skills', () => {
   assert.doesNotMatch(RULE, /\*\*Exactly one link, never two\.\*\*/)
-  assert.match(RULE, /\*\*One link per reachable store, each labelled\.\*\*/)
+  assert.match(RULE, /\*\*One link per door, each labelled, all into one store\.\*\*/)
   for (const name of RENDERS) {
     const text = skillText(name)
     assert.doesNotMatch(text, /\*\*Never offer both\.\*\*/, `${name} no longer picks one link`)

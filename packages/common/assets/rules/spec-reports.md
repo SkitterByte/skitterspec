@@ -36,7 +36,7 @@ A verdict sentence, a blank line, then a two-column table:
 | **Branch** | `spec/feat-foo` · 3 commits, clean |
 | **Built** | POST /orders handler, orders schema |
 | **Tests** | 128 passed · dotnet test |
-| **Review** | 7 files, +212 −18 · **local** [http://127.0.0.1:7760/…](http://127.0.0.1:7760/…) · **network** [http://192.168.0.136:7760/…](http://192.168.0.136:7760/…) also [http://100.126.111.34:7760/…](http://100.126.111.34:7760/…) (tailnet) · **remote** off |
+| **Review** | 7 files, +212 −18 · **local** [http://127.0.0.1:7760/…](http://127.0.0.1:7760/…) · **network** [http://192.168.0.136:7760/…](http://192.168.0.136:7760/…) · **remote** [http://100.126.111.34:7760/…](http://100.126.111.34:7760/…) (tailnet) |
 | **Follow-ups** | none |
 | **Next** | `/spec-next` → phase 3 (Auth) |
 
@@ -89,12 +89,11 @@ the options may be offered after the table.
 
 - **local** — [http://127.0.0.1:7760/7e9e123e7540/feat-orders](http://127.0.0.1:7760/7e9e123e7540/feat-orders)
 - **network** — [http://192.168.0.136:7760/7e9e123e7540/feat-orders](http://192.168.0.136:7760/7e9e123e7540/feat-orders)
-  - also — [http://100.126.111.34:7760/7e9e123e7540/feat-orders](http://100.126.111.34:7760/7e9e123e7540/feat-orders) (tailnet)
-- **remote** — off · `/spec-remote-review` turns it on
+- **remote** — [http://100.126.111.34:7760/7e9e123e7540/feat-orders](http://100.126.111.34:7760/7e9e123e7540/feat-orders) (tailnet)
 
 live: off — /spec-live to put it live
 
-I'm holding here until you send a verdict — the wait covers local and network.
+I'm holding here until you send a verdict — the wait covers local, network and remote.
 
 `/spec-reviewed` picks it up · `spec-env review skip "<reason>"` moves on
 
@@ -115,7 +114,7 @@ middle of a review.
 capability. `live: off — the page can put it live` told the reader that a page
 somewhere could do it and left them to find the verb — and the verb is what they
 need when they are in a terminal rather than on the page. So the lines say
-`/spec-live`, `/spec-live main`, `/spec-remote-review`. Making them *clickable*
+`/spec-live` and `/spec-live main`. Making them *clickable*
 was considered and rejected: the only clickable thing markdown has is a URL, and
 a URL that acts when it is **fetched** is one a link previewer or a prefetcher
 fires with nobody involved.
@@ -157,12 +156,18 @@ and the reader on a phone was left with nothing they could open.
 |------|----|----------|
 | `local` | the loopback URL — the machine the run is on | never. With nothing served it is the `file://` page, and says it cannot send a verdict |
 | `network` | the LAN URL — a phone on the same wifi | `review.allowNetwork` is false, or this machine has no network address |
-| `remote` | a published page, for a reader off the network | `review.allowRemote` is false, or nothing has been published |
+| `remote` | the tailnet URL, labelled `(tailnet)` — a reader off the wifi | whenever `network` is, with the same command; or this machine has no tailnet address |
+
+**Labelled by address, never by where the reader sits.** `local` is loopback,
+`network` the LAN, `remote` the tailnet, wherever the reader is. Relabelling
+the LAN `local` whenever loopback is hidden would give one URL two names, and
+a label that moves is one nobody learns.
 
 A tier that is off **keeps its line** and names the one command that turns it
-on. Dropping the line is what left a reader who had walked out of the house with
-nothing on screen to tell them a remote page was even possible — they could not
-ask for what they could not see.
+on — or, where nothing of ours can, says why (`no tailnet address on this
+machine`). Dropping the line is what left a reader who had walked out of the
+house with nothing on screen to tell them a remote door was even possible —
+they could not ask for what they could not see.
 
 **One exception: a reader on another machine sees no `local` line.** This is
 the third amendment, and it argues from the rule's own reason. The rule keeps a
@@ -188,20 +193,27 @@ copying the stack still produces the right banner. The holding line names the
 engine's `covers` — *the wait covers network* — never a door the stack did not
 show.
 
-**The `network` tier may carry alternates, and they are part of it — not a fourth tier.**
-The engine offers the other addresses this machine has (a
-tailnet one, for a reader off the wifi) as `also:` lines under `network`, each
-labelled; `--json` carries them as that tier's `alternates`, labelled the same
-way. Copy them as indented sub-bullets under the network bullet, verbatim,
-labels included. This is not an amendment to the tier rule: the stack is the
-engine's, copied rather than composed, and the engine was already printing
-these — a contract that made the skill edit them out was the composing this
-section forbids. A machine with no alternates renders the banner exactly as
-above, minus the sub-bullet.
+**A tier may carry alternates, and they are part of it — not a fourth tier.**
+Where this machine has a second address of the same kind — another LAN
+interface, a second tailnet one — the engine prints it as an `also:` line under
+its tier, labelled; `--json` carries it as that tier's `alternates`, labelled
+the same way. Copy them as indented sub-bullets under that tier's bullet,
+verbatim, labels included: the stack is the engine's, copied rather than
+composed. A machine with no alternates — the usual case — renders the banner
+exactly as above.
+
+**The fourth amendment, and the first to remove rules rather than add them.**
+`remote` was a published claude.ai page: a second store no wait could watch, a
+page this tooling could never delete, and a toggle command of its own. Once the
+review server answered on the tailnet, a reader off the wifi already had a door
+into the same room — printed as an `also:` sub-line, the hardest link in the
+stack to find. So the published tier was retired and the tailnet took its name
+(feat-tailnet-remote-tier). It deletes a tier, its caveat and a transport, and
+adds no kind of line; that is the argument the bar above asked for.
 
 **Only promise a wait the transport can deliver.** The wait itself is real in
 every case; what varies is what carries it back, not whether the run is
-stopped. Three transports, three true sentences:
+stopped. Two transports, two true sentences:
 
 - **A page the engine SERVES** hands its pass to the local store, and
   `spec-env review wait` returns when it lands. The run is woken by the press:
@@ -225,18 +237,12 @@ stopped. Three transports, three true sentences:
   *"I'm holding here — paste the pass when you have it."*
   This is the same wait, carried by the conversation instead of a watch. It is
   not a lesser one, and it is not an excuse to ask without waiting.
-- **A PUBLISHED page** writes to the artifact's own store, and nothing pushes
-  from there into the conversation. That is the one case where a verdict is
-  genuinely invisible until someone asks for it, so its line in the stack says
-  that rather than letting the holding line speak for it:
 
-- **remote** — [https://…](https://…) · a verdict here needs `/spec-reviewed`
-
-  Where `remote` is the only tier a reader can reach, the holding line says so
-  too: *press a verdict, then type `/spec-reviewed` — I cannot see it until you
-  do.* Where a served tier is reachable as well, the holding line keeps naming
-  the tiers the wait covers, and `remote`'s own caveat sits on `remote`'s line
-  where it belongs.
+A third transport — a published page writing to a store nothing here watched —
+was retired with the published tier. A verdict that arrives when no wait is
+running is the one left that nothing pushes into the conversation, and its
+sentence is *press a verdict, then type `/spec-reviewed` — I cannot see it until
+you do.*
 
 **A harness with no file-watch does not get an exemption.** It once read
 "change nothing" — keep the row, keep the question, do not wait — and that
@@ -313,7 +319,7 @@ the session every half hour all night for a review nobody is returning to
 before morning.
 
 **Past the bound the banner degrades**, to the sentence this file already
-defines for a transport that cannot push into the conversation:
+defines for a verdict nothing pushes into the conversation:
 
 *press a verdict, then type `/spec-reviewed` — I cannot see it until you do.*
 
@@ -350,7 +356,7 @@ block. *Waiting* is what any offer does, and it is what this section governs.
 that is finished. A mid-run render waits without arming — walking away from it
 costs nothing, which is exactly why `Continue` is safe to offer there.
 
-**One link per reachable store, each labelled.** This amends
+**One link per door, each labelled, all into one store.** This amends
 *"exactly one link, never two"*, and the evidence that rule was written on is
 the reason it still reads the way it does. Two links were handed over, the wait
 stood behind only one of them, and a verdict was pressed on the published page
@@ -358,31 +364,25 @@ three times while each one sat unread under a line claiming the run was waiting.
 Two links was not a convenience with a caveat; the caveat existing was the bug.
 
 **What that evidence is about is the store, not the count.** A served page hands
-its pass to the local pending store, which `spec-env review wait` watches; a
-published page writes to the artifact's own store, which nothing here can see.
+its pass to the local pending store, which `spec-env review wait` watches; the
+published page wrote to an artifact's own store, which nothing here could see.
 Two links into two stores asks the reader to know which door the run is standing
-behind, and they cannot.
+behind, and they cannot — which is why the second store was retired rather
+than caveated.
 
-**Local and network are two doors into one room.** The page POSTs with
-`fetch(location.pathname, …)`, so a page opened at `127.0.0.1:7760/…` and one
-opened at `192.168.0.136:7760/…` reach the same server process and the same
-pending store. One wait covers both, and a verdict pressed on either wakes the
-same run. A `network` alternate — the `also:` tailnet address — is one more
-door into the same room: the same server answers on it, so the wait-coverage
-line stays true with nothing added to it. Between all of those the objection
-does not apply — which is why they are offered, and why offering them gives
-nothing up.
+**Local, network and remote are three doors into one room.** The page POSTs with
+`fetch(location.pathname, …)`, so a page opened at `127.0.0.1:7760/…`, at
+`192.168.0.136:7760/…` or at `100.126.111.34:7760/…` reaches the same server
+process and the same pending store. One wait covers all three, and a verdict
+pressed on any of them wakes the same run. An `also:` alternate is one more door
+into the same room. Between all of those the objection does not apply — which is
+why they are offered, and why offering them gives nothing up.
 
 **So two things are required, and the second is what the old rule lacked.**
 Every link is **labelled** with its tier, and one line says
 **which tiers the wait covers**.
 Two *unlabelled* links stay forbidden exactly as before, because
 the reader still cannot tell them apart.
-
-**`remote` keeps the caveat it always had.** It is listed so a reader off the
-network knows the surface exists and what turns it on — never as a door the wait
-is claimed to cover. Where it is on and published, its line says what is true of
-it: *a verdict here needs `/spec-reviewed`*.
 
 **Still forbidden**, in the words of the rule this amends: offering two links
 into **different** stores without saying which one the wait is watching. That is
@@ -482,7 +482,7 @@ behind it — say nothing rather than reporting that there was nothing to report
 | `Landed` | A fast-forward, a tag, a cherry-pick — or in PR mode the PR itself: `PR #14 (draft) updated` · `PR #14 opened — finish after merge` · `PR #14 merged` · `held — not pushed` (a declined consent is a true outcome, not a failure) · `not pushed · <command> publishes it` (a push suggested rather than asked, as `/spec`'s branch lane does). |
 | `Worktree` | A worktree provisioned, entered, or torn down. |
 | `Untouched` | Uncommitted work the run deliberately left alone — whose, and how much. |
-| `Review` | The rendered diff page: files, `+`/`−`, and the stack — the same tiers the banner lists, labelled, run together with `·` because a row is one cell, with any `network` alternates inline after the network URL (`also <url> (tailnet)`), plus `live` where the engine reported one. **No question** — a row cannot be waited on, so a question in one is unanswerable by construction (see *asking implies waiting*). **Omitted entirely when the run is waiting on a verdict**: the banner after the block carries it instead, and a row saying the same thing beside it splits the reader's attention across two places. |
+| `Review` | The rendered diff page: files, `+`/`−`, and the stack — the same tiers the banner lists, labelled, run together with `·` because a row is one cell, with any alternates inline after their tier's URL (`also <url>`), plus `live` where the engine reported one. **No question** — a row cannot be waited on, so a question in one is unanswerable by construction (see *asking implies waiting*). **Omitted entirely when the run is waiting on a verdict**: the banner after the block carries it instead, and a row saying the same thing beside it splits the reader's attention across two places. |
 | `Follow-ups` | **Always.** `none`, or one line each. |
 | `Next` | **Last.** The single next action for this work — runnable from the state the run leaves behind. |
 

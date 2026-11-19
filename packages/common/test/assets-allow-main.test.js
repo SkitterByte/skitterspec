@@ -62,11 +62,13 @@ test('it does not let a bare "allowed" read as temporary', () => {
   assert.match(TEXT, /do not read a bare\n"allowed" as temporary/)
 })
 
-test('it says this writes nothing anyone else pulls, unlike /spec-remote-review', () => {
-  // The consequence a reader would not guess from the name — and the contrast
-  // matters, because the neighbouring command does the opposite.
+test('it says this writes nothing anyone else pulls', () => {
+  // The consequence a reader would not guess from the name. It once drew the
+  // contrast with `/spec-remote-review`, which was retired with the published
+  // tier (feat-tailnet-remote-tier) — so it must not name it any more.
   assert.match(TEXT, /machine-local and gitignored/)
-  assert.match(TEXT, /Unlike `\/spec-remote-review`/)
+  assert.match(TEXT, /It writes nothing anyone else pulls/)
+  assert.doesNotMatch(TEXT, /spec-remote-review/)
   assert.match(TEXT, /guards\.mainIsLandingZone/)
   assert.match(TEXT, /a different, committed\ndecision/)
 })
@@ -101,7 +103,7 @@ test('the hook guards the first write, and says why not the commit', () => {
 // --- the rule ---------------------------------------------------------------
 
 test('spec-planning.md carries the guard, its signal and its exits', () => {
-  assert.match(PLANNING, /\*\*`\/allow-main` is the fourth command\.\*\*/)
+  assert.match(PLANNING, /\*\*`\/allow-main` is the third command\.\*\*/)
   assert.match(PLANNING, /main-guard\.cjs/)
   assert.match(PLANNING, /positive signal/)
   assert.match(PLANNING, /every cannot-tell allows the write in silence/)

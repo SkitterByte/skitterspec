@@ -146,16 +146,18 @@ test('the render still happens after green and before the commit', () => {
   assert.match(NEXT, /\*\*after\*\* the tests pass and\s*\n?\*\*before\*\* the commit/)
 })
 
-test('the review is never written unasked and never published unprompted', () => {
+test('the review is never written unasked and never published', () => {
   assert.match(NEXT, /\*\*Never write the review unasked\*\*, and \*\*never publish\*\*/)
-  assert.match(NEXT, /always something\s*\n?someone asks for/)
+  assert.match(NEXT, /there is no\s*\n?\s*publishing \(`\/spec-diff` §6\)/)
 })
 
-// A phone cannot open file://, and that complaint is the ask — it should not be
-// met by a second copy of the publishing rules living here.
-test('an operator who cannot open the file:// link is pointed at the skill that publishes', () => {
+// A phone cannot open file://. Publishing was once the answer to that and was
+// retired with the published tier (feat-tailnet-remote-tier) — so the line
+// points at the stack's own reason, never at a skill that publishes.
+test('an operator who cannot open the file:// link is told why, not sent to publish', () => {
   assert.match(NEXT, /A `file:\/\/` link is no use on a phone/)
-  assert.match(NEXT, /`\/spec-diff` §6 owns how/)
+  assert.match(NEXT, /stack says why nothing was served/)
+  assert.doesNotMatch(NEXT, /`\/spec-diff` §6 owns how/)
 })
 
 test('a failed render is one line, never fatal', () => {
@@ -183,17 +185,15 @@ test('the offer is not turned into a gate on anything', () => {
 
 // A WAIT THAT CANNOT SEE THE TRANSPORT IS A FALSE PROMISE. The file-watch
 // reaches the engine's local store, which is where a SERVED page posts. A
-// published page writes to the artifact's own store, which no watch reaches —
-// and the banner was handed out with both links under one line claiming to be
-// holding. Three verdicts were pressed on the published page and sat unread.
+// published page wrote to the artifact's own store, which no watch reached —
+// and three verdicts were pressed there and sat unread. That tier was retired
+// (feat-tailnet-remote-tier), so the holding line names exactly the served
+// doors the engine says it covers.
 test('the banner only promises a wait the transport can deliver', () => {
-  assert.match(NEXT, /nothing pushes from\s*\n?the artifact store/i)
-  // The caveat moved onto `remote`'s own line when the stack replaced the single
-  // link — the holding line names the tiers the wait covers, and must never
-  // stretch over the one it cannot see.
-  assert.match(NEXT, /a verdict here needs `\/spec-reviewed`/)
-  assert.match(NEXT, /Never let the holding line promise a\s*\n?wait over that tier/)
-  assert.match(NEXT, /the wait covers local and network/)
+  assert.match(NEXT, /the wait covers <the tiers the engine's `covers` names>/)
+  // STAYS SILENT: no caveat for a store that no longer exists.
+  assert.doesNotMatch(NEXT, /a verdict here needs `\/spec-reviewed`/)
+  assert.doesNotMatch(NEXT, /the artifact store/i)
 
   const rule = fs.readFileSync(path.join(ASSETS, 'rules', 'spec-reports.md'), 'utf8')
   assert.match(rule, /\*\*Only promise a wait the transport can deliver\.\*\*/)
@@ -211,25 +211,24 @@ test('the banner only promises a wait the transport can deliver', () => {
 // while each sat unread under a line claiming the run was holding.
 //
 // WHAT THE AMENDMENT TURNS ON is that the evidence was about the STORE, not the
-// count. Local and network POST to `location.pathname`, so they reach the same
-// server and the same pending store — one room, two doors — and one wait covers
-// both. `remote` is a second store and keeps the caveat it always had.
+// count. Local, network and remote POST to `location.pathname`, so they reach
+// the same server and the same pending store — one room, three doors — and one
+// wait covers them all. The second store was retired rather than caveated.
 test('every tier is offered, labelled, and the wait says which it covers', () => {
   assert.match(NEXT, /\*\*The stack is the engine's — copy it, do not compose it\.\*\*/)
   assert.match(NEXT, /\*\*Do not pick one for them\.\*\*/)
-  assert.match(NEXT, /\*\*one link per reachable store, each labelled\*\*/i)
-  assert.match(NEXT, /the wait covers local and network/)
-  // Publishing stays an ask, which is the half the amendment does not touch.
-  assert.match(NEXT, /Publishing is still never yours to do/)
-  assert.match(NEXT, /is not a\s*\n?reason to publish as well/i)
+  assert.match(NEXT, /\*\*one link per door, each labelled, all into one store\*\*/i)
+  assert.match(NEXT, /the wait covers <the tiers the engine's `covers` names>/)
+  // STAYS SILENT: there is no publishing left to permit or refuse.
+  assert.doesNotMatch(NEXT, /Publishing is still never yours to do/)
 
   const rule = fs.readFileSync(path.join(ASSETS, 'rules', 'spec-reports.md'), 'utf8')
-  assert.match(rule, /\*\*One link per reachable store, each labelled\.\*\*/)
+  assert.match(rule, /\*\*One link per door, each labelled, all into one store\.\*\*/)
   // The original evidence, carried into the amendment rather than dropped with
   // the wording it justified.
   assert.match(rule, /the caveat existing was the bug/)
   assert.match(rule, /three times while each one sat unread/)
-  assert.match(rule, /Local and network are two doors into one room/)
+  assert.match(rule, /Local, network and remote are three doors into one room/)
 })
 
 // STAYS SILENT (`.claude/rules/negative-checks.md` rule 3): the SUBSTANCE of the
@@ -247,15 +246,14 @@ test('the amended rule still forbids what the original one was written against',
   // And the two halves that make a labelled stack different from two bare links.
   assert.match(rule, /Two \*unlabelled\* links stay forbidden exactly as before/)
   assert.match(rule, /one line says\s*\n?\*\*which tiers the wait covers\*\*/)
-  // `remote` is never folded into the room the wait can see.
-  assert.match(rule, /never as a door the wait\s*\n?is claimed to cover/)
+  // The second store is gone rather than folded in: the rule says it was retired.
+  assert.match(rule, /which is why the second store was retired rather\s*\n?than caveated/)
 })
 
 test('/spec-diff says which store the wait actually watches', () => {
   const diff = skillText('spec-diff')
-  assert.match(diff, /\*\*The wait covers the SERVED page and nothing else\.\*\*/)
-  assert.match(diff, /no watch of any kind reaches that/i)
-  // And the fallback is named as covering the published case, not just the
-  // no-watch case.
-  assert.match(diff, /for every\s*\n?published page/i)
+  assert.match(diff, /\*\*The wait covers every served door\.\*\*/)
+  assert.match(diff, /`local`, `network` or `remote` alike/)
+  // STAYS SILENT: `/spec-reviewed` no longer claims to cover a published page.
+  assert.doesNotMatch(diff, /for every\s*\n?published page/i)
 })

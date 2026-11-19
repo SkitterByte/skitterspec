@@ -432,11 +432,11 @@ so one subject lives in one place:
 
 - **local** — <the `local:` URL>
 - **network** — <the `network:` URL, or off with the command that turns it on>
-- **remote** — <the `remote:` URL, or off with the command that turns it on>
+- **remote** — <the `remote:` tailnet URL, or what that line says when there is none>
 
 <the `live:` line, exactly as the engine printed it — omitted when it printed none>
 
-I'm holding here until you send a verdict — the wait covers local and network.
+I'm holding here until you send a verdict — the wait covers <the tiers the engine's `covers` names>.
 
 `/spec-reviewed` picks it up · `spec-env review skip "<reason>"` moves on
 
@@ -457,22 +457,14 @@ reviewer sees the heading they have always seen.
 printed one line per tier, in that order, and `--json` carries the same thing as
 `tiers`. Relay all three whatever they say, including the ones that are off with
 the command that turns them on: a reader who has left the house cannot ask for a
-remote page they were never shown.
+remote door they were never shown.
 
 **Do not pick one for them.** The engine used to, and the guess failed three
 separate ways in one day. `.claude/rules/spec-reports.md` carries the shape and
 why the *one link, never two* rule now reads
-**one link per reachable store, each labelled** —
-local and network are two doors into one room, so the wait
-covers both. `remote` is a second store, so its own line carries its own caveat:
-*a verdict here needs `/spec-reviewed`*, because nothing pushes from
-the artifact store into this conversation. Never let the holding line promise a
-wait over that tier.
-
-**Publishing is still never yours to do.** `remote` reading `off` is the normal
-state, and the fix for it is the command on that line — typed by the operator,
-or pressed on the page, because a published page is one this tooling cannot
-remove and permitting it is not publishing it.
+**one link per door, each labelled, all into one store** —
+local, network and remote are three doors into one room, so the wait
+covers every one the stack shows.
 
 **The `live:` line goes with the stack**, and it is the engine's line too —
 copied as printed, and **absent when the engine printed none**. The page can act
@@ -487,7 +479,7 @@ verdict.
 **Where you are not waiting, it stays the `Review` row** — the counts and the
 page link, and **no question**:
 
-| **Review** | <N> files, +<a> −<d> · **local** <URL> · **network** <URL> · **remote** off |
+| **Review** | <N> files, +<a> −<d> · **local** <URL> · **network** <URL> · **remote** <URL> (tailnet) |
 
 At the end of a phase you are always waiting, so this shape belongs to the
 renders that are not this step: a mid-phase `/spec-diff`, a page produced
@@ -601,10 +593,9 @@ Relay the engine's **stack** — the `local:`, `network:` and `remote:` lines �
 never the bare `page:` path: a path is not clickable in any terminal, and a page
 nobody can open is a page nobody reads.
 
-- **Never write the review unasked**, and **never publish**. Publishing leaves
-  something behind that this tooling cannot remove, so it is always something
-  someone asks for. A `file://` link is no use on a phone, and saying so **is**
-  the ask — publishing is the answer to it, and `/spec-diff` §6 owns how.
+- **Never write the review unasked**, and **never publish** — there is no
+  publishing (`/spec-diff` §6). A `file://` link is no use on a phone, and the
+  stack says why nothing was served.
 **The `reader:` line no longer decides anything here, and that is the point.**
 It is still printed, and it is still the only place that question is answered —
 but the offer does not change with it, because the stack lists every tier
@@ -614,23 +605,20 @@ that branching is exactly what produced a `file://` page on a session detected
 underneath a reader when detection flipped mid-session.
 
 So: **relay all three tier lines, every time.** Any `also:` lines sit under
-`network` — the other addresses this machine has, offered because the
-best-guess one can be wrong — so pass them on rather than editing them out: in
-the banner they are indented sub-bullets under **network**, labels
-(`(tailnet)`) included, exactly as `.claude/rules/spec-reports.md` shows.
+their tier — the other addresses this machine has of that kind — so pass them
+on rather than editing them out: in the banner they are indented sub-bullets
+under that tier, labels included, exactly as `.claude/rules/spec-reports.md`
+shows.
 
 **Never read an environment variable to decide anything about the offer** — not
 `SSH_CONNECTION`, not `CLAUDE_CODE_*`, not a tty check. There is nothing left
 here for a detection to decide, and a second implementation of one could not be
 tested and would drift.
 
-**Serving is the engine's to do; publishing is never.** The server is one
+**Serving is the engine's to do, and there is nothing else.** The server is one
 process, ended by one flag, leaving nothing behind, and `review.allowNetwork`
-decides whether it binds wide — no detection involved. A reader the server CAN
-reach is not a reason to publish as well: the tiers they can already open are on
-the stack. Publishing leaves a page this tooling cannot remove, so it stays an
-ask in every case, always — which is why `remote` shows the command rather than
-a URL until someone types it.
+decides whether it binds wide — on the LAN and the tailnet alike — with no
+detection involved.
 
 - **Never fatal.** A failed render — no worktree, a git error — is one line and
   the phase is still done. The page is a convenience; the repo is the record.

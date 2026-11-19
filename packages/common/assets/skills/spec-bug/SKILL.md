@@ -347,10 +347,9 @@ line with it where the engine printed one, and nothing where it did not.
 `.claude/rules/spec-reports.md` carries the shape, including why a rigid
 contract took that line.
 
-- **Never write the review unasked**, and **never publish**. Publishing leaves
-  something behind that this tooling cannot remove, so it is always an ask. A
-  `file://` link is no use on a phone, and saying so **is** the ask —
-  `/spec-diff` §6 owns how.
+- **Never write the review unasked**, and **never publish** — there is no
+  publishing (`/spec-diff` §6). A `file://` link is no use on a phone, and the
+  stack says why nothing was served.
 **The `reader:` line no longer decides anything here, and that is the point.**
 It is still printed, and it is still the only place that question is answered —
 but the offer does not change with it, because the stack lists every tier
@@ -360,22 +359,20 @@ that branching is exactly what produced a `file://` page on a session detected
 underneath a reader when detection flipped mid-session.
 
 So: **relay all three tier lines, every time.** Any `also:` lines sit under
-`network` — the other addresses this machine has, offered because the
-best-guess one can be wrong — so pass them on rather than editing them out: in
-the banner they are indented sub-bullets under **network**, labels
-(`(tailnet)`) included, exactly as `.claude/rules/spec-reports.md` shows.
+their tier — the other addresses this machine has of that kind — so pass them
+on rather than editing them out: in the banner they are indented sub-bullets
+under that tier, labels included, exactly as `.claude/rules/spec-reports.md`
+shows.
 
 **Never read an environment variable to decide anything about the offer** — not
 `SSH_CONNECTION`, not `CLAUDE_CODE_*`, not a tty check. There is nothing left
 here for a detection to decide, and a second implementation of one could not be
 tested and would drift.
 
-**Serving is the engine's to do; publishing is never.** A `remote` reader
+**Serving is the engine's to do, and there is nothing else.** A `remote` reader
 authorises a local server — one process, ended by one flag, leaving nothing
-behind — and authorises nothing else. Publishing leaves a page this tooling
-cannot remove, so it stays an ask in every case, always. If the engine could not
-serve (a busy port, a machine with no network address) it falls back to the
-`file://` URL with its marker, and that is when publishing is worth naming.
+behind. If the engine could not serve (a busy port, a machine with no network
+address) it falls back to the `file://` URL with its marker.
 
 - **Never fatal.** A failed render — no worktree, a git error — is one line, and
   the fix is still done. The page is a convenience; the repo is the record.

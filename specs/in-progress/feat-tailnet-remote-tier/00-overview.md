@@ -132,7 +132,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Engine: tailnet is the `remote` tier | ✅ | [01-engine-tiers.md](01-engine-tiers.md) |
 | 2 | Page: no publish, no allow-remote | ✅ | [02-the-page.md](02-the-page.md) |
-| 3 | Skills, rules and the command | ⬜ | [03-skills-and-rules.md](03-skills-and-rules.md) |
+| 3 | Skills, rules and the command | ✅ | [03-skills-and-rules.md](03-skills-and-rules.md) |
 | 4 | Docs and migration | ⬜ | [04-docs.md](04-docs.md) |
 
 ## Open questions

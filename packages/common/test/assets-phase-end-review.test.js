@@ -59,7 +59,9 @@ for (const name of RENDERS) {
 
   test(`/${name} never writes the review unasked and never publishes`, () => {
     assert.match(text, /\*\*Never write the review unasked\*\*, and \*\*never publish\*\*/)
-    assert.match(text, /`\/spec-diff` §6 owns how/)
+    // There is no publishing to point at any more (feat-tailnet-remote-tier).
+    assert.match(text, /there is no\s*\n?\s*publishing \(`\/spec-diff` §6\)/)
+    assert.doesNotMatch(text, /`\/spec-diff` §6 owns how/)
   })
 
   test(`/${name} treats a failed render as one line, never fatal`, () => {
@@ -136,12 +138,11 @@ for (const name of RENDERS) {
 
   // The rule that replaced "wording, never action". Serving and publishing were
   // once one prohibition, and lumping them together is what left a remote reader
-  // holding a dead link — a local server is ended by one flag, while a published
-  // page is one this tooling cannot remove. The publishing half must stay
-  // absolute; only the serving half moved.
+  // holding a dead link. Publishing has since been retired outright
+  // (feat-tailnet-remote-tier), so serving is all that is left to authorise.
   test(`/${name} authorises serving on a detection, and never publishing`, () => {
     assert.match(text, /never publish/i)
-    assert.match(text, /cannot remove/)
+    assert.match(text, /\*\*Serving is the engine's to do, and there is nothing else\.\*\*/)
     assert.doesNotMatch(
       text,
       /\*\*wording, never action\*\*/,

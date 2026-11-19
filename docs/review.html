@@ -8,7 +8,6 @@ covers:
   - packages/common/assets/review/**
   - packages/common/assets/skills/spec-diff/**
   - packages/common/assets/skills/spec-reviewed/**
-  - packages/common/assets/commands/spec-remote-review.md
   - packages/common/src/env/epicpage.js
   - packages/common/assets/hooks/review-gate.cjs
   - packages/common/assets/rules/spec-reports.md
@@ -708,11 +707,11 @@ verified: f97e26bb9822
           </div>
         </div>
         <div class="tier">
-          <span class="dot off2"></span>
+          <span class="dot on"></span>
           <div>
-            <h3>remote — a published page, off the network</h3>
-            <div class="u">off — /spec-remote-review turns it on</div>
-            <p>One private link per spec, updated phase after phase. A separate store, so a verdict there needs <span class="mono" style="font-size:.9em">/spec-reviewed</span> — and it stays off until you switch it on, because a published page is one this tooling cannot remove.</p>
+            <h3>remote — your tailnet, off the wifi</h3>
+            <div class="u">http://100.126.111.34:7760/7e9e…/feat-orders (tailnet)</div>
+            <p>The same server again, on this machine's tailnet address — a third door into the same room, so the same wait covers it. It follows <span class="mono" style="font-size:.9em">network</span>'s switch, and on a machine with no tailnet address the line says so.</p>
           </div>
         </div>
       </div>

@@ -14,11 +14,11 @@ A phase is built in its own worktree, and the terminal is somewhere else — so
 `git diff` answers about the wrong branch and a 350-line diff read as terminal
 text is scrolling, not review. This renders the diff as a page instead: the
 engine collects it with `git -C`, writes a self-contained HTML file, and you open
-it locally or publish it and read it on a phone.
+it locally, or on a phone over your LAN or tailnet.
 
 **The diff never passes through the model.** git writes the patches and the
 engine splices them into the page. A 266KB patch costs **zero** context tokens,
-and a 289KB page costs the same to publish as a 5KB one. Do not "simplify" this
+and a 289KB page costs the same to serve as a 5KB one. Do not "simplify" this
 by reading the diff and emitting HTML — that is the one change that would undo
 the whole design.
 
@@ -354,8 +354,8 @@ spend it.
 
 ## 2b. An action changes something, then hands the page back
 
-Only on a pass carrying an **action**. Three of them, and
-**all three end the same way**:
+Only on a pass carrying an **action**. Two of them, and
+**both end the same way**:
 do the thing, re-render (§4), and wait again (§4b) — because the reader
 still has a decision in front of them and has not made it.
 
@@ -363,7 +363,11 @@ still has a decision in front of them and has not made it.
 |--------|----|------|
 | `live-on` | commit first (below), then `skitterspec spec-env live take <spec>` | re-render `--branch`, wait again |
 | `allow-network` | `skitterspec spec-env review allow network` | re-render, wait again |
-| `allow-remote` | `skitterspec spec-env review allow remote <spec> --set on` | publish (§6), re-render, wait again |
+
+**There is no `allow-remote` either.** It permitted publishing the page as a
+claude.ai artifact, and that tier was retired (feat-tailnet-remote-tier):
+`remote` is the tailnet address now, on `network`'s switch, so `allow-network`
+turns both on.
 
 **THERE IS NO `live-off`, and its absence is deliberate.** Putting *this* change
 live is about the diff on screen; handing the whole instance back to `main` is a
@@ -371,7 +375,7 @@ workspace decision with nothing to do with this review. The `live:` line names
 `/spec-live main` for it — a command the operator types, which is also why no
 skill runs it.
 
-**AN ACTION IS NOT A VERDICT, and the gate is untouched by all three.** A phase
+**AN ACTION IS NOT A VERDICT, and the gate is untouched by both.** A phase
 that ended armed the gate, and it is discharged by a committing verdict or a
 recorded skip and by nothing else — so after any of these the phase still owes
 an answer, and that is exactly why the run waits again rather than finishing.
@@ -425,17 +429,9 @@ edits `specs/.core/env.config.json` in the **primary checkout**, so it changes
 behaviour for everyone who pulls and leaves that tree dirty — one server binds
 for every spec, so the bind cannot be narrower. The engine prints the absolute
 path; relay that rather than letting a shared setting change land silently.
-**`allow remote` is per spec** and writes only a gitignored sidecar beside the
-page, so the base branch stays clean and no other spec may publish. And it is **enable-only**: there is no
-action that turns a tier off, because turning `network` off from a page reached
-over the network kills the page doing the turning.
-
-**`allow remote` permits publishing. It does not publish by itself.**
-Publishing stays an explicit ask (§6), because the page it leaves behind is one
-this tooling cannot remove. A reader who presses `Allow remote` on the page, or
-types `/spec-remote-review` beside a waiting review, **has** asked: the engine
-names the page on its `review:`/`publish:` lines, and that page is published
-and the stack re-shown. Nothing it does not name is published.
+And it is **enable-only**: there is no action that turns a tier off, because
+turning `network` off from a page reached over the network kills the page doing
+the turning.
 
 ## 3. Gate it on nothing
 
@@ -493,7 +489,7 @@ could not run is that strip's business rather than yours.
 
 **There is no switch left to handle.** The engine serves and prints a **stack** —
 one line per tier, `local`, `network`, `remote`, each either a URL or the one
-command that turns it on. All of it is free and none of it publishes anything.
+command that turns it on. All of it is free, and all of it is one server.
 You are not choosing between them; you are relaying every line it printed.
 `.claude/rules/spec-reports.md` carries the shape and why.
 
@@ -564,7 +560,7 @@ says:
 |------|---------|
 | `local` | the loopback URL — or the `file://` page when nothing served, which says it cannot send a verdict |
 | `network` | the LAN URL and any `also:` alternates under it — or `off` with the command that turns it on |
-| `remote` | the published URL and *a verdict here needs `/spec-reviewed`* — or `off` with the command that turns it on |
+| `remote` | the tailnet URL, labelled `(tailnet)` — or `off` with `network`'s command, or `no tailnet address on this machine` |
 
 **The `reader:` line decides nothing here any more.** It is still printed and
 still the only place that question is answered, but the offer no longer branches
@@ -581,23 +577,20 @@ tested and would drift. The ranking and the traps
 a tty under Claude Code) live in `review.js` beside the code, which is where they
 belong.
 
-**It authorises serving, never publishing.** A `remote` reader authorises a
-local server — one process, ended by one flag, leaving nothing behind — and
-nothing more. Publishing leaves a page this tooling cannot remove, so it is an
-ask, in every case, always. The two were once one rule, and lumping them together
-is what left a remote reader holding a dead link: see
-`specs/complete/bug-remote-reader-gets-a-dead-link/`.
+**It authorises serving, and serving is all there is.** A `remote` reader
+authorises a local server — one process, ended by one flag, leaving nothing
+behind. Publishing the page was once a second answer and was retired with the
+published tier (feat-tailnet-remote-tier): the tailnet reaches a reader off the
+wifi without a page this tooling could never remove.
 
 When serving fails — a busy port, or a machine with no network address — the
-engine falls back to the `file://` URL with its marker and nothing breaks. That
-is the one case where naming publishing is worth doing, because it is the only
-answer left.
+engine falls back to the `file://` URL with its marker and nothing breaks.
 
 `review.reader` in `env.config.json` (`local` · `remote` · `detect`) lets the
 operator settle where they are reading, and an explicit value is believed without
 sniffing. What the engine may *do* is settled by the tier settings instead —
-`review.serve` (`always` · `never`), `review.allowNetwork` and
-`review.allowRemote` — not by the reader.
+`review.serve` (`always` · `never`) and `review.allowNetwork` — not by the
+reader.
 
 ## 4b. Wait for the verdict — because asking for one means waiting for it
 
@@ -623,9 +616,6 @@ transport only decides what carries the answer back:
 - **A `file://` page** has nothing to post to, so the reader pastes the pass and
   their next message carries it. Say you are holding and **end the turn** — that
   is the same wait, carried by the conversation. It is not a lesser one.
-- **A published page** writes to the artifact's own store, which nothing reaches
-  from here. That is the one case where the honest sentence is *press a verdict,
-  then type `/spec-reviewed`* — see the published-page paragraph below.
 
 **Do not ask, and therefore do not wait, on a render nobody is waiting behind** —
 a bare `--page-only`, a page produced alongside other work, a pass that has
@@ -673,18 +663,15 @@ the stranger's pass the old rule was written about, and two arrivals refuse
 rather than pick. What is left of the old rule is unchanged and still absolute —
 outside this window, a pass is claimed because a person named it.
 
-**The wait covers the SERVED page and nothing else.** It watches the engine's
-local store, which is where a served page POSTs. A **published** page writes to
-the artifact's own store instead, and no watch of any kind reaches that — so a
-verdict pressed there is invisible until someone asks for it. Never start a
-wait and then hand over a published link under it: that reads as a promise to
-notice, and it was made three times in a row while three verdicts sat unread.
-Where the page is published, say plainly that `/spec-reviewed` is what picks it
-up.
+**The wait covers every served door.** It watches the engine's local store,
+which is where a served page POSTs — from `local`, `network` or `remote` alike,
+since all three are the same server. A published page once wrote to a store no
+watch reached, and three verdicts sat unread under a line claiming the run was
+waiting; that is why the published tier was retired rather than caveated.
 
 **`/spec-reviewed` is not replaced by this.** It stays the way in for a pass
-that arrived when nobody was waiting, for the two-passes case, and for every
-published page. It is user-only, and that is still the
+that arrived when nobody was waiting, and for the two-passes case. It is
+user-only, and that is still the
 enforcement that makes a named claim a person's decision.
 
 **A harness with no file-watch is no longer on that list**, and that is the
@@ -743,78 +730,23 @@ Then re-render with it spliced in — the engine renders it, you never emit HTML
 skitterspec spec-env review <spec> --review <file>
 ```
 
-## 6. Publish only when asked
+## 6. There is no publishing
 
-**Never publish unprompted.** Publishing leaves something behind that this
-tooling cannot remove, and the page already works as a local file. Offer it;
-do not assume it.
+**This skill does not publish the page, and nothing in this workflow does.**
+Publishing it as a claude.ai artifact was retired with the published tier
+(feat-tailnet-remote-tier). It wrote to a store no wait could watch, and left a
+page this tooling could never remove. A reader off the wifi opens the `remote`
+line — the review server's tailnet address — and sends the verdict into the
+same store as every other door.
 
-When the user asks:
+**Where no door reaches the reader** — no network, no tailnet, a server that
+could not start — say so plainly with the stack the engine printed, and stop.
+Do not reach for the Artifact tool as a fallback: that is the second store this
+design removed.
 
-- **One spec is one page.** `--json` reports `url` when this spec has been
-  published before. If it has, **update that URL** rather than creating a
-  second entry, and label the new version for the phase (`phase-3`).
-- **On the first publish**, write the returned URL to the path `--json` reports
-  as `urlFile` — one line, no formatting. That file is how every later phase
-  finds the same page. Never construct the path yourself.
-- **Say, once, that it is theirs now.** When you report a URL, say in the same
-  breath that skitterspec cannot remove the page and that `/artifacts` (or the
-  gallery at `claude.ai/code/artifacts`) is where it goes. This is the moment the
-  decision is being made, so it is the moment worth saying it — `spec-env down`
-  repeats it at teardown, by which point the page has outlived the spec.
-- **Degrade in one line.** If the harness cannot publish — no capability, an
-  error — say so, report the local file path, and carry on. That is a working
-  outcome, not a failure.
-- **Reach for `--publish-copy`, never a hand transform.** The engine writes the
-  page as a complete HTML document and an artifact host wraps page *content*, so
-  publishing the page as-written nests two documents. `spec-env review <spec>
-  --publish-copy` emits the body-only copy and names its path on a `publish:`
-  line. Do not split the document yourself: a rendered page contains the diff,
-  and a diff of this project contains `<!doctype html>` as ordinary patch text.
-
-The engine knows nothing about publishing and cannot do it. It writes a file and
-reads a URL back as an opaque string; everything about what that string means
-lives here.
-
-### Publish it so the buttons still work
-
-A published page is the answer for a reader **no local server can reach** — a
-phone on mobile data, anyone away from the LAN the engine serves on. It is also
-the one surface where the verdict buttons have nowhere to POST: the page's own
-URL is on claude.ai, so a POST fails and the reader gets "could not reach the
-server" after pressing a verdict they meant.
-
-So **publish it with a store**, and the page uses it:
-
-- Declare `capabilities: {db: {}}`. The page checks for `window.claude.use` and
-  writes the pass into the artifact's own `passes` collection instead of
-  POSTing. Nothing else about it changes — same marks, same verdicts, same
-  refusal to commit over an open comment.
-- **Do not declare `user`.** The pass is not per-viewer private state, a shared
-  collection is what it wants, and a declaration nothing uses is a grant asked
-  for nothing.
-- **Same file path every time**, so a redeploy reuses the URL. That is what
-  answers the clear-down worry: one page per spec, replaced at each render,
-  rather than an artifact per phase accumulating in the gallery.
-- **Send a push notification with the URL** when you publish. The reader is by
-  definition somewhere else — that is why it was published.
-
-### Taking a stored pass back
-
-A pass in the store is claimed the same way in spirit and a different way in
-mechanism, because the engine cannot see it:
-
-1. Read the `passes` collection with the Artifact tool's `read_db`.
-2. **Apply step 0 unchanged.** One waiting pass, offered by what it says and
-   when it was sent; two is a refusal to guess. Nothing here is automatic —
-   there is no wait window on this transport, because nothing pushes from the
-   store to this conversation.
-3. Write the pass's `blob` to a scratch file **verbatim** and merge it with
-   `spec-env review <spec> --notes <file>`. It rejoins the ordinary path at §2
-   step 1, so the verdict is judged and routed exactly as any other.
-4. **Delete the document** with `write_db` once it is merged. A claim consumes:
-   a pass left in the store is claimable twice, which is the one property the
-   six-digit code has always had and this transport must not lose.
+A page published before this change still exists, and teardown still names it
+(`spec-env down` reads the `.url` sidecar it left). Nothing writes that sidecar
+any more.
 
 ## 7. Report
 

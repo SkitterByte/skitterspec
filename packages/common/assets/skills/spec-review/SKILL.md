@@ -202,9 +202,9 @@ reader:
 
 - **local** — &lt;the `local:` URL&gt;
 - **network** — &lt;the `network:` URL, or off with the command that turns it on&gt;
-- **remote** — &lt;the `remote:` URL, or off with the command that turns it on&gt;
+- **remote** — &lt;the `remote:` tailnet URL, or what that line says when there is none&gt;
 
-I'm holding here until you send a verdict — the wait covers local and network.
+I'm holding here until you send a verdict — the wait covers &lt;the tiers the engine's `covers` names&gt;.
 
 `Commit` commits the refresh · `Request changes` works them now
 

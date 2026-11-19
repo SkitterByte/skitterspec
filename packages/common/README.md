@@ -47,7 +47,6 @@ the operator can run them.
 |---------|--------|
 | `/spec-connect` | Point the canonical `localhost` ports at one spec's stack |
 | `/spec-live` | Check one spec out in the primary checkout, so a running dev server reloads it |
-| `/spec-remote-review` | Permit (or forbid) publishing a review for a reader off the network |
 | `/allow-main` | Allow writes on the base branch for this session — yours to run, never Claude's |
 | `/allow-project` | Let this session work on another skitterspec project — yours to run, never Claude's |
 | `/spec-skip` | Move on from a phase without a verdict, reason recorded — yours to run, never Claude's |
@@ -213,7 +212,7 @@ review arm <spec> --phase N   # a phase ended: it now owes a verdict
 review gate [spec] --check    # is one owed? non-zero if so — what the commit hook asks
 review skip "<reason>"        # move on without one, on the record
 review waiting                # passes nobody claimed, across every spec
-review allow <tier> --set     # permit a tier; empty toggles (this is /spec-remote-review)
+review allow network --set    # permit the network and tailnet tiers; empty toggles
 ```
 
 Three files sit beside the page in `.spec-env/reviews/`, all gitignored:

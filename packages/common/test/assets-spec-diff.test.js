@@ -81,13 +81,17 @@ test('it keeps the two costs apart, and says when the reading one is zero', () =
   assert.match(SKILL, /noise: true/, 'names what to skip')
 })
 
-test('it never instructs an unprompted publish', () => {
-  assert.match(SKILL, /\*\*Never publish unprompted\.\*\*/)
-  assert.match(SKILL, /only when the user asks|When the user asks/i)
-  assert.match(SKILL, /cannot remove/, 'says why: publishing is not undoable by the tooling')
-  // One spec is one page — a second entry per phase is the failure mode.
-  assert.match(SKILL, /update that URL|One spec is one page/i)
-  assert.match(SKILL, /Never construct the path yourself/)
+// Publishing was retired with the published tier (feat-tailnet-remote-tier):
+// the skill says there is none, and never offers the Artifact tool as a
+// fallback — that is the second store this design removed.
+test('it never publishes, and says why', () => {
+  assert.match(SKILL, /## 6\. There is no publishing/)
+  assert.match(SKILL, /\*\*This skill does not publish the page, and nothing in this workflow does\.\*\*/)
+  assert.match(SKILL, /could never remove/, 'says why: a published page was not undoable by the tooling')
+  assert.match(SKILL, /Do not reach for the Artifact tool as a fallback/)
+  // STAYS SILENT: none of the old publish procedure survives.
+  assert.doesNotMatch(SKILL, /\*\*Never publish unprompted\.\*\*/)
+  assert.doesNotMatch(SKILL, /passes` collection|read_db|capabilities: \{db/)
 })
 
 test('it protects the property the whole design rests on', () => {
@@ -311,22 +315,14 @@ test('an unknown spec name refuses rather than falling back to the branch', asyn
   }
 })
 
-// --- what a publish leaves behind, and how it is produced -----------------
+// --- what an old publish left behind ---------------------------------------
 
-// The engine writes a complete document and an artifact host wraps page
-// content, so the skill has to name the flag. Doing it by hand is what this
-// asserts against: three hand publishes in one day, and the first one cut at a
-// `<!doctype html>` that was patch text.
-test('publishing is told to use --publish-copy, not a hand transform', () => {
-  assert.match(SKILL, /--publish-copy/)
-  assert.match(SKILL, /Do not split the document yourself/)
-  assert.match(SKILL, /ordinary patch text/)
-})
-
-test('reporting a URL comes with where the page is deleted', () => {
-  assert.match(SKILL, /skitterspec cannot remove the page/)
-  assert.match(SKILL, /`\/artifacts`/)
-  assert.match(SKILL, /`spec-env down`\s*\n?\s*repeats it at teardown/)
+// `--publish-copy` went with the tier; a page published before it still
+// exists, and teardown is what still names it.
+test('a page published before the retirement is still named at teardown', () => {
+  assert.doesNotMatch(SKILL, /--publish-copy/)
+  assert.match(SKILL, /teardown still names it/)
+  assert.match(SKILL, /`\.url` sidecar/)
 })
 
 

@@ -222,13 +222,16 @@ test(`${CLAUDE_SECTION} does not document behaviour that was removed`, () => {
 })
 
 // It describes the loop, so it has to name the parts of the loop that exist. Not
-// a set comparison — it is prose, not a reference — but these four were each
+// a set comparison — it is prose, not a reference — but each of these was
 // added by a spec that shipped, and each is a thing an agent reading this file
-// would otherwise not know it had.
+// would otherwise not know it had. `/spec-remote-review` was on this list until
+// it was retired with the published tier (feat-tailnet-remote-tier); what took
+// its place is the tailnet `remote` door.
 test(`${CLAUDE_SECTION} names the controls the loop actually has`, () => {
   const text = read(CLAUDE_SECTION)
+  assert.ok(!text.includes('/spec-remote-review'), `${CLAUDE_SECTION} names a retired command`)
   for (const [what, why] of [
-    ['/spec-remote-review', 'the command that turns the remote tier on'],
+    ['tailnet', 'the remote tier: the review server over the reader\'s tailnet'],
     ['commit-start', 'the authoring verdict — commit the spec and put it in flight'],
     ['local', 'the labelled tier stack: which surfaces the page can be read from'],
     ['live', 'whether the change is also running, and the press that changes it'],

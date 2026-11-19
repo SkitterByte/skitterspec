@@ -96,7 +96,6 @@ them. Your `specs/` content and live `.core` config are never touched.
 | `/spec-init` | Bootstrap or repair the workflow in a project |
 | `/spec-connect` | Point your canonical `localhost` ports at one spec's stack |
 | `/spec-live` | Check one spec out in the primary checkout, so your running server reloads it |
-| `/spec-remote-review` | Permit (or forbid) reviewing from off your network |
 | `/allow-main` | Allow writes on the base branch for this session — yours to run, never Claude's |
 | `/allow-project` | Let this session work on another skitterspec project — yours to run, never Claude's |
 | `/spec-skip` | Move on from a phase without a verdict, reason recorded — yours to run, never Claude's |

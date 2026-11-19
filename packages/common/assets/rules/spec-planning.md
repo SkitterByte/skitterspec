@@ -1,7 +1,7 @@
 # Spec Planning
 
 Spec-driven development is driven by ten lifecycle skills (plus the
-`/spec-connect`, `/spec-live` and `/spec-remote-review` **commands** when isolation is on) — use them rather than hand-rolling specs so the structure
+`/spec-connect` and `/spec-live` **commands** when isolation is on) — use them rather than hand-rolling specs so the structure
 and lifecycle stay consistent. Each sets a status on the spec header
 (`> **Status:** …`):
 
@@ -28,7 +28,7 @@ and lifecycle stay consistent. Each sets a status on the spec header
 | `/spec-init` | Bootstrap/repair this workflow in a project (idempotent) | — | — |
 
 **Skills vs commands.** The table above lists **skills** — Claude reads them and
-exercises judgment. `/spec-connect`, `/spec-live` and `/spec-remote-review` are
+exercises judgment. `/spec-connect` and `/spec-live` are
 instead **slash commands**
 (`.claude/commands/`): each pre-executes one `skitterspec spec-env` verb and
 relays its output, so there is no judgment to apply and no model turn spent
@@ -36,19 +36,12 @@ finding one. They are marked `disable-model-invocation`, meaning
 **only you can run them** — a skill that wants one will tell you to type it
 rather than invoking it.
 
-**`/spec-remote-review`** is the newest and the smallest: it toggles whether
-**this spec** may publish, and takes `on`/`off` when you would rather say which.
-The permission is per worktree, kept in the gitignored review store, so the base
-branch is never dirtied and no other spec gains it; `review.allowRemote` in the
-committed config is the project default beneath it. Turned on beside a page
-that already exists, it is the ask to publish that page and re-show the stack.
-It exists because a render's `remote:` line has to name something a person can
-act on, and `skitterspec spec-env review allow remote` is not what anyone
-reconstructs from a page they are reading on a phone. Making the line
-*clickable* was considered and rejected — the only clickable thing markdown has
-is a URL, and a URL that acts when it is **fetched** is one a link previewer or
-a prefetcher fires with nobody involved. It **permits** publishing; it publishes
-nothing.
+**The `spec-remote-review` command was retired** with the published review tier
+(feat-tailnet-remote-tier). It toggled whether a spec might publish its review
+as a claude.ai page — a second store no wait could watch, and a page this
+tooling could never delete. The `remote:` line now names the review server's
+tailnet address, on the same switch as `network`, so there is nothing left for
+a command to toggle.
 
 `/spec-reviewed` is a **skill** and **user-only**, and there the marking is not
 convenience — it is the enforcement of `/spec-diff` step 0's rule that a waiting
@@ -121,8 +114,8 @@ already use, so one category is not spelled two ways. `/spec-init` asks for
 both — on an existing config through a `/no-spec` branch, since the base
 branch is a landing zone.
 
-**`/allow-main` is the fourth command.** It is user-only for a different reason
-from the other three: `/spec-connect`, `/spec-live` and `/spec-remote-review`
+**`/allow-main` is the third command.** It is user-only for a different reason
+from the other two: `/spec-connect` and `/spec-live`
 are marked that way because there is no judgment to apply. This one is marked that
 way because **Claude must not be able to lift a guard aimed at Claude.**
 
@@ -172,7 +165,7 @@ it fails open on every cannot-tell. `/allow-project <name>` lifts it for one
 session, and it is user-only for `/allow-main`'s reason: Claude must not be
 able to lift a guard aimed at Claude.
 
-**`/spec-skip` is the fifth command**, and it is user-only for `/allow-main`'s
+**`/spec-skip` is the fourth command**, and it is user-only for `/allow-main`'s
 reason rather than the mild one: it lifts the review gate, which is a guard
 aimed at Claude. It pre-executes `skitterspec spec-env review skip "<reason>"`
 and relays it — the same exit that always existed, at an address a person will
@@ -189,7 +182,7 @@ skip — never a flag. Putting the flag on `/commit` was the other suggestion an
 is worse: `/commit` belongs to skittership, which is why the gate is enforced
 by a hook rather than by editing that skill.
 
-**`/spec-epic` is the sixth command**, and it is user-only for the mild reason: it
+**`/spec-epic` is the fifth command**, and it is user-only for the mild reason: it
 pre-executes `skitterspec epic status` and relays it, so there is no judgement
 to apply. It exists for the tab an epic is run from — each member is built in
 a tab of its own, and on a phone the in-app browser has to close to switch
@@ -380,7 +373,7 @@ the base branch — and a 350-line diff read as terminal text is scrolling, not
 review. The engine collects the worktree's changes with `git -C` and writes a
 self-contained HTML page (`.spec-env/reviews/<spec>.html`, gitignored) with
 whole-file context that folds away, a file tree, and new files included. You open
-it locally, or publish it and read it on a phone.
+it locally, or on a phone over your LAN or tailnet.
 **The diff never passes through the model**, so the page is free to produce
 however large it is; the *written*
 review — a short read plus `flag`/`confirm`/`good` notes — is the part that costs
@@ -559,7 +552,7 @@ its verdicts and its fields.
 | **Branch** | `spec/feat-orders` · 3 commits, clean |
 | **Built** | POST /orders handler, orders schema |
 | **Tests** | 128 passed · dotnet test |
-| **Review** | 7 files, +212 −18 · **local** [http://127.0.0.1:7760/…](http://127.0.0.1:7760/…) · **network** [http://192.168.0.136:7760/…](http://192.168.0.136:7760/…) · **remote** off |
+| **Review** | 7 files, +212 −18 · **local** [http://127.0.0.1:7760/…](http://127.0.0.1:7760/…) · **network** [http://192.168.0.136:7760/…](http://192.168.0.136:7760/…) · **remote** [http://100.126.111.34:7760/…](http://100.126.111.34:7760/…) (tailnet) |
 | **Follow-ups** | none |
 | **Next** | `/spec-next` → phase 3 (Auth) |
 

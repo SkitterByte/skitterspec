@@ -122,21 +122,15 @@ test('STAYS SILENT: the commands keep their verbatim-relay contract', () => {
     )
     assert.doesNotMatch(text, /offered-unblocks/, `${name} raises no picker`)
   }
-  // ONE NARROW EXCEPTION, from bug-remote-review-toggle: `/spec-remote-review`
-  // still relays verbatim, and does one more thing only when the ENGINE names a
-  // page to publish — the judgment of whether there is one stays in the engine.
-  const remote = read('commands', 'spec-remote-review.md')
-  assert.match(remote, /Relay the engine output above verbatim\. Add nothing to it\./)
-  assert.match(remote, /only when the engine asked for it/)
-  assert.match(remote, /With no `publish:` line, run nothing else/)
-  assert.doesNotMatch(remote, /offered-unblocks/, 'spec-remote-review.md raises no picker')
+  // The one narrow exception, `/spec-remote-review`, was retired with the
+  // published tier (feat-tailnet-remote-tier), so none is left.
+  assert.ok(!fs.existsSync(path.join(ASSETS, 'commands', 'spec-remote-review.md')), 'no exception ships')
 })
 
 test('STAYS SILENT: the commands keep their narrow allowed-tools', () => {
   const narrow = {
     'spec-connect.md': /^allowed-tools: Bash\(\{\{exec\}\} skitterspec spec-env connect:\*\)$/m,
     'spec-live.md': /^allowed-tools: Bash\(\{\{exec\}\} skitterspec spec-env live:\*\)$/m,
-    'spec-remote-review.md': /^allowed-tools: Bash\(\{\{exec\}\} skitterspec spec-env review allow remote:\*\)$/m,
   }
   for (const [name, re] of Object.entries(narrow)) {
     assert.match(read('commands', name), re, `${name} was not widened`)

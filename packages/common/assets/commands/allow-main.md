@@ -26,8 +26,7 @@ id it degrades to a repo-wide allow that outlives the session and is cleared onl
 by `/allow-main off`; the engine says which kind you got, so do not read a bare
 "allowed" as temporary.
 
-**It is machine-local and gitignored.** Unlike `/spec-remote-review`, this writes
-nothing anyone else pulls: it is your decision about your checkout, not the
+**It is machine-local and gitignored.** It writes nothing anyone else pulls: it is your decision about your checkout, not the
 project's policy. The project-wide switch is `guards.mainIsLandingZone` in
 `specs/.core/env.config.json`, and turning that off is a different, committed
 decision.

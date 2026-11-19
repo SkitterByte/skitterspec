@@ -28,13 +28,21 @@ const NEXT = skillText('spec-next')
 
 // --- /spec-diff owns the routing ------------------------------------------
 
-test('/spec-diff routes all three actions, and each loops back', () => {
+test('/spec-diff routes both actions, and each loops back', () => {
   const sec = DIFF.slice(DIFF.indexOf('## 2b.'), DIFF.indexOf('## 3. Gate it on nothing'))
-  for (const action of ['live-on', 'allow-network', 'allow-remote']) {
+  for (const action of ['live-on', 'allow-network']) {
     assert.match(sec, new RegExp('`' + action + '`'), `${action} has a route`)
   }
-  assert.match(sec, /\*\*all three end the same way\*\*:\s*\n?do the thing, re-render/)
+  assert.match(sec, /\*\*both end the same way\*\*:\s*\n?do the thing, re-render/)
   assert.match(sec, /wait again/)
+})
+
+// `allow-remote` WENT WITH THE PUBLISHED TIER (feat-tailnet-remote-tier), and
+// the routing says so for the same reason it says so about `live-off`.
+test('/spec-diff records that allow-remote is absent on purpose', () => {
+  const sec = DIFF.slice(DIFF.indexOf('## 2b.'), DIFF.indexOf('## 3. Gate it on nothing'))
+  assert.match(sec, /\*\*There is no `allow-remote` either\.\*\*/)
+  assert.doesNotMatch(sec, /\| `allow-remote` \|/, 'no route for it')
 })
 
 // `live-off` WAS REMOVED, and the routing says so rather than going quiet about
@@ -51,7 +59,7 @@ test('/spec-diff records that live-off is absent on purpose', () => {
 // answer after the reader has looked at it running.
 test('/spec-diff says the gate is untouched by every action', () => {
   const sec = DIFF.slice(DIFF.indexOf('## 2b.'), DIFF.indexOf('## 3. Gate it on nothing'))
-  assert.match(sec, /\*\*AN ACTION IS NOT A VERDICT, and the gate is untouched by all three\.\*\*/)
+  assert.match(sec, /\*\*AN ACTION IS NOT A VERDICT, and the gate is untouched by both\.\*\*/)
   assert.match(sec, /discharged by a committing verdict or a\s*\n?recorded skip/)
   assert.match(sec, /`ACTIONS` is disjoint from\s*\n?`VERDICTS` and `COMMITTING`/)
 })
@@ -101,9 +109,8 @@ test('/spec-diff says allow writes a committed file, and is enable-only', () => 
   assert.match(sec, /writes a committed file/)
   assert.match(sec, /primary checkout/)
   assert.match(sec, /\*\*enable-only\*\*/)
-  // Permitting is not publishing — the one that leaves something behind stays
-  // an explicit ask.
-  assert.match(sec, /permits publishing\. It does not publish/)
+  // STAYS SILENT: nothing here permits publishing any more.
+  assert.doesNotMatch(sec, /permits publishing/)
 })
 
 // A pass carries one answer. The engine refuses both, so the skill never has to
@@ -123,8 +130,9 @@ test('the rule puts the live line in the banner, with the stack', () => {
   // In the banner's own order: after the stack, before the holding line.
   assert.ok(banner.indexOf('- **remote**') < banner.indexOf('live: off'))
   assert.ok(banner.indexOf('live: off') < banner.indexOf("I'm holding here"))
-  // And the tier line names its command too, for the same reason.
-  assert.match(banner, /`\/spec-remote-review` turns it on/)
+  // `remote` is the tailnet URL now, labelled — not a command to publish.
+  assert.match(banner, /^- \*\*remote\*\* — \[http:\/\/100\.[^\]]*\]\([^)]*\) \(tailnet\)$/m)
+  assert.doesNotMatch(banner, /spec-remote-review/)
 })
 
 test('the rule says the live line is the engine\'s, from one function', () => {
@@ -195,10 +203,11 @@ test('the rule records why the lines are commands rather than links', () => {
   assert.match(RULE, /a link previewer or a prefetcher/)
 })
 
-// The command is documented where the other two are, or it is a control nobody
-// discovers: `spec-planning.md` is the canonical list every spec skill points at.
-test('/spec-remote-review is listed beside the other two commands', () => {
+// `/spec-remote-review` was retired with the published tier, and the canonical
+// list every spec skill points at says so rather than going quiet about it.
+test('/spec-remote-review is recorded as retired, not listed as a command', () => {
   const planning = fs.readFileSync(path.join(ASSETS, 'rules', 'spec-planning.md'), 'utf8')
-  assert.match(planning, /`\/spec-connect`, `\/spec-live` and `\/spec-remote-review` are/)
-  assert.match(planning, /It \*\*permits\*\* publishing; it publishes\s*\n?nothing/)
+  assert.match(planning, /`\/spec-connect` and `\/spec-live` are\s*\n?instead \*\*slash commands\*\*/)
+  assert.match(planning, /\*\*The `spec-remote-review` command was retired\*\*/)
+  assert.ok(!fs.existsSync(path.join(ASSETS, 'commands', 'spec-remote-review.md')), 'the command no longer ships')
 })

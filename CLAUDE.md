@@ -15,8 +15,8 @@ skill that wants one will tell you to type it.
 
 **Seeing the work.** A phase is built in its own worktree, so `git diff` in your
 terminal answers about the base branch. **`/spec-diff`** renders that worktree's
-diff as a self-contained HTML page you open locally — or publish, and read on a
-phone. The diff never passes through the model, so the page costs no context
+diff as a self-contained HTML page you open locally — or on a phone, over your
+LAN or tailnet. The diff never passes through the model, so the page costs no context
 tokens however large it is; the optional written review is the part that costs,
 and it is offered rather than assumed. `/spec-next` writes the page at the end of
 every phase. **`skitterspec status`** lists what is in flight across worktrees.
@@ -101,13 +101,10 @@ running and concluded nothing, so the phase still owes an answer.
 
 **Every render lists where the page can be read**, labelled, in a fixed order —
 `local`, `network`, `remote` — each either a URL or the one command that turns it
-on, plus a `live:` line saying whether the change is also running. `local` and
-`network` are two doors into one room: the same server and the same waiting
-verdict, so one wait covers both. `remote` is a published page, a second store —
-a verdict there needs `/spec-reviewed`, and it stays off until someone types
-**`/spec-remote-review`**, which toggles it. Publishing is permitted by that
-command, never performed by it: a published page is one this tooling cannot
-remove.
+on, plus a `live:` line saying whether the change is also running. They are
+labelled by address: `local` is this machine, `network` your LAN, `remote` your
+tailnet. All three are doors into one room — the same server and the same
+waiting verdict — so one wait covers every one the stack shows.
 
 **One ending.** Every spec skill finishes with the same block — a verdict
 (`✅` · `⚠️` · `❌` · `⏸`), then a table of the fields that skill declares,
