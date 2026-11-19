@@ -5,7 +5,7 @@ const path = require('path')
 const os = require('os')
 const { pathToFileURL } = require('url')
 const { execFileSync } = require('child_process')
-const { init, resync, reset, checkSync, isExistingSetup } = require('./init.js')
+const { init, resync, reset, checkSync, isExistingSetup, localSeedFiles } = require('./init.js')
 const {
   detectReleaseTooling,
   removeReleaseTooling,
@@ -2295,7 +2295,7 @@ function specEnvBootstrap(dir, config, specArg, flags = {}) {
   // `setup` exactly as a spec does, since a `setup` that reads a seeded `.env`
   // fails without it; what it never has is a stack, so no slot is consulted.
   if (spec.specless && !spec.unwritten) {
-    steps = worktreeSteps(spec, null, config, { docs, wantsDocker: false })
+    steps = worktreeSteps(spec, null, config, { docs, wantsDocker: false, localSeeds: localSeedFiles(dir) })
   } else {
     const compose = composeFilePresent(dir, config)
     const { wantsDocker } = resolveStack(spec, config, { docs, composeFilePresent: compose })
@@ -2315,6 +2315,7 @@ function specEnvBootstrap(dir, config, specArg, flags = {}) {
       docs,
       wantsDocker,
       composeFilePresent: compose,
+      localSeeds: localSeedFiles(dir),
     })
   }
 

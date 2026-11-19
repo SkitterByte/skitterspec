@@ -72,7 +72,9 @@ function runSeed(step, { cwd, mainRoot, fs, platform = process.platform }) {
   }
   fs.mkdirSync(path.dirname(dst), { recursive: true })
   if (step.mode === 'copy') {
-    fs.copyFileSync(src, dst)
+    // A seed may be a directory (a local install seeds whole skill folders).
+    if (fs.statSync(src).isDirectory()) fs.cpSync(src, dst, { recursive: true })
+    else fs.copyFileSync(src, dst)
     return { outcome: 'seeded', line: `seeded ${step.file} → ${src}` }
   }
   // WINDOWS WITHOUT DEVELOPER MODE CANNOT CREATE A SYMLINK (EPERM), and a

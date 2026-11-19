@@ -159,7 +159,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | Runner token in provider assets | ✅ | [01-provider-runner.md](01-provider-runner.md) |
 | 2 | Fresh `init --local` and scoped `update` | ✅ | [02-local-init.md](02-local-init.md) |
 | 3 | Convert a committed install | ✅ | [03-convert.md](03-convert.md) |
-| 4 | Seed the local install into worktrees | ⬜ | [04-worktree-seed.md](04-worktree-seed.md) |
+| 4 | Seed the local install into worktrees | ✅ | [04-worktree-seed.md](04-worktree-seed.md) |
 | 5 | Docs | ⬜ | [05-docs.md](05-docs.md) |
 
 ## Open questions
@@ -196,3 +196,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   stale one; the links guard accepts them. Provider `/spec-sync` prose
   reworded — the binary may now be on `PATH`, the subcommand never is.
   `bunx` and `yarn` are left as they are: neither was in scope.
+- 2026-11-19 — Phase 4: a skill seeded as one directory symlink is a file
+  to git, so a `SKILL.md`-level exclude did not hide it in the worktree.
+  Local excludes now list each skill as its folder (`/.claude/skills/<name>`),
+  which also covers the primary checkout.

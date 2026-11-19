@@ -255,7 +255,7 @@ function resolveStack(spec, config, { docs = false, composeFilePresent } = {}) {
  * filesystem fact arrives in `opts`.
  */
 function worktreeSteps(spec, offset, config, opts = {}) {
-  const { docs = false, wantsDocker = false, composeFilePresent: compose } = opts
+  const { docs = false, wantsDocker = false, composeFilePresent: compose, localSeeds = [] } = opts
   const seed = config.seedFiles || { mode: 'symlink', files: [] }
   const mode = seed.mode === 'copy' ? 'copy' : 'symlink'
   const tokens = {
@@ -268,7 +268,15 @@ function worktreeSteps(spec, offset, config, opts = {}) {
     portOffset: offset === null || offset === undefined ? '' : String(offset),
   }
   const envFile = (config.docker && config.docker.envFile) || '.env'
-  const steps = (seed.files || []).map((file) => ({ kind: 'seed', file, mode }))
+  // A local install (`init --local`) keeps skitterspec's own files out of git,
+  // so a fresh worktree has none of them; they are seeded first, implicitly from
+  // the manifest's scope — nothing in the committed config names them.
+  const seeded = new Set(seed.files || [])
+  const steps = [...localSeeds.filter((f) => !seeded.has(f)), ...(seed.files || [])].map((file) => ({
+    kind: 'seed',
+    file,
+    mode,
+  }))
   if (wantsDocker) {
     steps.push({ kind: 'envFile', file: envFile, projectName: spec.projectName, offset })
   }

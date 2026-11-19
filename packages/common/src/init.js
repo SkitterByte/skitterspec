@@ -1220,17 +1220,34 @@ function resolveScope(dir, local) {
 // file, the per-machine settings, the manifest and the review store. Listed per
 // PATH rather than per directory, so a teammate's own `.claude/skills/foo` is
 // untouched.
-function localExcludes(dir) {
+//
+// A skill is listed as its DIRECTORY (no trailing slash), because a worktree
+// gets it seeded as one symlink — which git sees as a file at that path, and a
+// `SKILL.md` entry would not match it.
+function localManagedPaths(dir) {
   const paths = managedTargets(dir)
     .map((t) => t.relPath)
-    .filter((p) => !p.startsWith('specs/') || p === MANIFEST_FILE.replace(/\\/g, '/'))
+    .filter((p) => !p.startsWith('specs/'))
+    .map((p) => (p.startsWith('.claude/skills/') ? path.posix.dirname(p) : p))
+  return [...new Set(paths)]
+}
+
+function localExcludes(dir) {
   return [
-    ...paths,
+    ...localManagedPaths(dir),
     'CLAUDE.local.md',
     '.claude/settings.local.json',
     MANIFEST_FILE.replace(/\\/g, '/'),
     '.spec-env/',
   ]
+}
+
+// What `spec-env bootstrap` seeds into a local install's worktrees: the managed
+// paths plus the two per-machine files. A worktree is a fresh checkout, and
+// git carries none of it there. Empty for a team install, which git carries.
+function localSeedFiles(dir) {
+  if (readManifest(dir).scope !== 'local') return []
+  return [...localManagedPaths(dir), '.claude/settings.local.json', 'CLAUDE.local.md']
 }
 
 const EXCLUDE_START = '# >>> skitterspec (local install)'
@@ -1413,6 +1430,7 @@ module.exports = {
   renderExec,
   distributionPackage,
   localExcludes,
+  localSeedFiles,
   EXCLUDE_START,
   EXCLUDE_END,
 }

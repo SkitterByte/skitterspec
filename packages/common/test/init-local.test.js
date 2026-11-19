@@ -113,7 +113,7 @@ test('an install in a subfolder of the git root excludes prefixed paths', async 
   try {
     await localInit(sub)
     const exclude = fs.readFileSync(path.join(root, '.git', 'info', 'exclude'), 'utf8')
-    assert.match(exclude, /^\/App\.Solution\/\.claude\/skills\/spec\/SKILL\.md$/m)
+    assert.match(exclude, /^\/App\.Solution\/\.claude\/skills\/spec$/m)
     assert.deepStrictEqual(visible(root).filter((p) => !p.startsWith('App.Solution/specs/')), [])
   } finally {
     cleanup(root)
@@ -289,3 +289,70 @@ test('stays silent: settings.json holding only foreign hooks is untouched', asyn
     cleanup(dir)
   }
 })
+
+// --- seeding a local install into worktrees -----------------------------------
+
+const { localSeedFiles } = require('../src/init.js')
+const { worktreeSteps } = require('../src/env/provision.js')
+const { runBootstrap } = require('../src/env/bootstrap.js')
+
+test('localSeedFiles lists skill folders and the per-machine files, and nothing for a team', async () => {
+  const dir = repo()
+  const team = repo()
+  try {
+    await localInit(dir)
+    const seeds = localSeedFiles(dir)
+    assert.ok(seeds.includes('.claude/skills/spec'), 'a skill is seeded as its folder')
+    assert.ok(seeds.includes('.claude/settings.local.json'))
+    assert.ok(seeds.includes('CLAUDE.local.md'))
+    assert.ok(seeds.some((p) => p.startsWith('.claude/hooks/')))
+    assert.ok(!seeds.some((p) => p.startsWith('specs/')), 'specs are git-carried')
+    await teamInit(team)
+    assert.deepStrictEqual(localSeedFiles(team), [], 'stays silent for a team install')
+  } finally {
+    cleanup(dir)
+    cleanup(team)
+  }
+})
+
+test('worktreeSteps seeds the local install first and never twice', () => {
+  const spec = { slug: 'x', branch: 'feat/x', projectName: 'p', worktreePath: '/wt' }
+  const config = { seedFiles: { mode: 'symlink', files: ['.env', 'CLAUDE.local.md'] }, setup: [] }
+  const steps = worktreeSteps(spec, null, config, { localSeeds: ['.claude/skills/spec', 'CLAUDE.local.md'] })
+  assert.deepStrictEqual(
+    steps.map((s) => s.file),
+    ['.claude/skills/spec', '.env', 'CLAUDE.local.md'],
+  )
+  assert.deepStrictEqual(worktreeSteps(spec, null, config).map((s) => s.file), ['.env', 'CLAUDE.local.md'])
+})
+
+for (const mode of ['symlink', 'copy']) {
+  test(`a worktree of a local install gets it seeded (${mode}), and git still sees nothing`, async () => {
+    const dir = repo()
+    const wt = `${dir}-wt`
+    try {
+      await localInit(dir)
+      git(dir, 'add', 'specs')
+      git(dir, 'commit', '-q', '-m', 'specs')
+      git(dir, 'worktree', 'add', '-q', wt, '-b', 'feat/x')
+      assert.ok(!fs.existsSync(path.join(wt, '.claude')), 'git carried none of it')
+      const steps = localSeedFiles(dir).map((file) => ({ kind: 'seed', file, mode }))
+      const res = runBootstrap(steps, { cwd: wt, mainRoot: dir })
+      assert.ok(res.ok, JSON.stringify(res.results.filter((r) => r.outcome !== 'seeded')))
+      assert.ok(fs.readFileSync(path.join(wt, '.claude', 'skills', 'spec', 'SKILL.md'), 'utf8').length > 0)
+      assert.ok(fs.existsSync(path.join(wt, 'CLAUDE.local.md')))
+      assert.ok(fs.existsSync(path.join(wt, '.claude', 'settings.local.json')))
+      assert.deepStrictEqual(visible(wt), [], 'the shared exclude covers the worktree')
+      const again = runBootstrap(steps, { cwd: wt, mainRoot: dir })
+      assert.ok(again.results.every((r) => r.outcome === 'skipped'), 'a re-run skips what exists')
+    } finally {
+      try {
+        git(dir, 'worktree', 'remove', '--force', wt)
+      } catch {
+        /* already gone */
+      }
+      cleanup(wt)
+      cleanup(dir)
+    }
+  })
+}
