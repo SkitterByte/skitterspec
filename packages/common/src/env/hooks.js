@@ -218,6 +218,51 @@ function ensureHooks(dir, { local = false } = {}) {
   return { changed, reason: 'present' }
 }
 
+/**
+ * Take OUR hooks out of the committed settings, for `init --local` converting a
+ * team install. Per hook OBJECT, never per matcher group: a group can hold ours
+ * beside the project's own (a secrets guard, a typecheck), and those stay. A
+ * group left with no hooks is dropped, then an empty `PreToolUse`, then an empty
+ * `hooks`. Every other key — and every other event — is untouched.
+ *
+ * Returns `{ removed, emptied, reason }`. `emptied` is true when nothing is left
+ * but `{}`: the caller deletes the file then, since a committed `{}` is noise.
+ * A missing file is `absent`; an unparseable one is `malformed` and untouched.
+ */
+function removeHooks(dir) {
+  const file = settingsPath(dir)
+  let parsed
+  try {
+    parsed = JSON.parse(fs.readFileSync(file, 'utf-8'))
+  } catch (error) {
+    return { removed: 0, emptied: false, reason: error.code === 'ENOENT' ? 'absent' : 'malformed' }
+  }
+  if (!isObject(parsed)) return { removed: 0, emptied: false, reason: 'malformed' }
+  const pre = isObject(parsed.hooks) && Array.isArray(parsed.hooks.PreToolUse) ? parsed.hooks.PreToolUse : null
+  if (!pre) return { removed: 0, emptied: false, reason: 'none' }
+
+  let removed = 0
+  const ours = (h) => isObject(h) && typeof h.command === 'string' && HOOKS.some((k) => k.re.test(h.command))
+  const kept = []
+  for (const group of pre) {
+    if (!isObject(group) || !Array.isArray(group.hooks)) {
+      kept.push(group)
+      continue
+    }
+    const rest = group.hooks.filter((h) => !ours(h))
+    removed += group.hooks.length - rest.length
+    if (rest.length) kept.push(rest.length === group.hooks.length ? group : { ...group, hooks: rest })
+  }
+  if (!removed) return { removed: 0, emptied: false, reason: 'none' }
+
+  if (kept.length) parsed.hooks.PreToolUse = kept
+  else delete parsed.hooks.PreToolUse
+  if (!Object.keys(parsed.hooks).length) delete parsed.hooks
+  const emptied = !Object.keys(parsed).length
+  if (!emptied) writeSettings(file, parsed)
+  return { removed, emptied, reason: 'removed' }
+}
+
 // The name this shipped under when there was one hook. Kept as an alias rather
 // than renamed away, because it is what an installed `init.js` from an older
 // version calls — and a rename that breaks an upgrade path is not a rename, it
@@ -226,6 +271,7 @@ const ensureReviewGateHook = ensureHooks
 
 module.exports = {
   ensureHooks,
+  removeHooks,
   ensureReviewGateHook,
   alreadyRegistered,
   registeredHooks,

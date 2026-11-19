@@ -165,3 +165,127 @@ test('stays silent: a team init writes no exclude block and no scope', async () 
     cleanup(dir)
   }
 })
+
+// --- converting a committed (team) install ---------------------------------
+
+const teamInit = (dir) => quiet(() => init({ dir, force: false, claudeMd: true, mode: 'init' }))
+const commitAll = (dir, msg) => {
+  git(dir, 'add', '-A')
+  git(dir, 'commit', '-q', '-m', msg)
+}
+const index = (dir) => git(dir, 'ls-files').split('\n').filter(Boolean)
+const staged = (dir) => git(dir, 'diff', '--cached', '--name-status').split('\n').filter(Boolean)
+
+test('converting a committed install untracks it, keeps it on disk, and stages only', async () => {
+  const dir = repo()
+  try {
+    await teamInit(dir)
+    commitAll(dir, 'team install')
+    const head = git(dir, 'rev-parse', 'HEAD')
+    await localInit(dir)
+    assert.strictEqual(git(dir, 'rev-parse', 'HEAD'), head, 'nothing committed')
+    assert.ok(fs.existsSync(path.join(dir, '.claude', 'skills', 'spec', 'SKILL.md')), 'kept on disk')
+    const tracked = index(dir)
+    assert.deepStrictEqual(tracked.filter((p) => p.startsWith('.claude/')), [], 'no .claude path tracked')
+    assert.ok(!tracked.includes('specs/.core/.skitterspec-manifest.json'), 'manifest untracked')
+    assert.ok(tracked.some((p) => p.startsWith('specs/')), 'specs stay tracked')
+    assert.ok(staged(dir).some((l) => l.startsWith('D\t.claude/skills/spec/SKILL.md')), 'removal staged')
+    assert.ok(!fs.readFileSync(path.join(dir, 'CLAUDE.md'), 'utf8').includes('skitterspec:start'), 'block left CLAUDE.md')
+    assert.ok(fs.readFileSync(path.join(dir, 'CLAUDE.local.md'), 'utf8').includes('skitterspec:start'), 'block in local file')
+    assert.ok(!fs.existsSync(path.join(dir, '.claude', 'settings.json')), 'settings.json held only ours — removed')
+    const local = JSON.parse(fs.readFileSync(path.join(dir, '.claude', 'settings.local.json'), 'utf8'))
+    assert.ok(local.hooks.PreToolUse.length >= 3, 'hooks moved local')
+    assert.ok(lastReport().suggestions.some((s) => /staged, not committed/.test(s)))
+    // After the operator commits it, git sees nothing outside specs/.
+    git(dir, 'commit', '-q', '-am', 'convert')
+    assert.deepStrictEqual(visible(dir).filter((p) => !p.startsWith('specs/')), [])
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('foreign hooks stay, per hook, even in a shared matcher group', async () => {
+  const dir = repo()
+  try {
+    await teamInit(dir)
+    const file = path.join(dir, '.claude', 'settings.json')
+    const s = JSON.parse(fs.readFileSync(file, 'utf8'))
+    const mine = { type: 'command', command: 'python3 .claude/hooks/protect_secrets.py' }
+    s.hooks.PreToolUse[0].hooks.push(mine)
+    s.hooks.PostToolUse = [{ matcher: 'Edit', hooks: [{ type: 'command', command: 'npm run typecheck' }] }]
+    s.permissions = { allow: ['Bash(ls)'] }
+    fs.writeFileSync(file, JSON.stringify(s, null, 2))
+    commitAll(dir, 'team install + own hooks')
+    await localInit(dir)
+    const after = JSON.parse(fs.readFileSync(file, 'utf8'))
+    const commands = after.hooks.PreToolUse.flatMap((g) => g.hooks.map((h) => h.command))
+    assert.deepStrictEqual(commands, [mine.command], 'only the foreign hook remains')
+    assert.deepStrictEqual(after.hooks.PostToolUse, s.hooks.PostToolUse, 'PostToolUse untouched')
+    assert.deepStrictEqual(after.permissions, s.permissions, 'other keys untouched')
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('a customized managed file survives conversion byte for byte', async () => {
+  const dir = repo()
+  try {
+    await teamInit(dir)
+    const rule = path.join(dir, '.claude', 'rules', 'spec-planning.md')
+    fs.appendFileSync(rule, '\n## Our MSBuild notes\n')
+    const edited = fs.readFileSync(rule, 'utf8')
+    commitAll(dir, 'team install, edited rule')
+    await localInit(dir)
+    assert.strictEqual(fs.readFileSync(rule, 'utf8'), edited)
+    assert.ok(!index(dir).includes('.claude/rules/spec-planning.md'), 'untracked all the same')
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('a markerless Spec workflow section is reported, never moved', async () => {
+  const dir = repo()
+  try {
+    await teamInit(dir)
+    const claude = path.join(dir, 'CLAUDE.md')
+    const manual = '# app\n\nintro\n\n## Spec workflow\n\nhand-written\n\n## Other\n\nkept\n'
+    fs.writeFileSync(claude, manual)
+    commitAll(dir, 'manual section')
+    await localInit(dir)
+    assert.strictEqual(fs.readFileSync(claude, 'utf8'), manual, 'CLAUDE.md untouched')
+    assert.ok(lastReport().warnings.some((w) => /CLAUDE\.md:5 has a "Spec workflow" section with no skitterspec markers/.test(w)))
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('a skitterspec dependency is reported and package.json left alone', async () => {
+  const dir = repo()
+  try {
+    const pkg = { name: 'app', devDependencies: { '@skitterbyte/skitterspec-azure-boards': '^2.16.0' } }
+    fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify(pkg, null, 2))
+    const before = fs.readFileSync(path.join(dir, 'package.json'), 'utf8')
+    await localInit(dir)
+    assert.strictEqual(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'), before)
+    assert.ok(lastReport().suggestions.some((s) => /npm i -g @skitterbyte\/skitterspec-azure-boards/.test(s)))
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('stays silent: settings.json holding only foreign hooks is untouched', async () => {
+  const dir = repo()
+  try {
+    fs.mkdirSync(path.join(dir, '.claude'))
+    const own = { hooks: { PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'node x.js' }] }] } }
+    const text = JSON.stringify(own, null, 2) + '\n'
+    fs.writeFileSync(path.join(dir, '.claude', 'settings.json'), text)
+    commitAll(dir, 'own settings')
+    await localInit(dir)
+    assert.strictEqual(fs.readFileSync(path.join(dir, '.claude', 'settings.json'), 'utf8'), text)
+    assert.ok(index(dir).includes('.claude/settings.json'), 'still tracked')
+    assert.ok(!lastReport().suggestions.some((s) => /staged, not committed/.test(s)), 'nothing to commit')
+  } finally {
+    cleanup(dir)
+  }
+})

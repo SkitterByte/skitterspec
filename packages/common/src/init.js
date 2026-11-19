@@ -6,7 +6,7 @@ const crypto = require('crypto')
 const { execFileSync } = require('child_process')
 
 const { ensureWorktreeDirTrusted } = require('./env/trust.js')
-const { ensureHooks } = require('./env/hooks.js')
+const { ensureHooks, removeHooks } = require('./env/hooks.js')
 const { repoInfo, expandTokens } = require('./env/resolve.js')
 const { primaryAnchor } = require('./env/project.js')
 const { setProjectKeys } = require('./env/projectedit.js')
@@ -990,6 +990,7 @@ function resync(dir, { force = false, claudeMd = true, diff = false, local = fal
   if (!fs.existsSync(dir)) throw new Error(`target dir does not exist: ${dir}`)
   resetReport()
   resolveScope(dir, local)
+  if (scope === 'local') convertCommitted(dir)
   const manifest = readManifest(dir)
   for (const t of managedTargets(dir)) resyncManagedFile(dir, t, manifest, force)
   installFolders(dir)
@@ -1270,10 +1271,97 @@ function writeLocalExcludes(dir) {
   report.updated.push('.git/info/exclude (skitterspec block)')
 }
 
+// Convert a COMMITTED (team) install into a local one, in place. Every step
+// leaves the files on disk and stages or edits only; it never commits — the
+// operator commits the removal, and teammates who pull it lose the install.
+//
+//   - managed paths git tracks → `git rm --cached` (staged, file kept)
+//   - our hooks in settings.json → removed per hook; ensureHooks then adds
+//     them to settings.local.json
+//   - the CLAUDE.md section → moved ONLY when it carries the markers. A
+//     markerless "Spec workflow" heading is someone's section, or an older
+//     install's: reported, never bounded by guesswork
+//   - a skitterspec dependency in package.json → reported, never edited
+//
+// Quiet on a repo with nothing committed: every step finds nothing.
+function convertCommitted(dir) {
+  const git = (...args) =>
+    execFileSync('git', ['-C', dir, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+  let tracked
+  try {
+    const candidates = [...new Set(localExcludes(dir))].filter((p) => !p.endsWith('/'))
+    tracked = git('ls-files', '--', ...candidates).split('\n').filter(Boolean)
+  } catch {
+    return // not a git repo — writeLocalExcludes says so
+  }
+  let staged = tracked.length > 0
+  if (tracked.length) {
+    git('rm', '--cached', '-q', '--', ...tracked)
+    report.updated.push(`git index (${tracked.length} managed file(s) untracked — kept on disk)`)
+  }
+
+  const hooks = removeHooks(dir)
+  if (hooks.reason === 'malformed') {
+    report.warnings.push('.claude/settings.json is not valid JSON — skitterspec hooks left in it; remove them by hand')
+  } else if (hooks.reason === 'removed') {
+    if (hooks.emptied) {
+      fs.unlinkSync(path.join(dir, '.claude', 'settings.json'))
+      // Stage the deletion too, so the conversion is one thing to commit.
+      try {
+        git('rm', '--cached', '-q', '--ignore-unmatch', '--', '.claude/settings.json')
+      } catch {
+        /* untracked settings — nothing to stage */
+      }
+      report.removed.push('.claude/settings.json (held only skitterspec hooks)')
+    } else report.updated.push(`.claude/settings.json (${hooks.removed} skitterspec hook(s) moved to settings.local.json)`)
+    staged = true
+  }
+
+  const claude = path.join(dir, 'CLAUDE.md')
+  if (fs.existsSync(claude)) {
+    const text = fs.readFileSync(claude, 'utf8')
+    if (text.includes(SPEC_MARKER_START) && text.includes(SPEC_MARKER_END)) {
+      const re = new RegExp(`\\n*${SPEC_MARKER_START}[\\s\\S]*?${SPEC_MARKER_END}\\n?`)
+      fs.writeFileSync(claude, text.replace(re, '\n'))
+      report.updated.push('CLAUDE.md (spec workflow section moved to CLAUDE.local.md)')
+      staged = true
+    } else {
+      const line = text.split('\n').findIndex((l) => /^##\s+Spec workflow/.test(l))
+      if (line !== -1) {
+        report.warnings.push(
+          `CLAUDE.md:${line + 1} has a "Spec workflow" section with no skitterspec markers, so it was ` +
+            'not moved — move it to CLAUDE.local.md by hand if it is the skitterspec block',
+        )
+      }
+    }
+  }
+
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'))
+    const deps = { ...pkg.dependencies, ...pkg.devDependencies }
+    const ours = Object.keys(deps).filter((n) => n.startsWith('@skitterbyte/skitterspec'))
+    for (const name of ours) {
+      report.suggestions.push(
+        `package.json lists ${name} — left as it is. To keep it out of the repo too, ` +
+          `remove it and install it globally (npm i -g ${name}), then re-run \`skitterspec update\``,
+      )
+    }
+  } catch {
+    /* no package.json, or unreadable — nothing to say */
+  }
+
+  if (staged) {
+    report.suggestions.push(
+      'the conversion is staged, not committed — commit it (/commit) and teammates who pull it lose the install',
+    )
+  }
+}
+
 async function init({ dir, force, claudeMd, mode, isolation, workspaceMode, gating, project, local = false }) {
   if (!fs.existsSync(dir)) throw new Error(`target dir does not exist: ${dir}`)
   resetReport()
   resolveScope(dir, local)
+  if (scope === 'local') convertCommitted(dir)
 
   installSkills(dir, { force })
   installCommands(dir, { force })
