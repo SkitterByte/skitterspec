@@ -121,3 +121,110 @@ for (const hook of HOOKS) {
     }
   })
 }
+
+// --- A worktree with no node_modules: the primary checkout's install ----------
+//
+// bug-hooks-engine-primary-checkout: worktrees live beside the primary
+// checkout, not under it, so walking up never reached its node_modules. A
+// `--docs` worktree has none of its own, the hooks fell back to the bare name,
+// spawn hit ENOENT, and every guard was silently off there.
+
+const { execFileSync, spawnSync } = require('node:child_process')
+
+const ALL_HOOKS = ['main-guard.cjs', 'review-gate.cjs', 'project-guard.cjs'].map((f) =>
+  path.join(__dirname, '..', 'assets', 'hooks', f),
+)
+
+function git(cwd, ...args) {
+  return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+}
+
+// A primary checkout and a sibling worktree, the layout `worktree.root` makes.
+function primaryAndWorktree() {
+  const root = tmp()
+  const primary = path.join(root, 'repo')
+  fs.mkdirSync(primary)
+  git(primary, 'init', '-q', '-b', 'main')
+  fs.writeFileSync(path.join(primary, 'README.md'), 'x\n')
+  git(primary, 'add', 'README.md')
+  git(primary, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '-m', 'init')
+  const worktree = path.join(root, 'repo-wt', 'feat-x')
+  git(primary, 'worktree', 'add', '-q', worktree, '-b', 'feat/x')
+  return { root, primary, worktree }
+}
+
+for (const hook of ALL_HOOKS) {
+  const { findEngine } = require(hook)
+  const name = path.basename(hook)
+
+  test(`${name}: a worktree with no node_modules finds the primary checkout's engine`, () => {
+    const { primary, worktree } = primaryAndWorktree()
+    const want = bin(primary, 'skitterspec-azure-boards')
+    assert.strictEqual(withoutOverride(() => findEngine(worktree, 'linux')), want)
+  })
+
+  test(`${name}: on win32 a worktree finds the primary checkout's JS entry`, () => {
+    const { primary, worktree } = primaryAndWorktree()
+    const want = jsEntry(primary)
+    assert.strictEqual(withoutOverride(() => findEngine(worktree, 'win32')), want)
+  })
+
+  test(`${name}: a project subfolder in a worktree maps onto the primary's subfolder`, () => {
+    const { primary, worktree } = primaryAndWorktree()
+    bin(primary)
+    const want = bin(path.join(primary, 'sub'))
+    const project = path.join(worktree, 'sub')
+    fs.mkdirSync(project, { recursive: true })
+    assert.strictEqual(withoutOverride(() => findEngine(project, 'linux')), want)
+  })
+
+  test(`${name}: the worktree's own install still wins over the primary's`, () => {
+    const { primary, worktree } = primaryAndWorktree()
+    bin(primary)
+    const want = bin(worktree)
+    assert.strictEqual(withoutOverride(() => findEngine(worktree, 'linux')), want)
+  })
+
+  test(`${name}: STAYS SILENT — SKITTERSPEC_BIN still wins in a worktree`, () => {
+    const { primary, worktree } = primaryAndWorktree()
+    bin(primary)
+    const saved = process.env.SKITTERSPEC_BIN
+    process.env.SKITTERSPEC_BIN = '/x/engine'
+    try {
+      assert.strictEqual(findEngine(worktree, 'linux'), '/x/engine')
+    } finally {
+      if (saved === undefined) delete process.env.SKITTERSPEC_BIN
+      else process.env.SKITTERSPEC_BIN = saved
+    }
+  })
+}
+
+// --- No engine anywhere: still open, no longer silent --------------------------
+
+const PAYLOADS = {
+  'main-guard.cjs': (dir) => ({ tool_name: 'Write', tool_input: { file_path: path.join(dir, 'a.txt') }, cwd: dir }),
+  'review-gate.cjs': (dir) => ({ tool_name: 'Bash', tool_input: { command: 'git commit -m x' }, cwd: dir }),
+  'project-guard.cjs': (dir) => ({ tool_name: 'Bash', tool_input: { command: 'git commit -m x' }, cwd: dir }),
+}
+
+for (const hook of ALL_HOOKS) {
+  const name = path.basename(hook)
+
+  test(`${name}: an unreachable engine allows, and says so on stderr`, () => {
+    const dir = tmp()
+    const empty = tmp()
+    const env = { ...process.env, PATH: empty, CLAUDE_PROJECT_DIR: dir }
+    delete env.SKITTERSPEC_BIN
+    const res = spawnSync(process.execPath, [hook], {
+      input: JSON.stringify(PAYLOADS[name](dir)),
+      env,
+      encoding: 'utf8',
+    })
+    assert.strictEqual(res.status, 0)
+    assert.strictEqual(res.stdout, '', 'no decision — the call proceeds')
+    const lines = res.stderr.trim().split('\n')
+    assert.strictEqual(lines.length, 1, res.stderr)
+    assert.match(lines[0], new RegExp(name.replace('.cjs', '')))
+    assert.ok(lines[0].includes(dir), `names the dirs tried: ${lines[0]}`)
+  })
+}
