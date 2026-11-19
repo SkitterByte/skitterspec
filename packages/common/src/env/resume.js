@@ -21,6 +21,7 @@
  */
 
 const { phaseProgress } = require('./phases.js')
+const { shellPath } = require('./project.js')
 
 // Same grammar as `specstate.js`'s header(): a blockquote `**Field:**` line.
 function headerValue(text, field) {
@@ -187,11 +188,11 @@ function planResume(target, env) {
   // else a refusal.
   let commands
   if (env.localBranch) {
-    commands = [`git worktree add ${q(env.worktreePath)} ${env.branch}`]
+    commands = [`git worktree add ${shellPath(env.worktreePath)} ${env.branch}`]
   } else if (env.remoteBranch) {
     commands = [
       `git fetch ${env.remote} ${env.branch}`,
-      `git worktree add ${q(env.worktreePath)} -b ${env.branch} --track ${env.remote}/${env.branch}`,
+      `git worktree add ${shellPath(env.worktreePath)} -b ${env.branch} --track ${env.remote}/${env.branch}`,
     ]
   } else {
     return {
@@ -201,10 +202,6 @@ function planResume(target, env) {
     }
   }
   return { ok: true, ...base, commands, then: [`skitterspec spec-env bootstrap ${target.folder}`] }
-}
-
-function q(p) {
-  return /[\s"'$`\\]/.test(p) ? `"${p.replace(/(["$`\\])/g, '\\$1')}"` : p
 }
 
 function blockerLine(b) {

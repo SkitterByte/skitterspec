@@ -14,6 +14,7 @@ const path = require('node:path')
 const { execFileSync } = require('node:child_process')
 
 const { run } = require('../src/cli.js')
+const { shellPath } = require('../src/env/project.js')
 
 function git(cwd, ...args) {
   return execFileSync('git', ['-C', cwd, ...args], { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim()
@@ -93,7 +94,8 @@ test('a branch-only spec resolves by ticket from the primary checkout, with an a
     assert.strictEqual(r.bucket, 'in-progress')
     assert.strictEqual(r.source, 'branch')
     assert.deepStrictEqual(r.blockers, [{ where: 'spec', text: 'waiting on LSC release', until: null }])
-    assert.deepStrictEqual(r.commands, [`git worktree add ${worktree} feat/x`])
+    // The engine's own quoting, so the expectation holds on Windows too.
+    assert.deepStrictEqual(r.commands, [`git worktree add ${shellPath(worktree)} feat/x`])
     assert.deepStrictEqual(r.then, ['skitterspec spec-env bootstrap feat-x'])
   } finally {
     cleanup(dir)

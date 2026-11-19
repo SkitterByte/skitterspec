@@ -162,3 +162,16 @@ test('the resume answer carries the blocker that holds the next build, and the t
   assert.deepStrictEqual(r.blocking, { where: 2, text: 'deploy', until: null })
   assert.match(resumeLines(r).join('\n'), /phase 2 — deploy {2}← holds the next build/)
 })
+
+// A Windows worktree path is printed the way provision.js prints it — forward
+// slashes, quoted only where the shell needs it — never with its backslashes
+// escaped, which Windows read as a different path.
+test('a Windows worktree path is written with the engine\'s shellPath', () => {
+  const r = planResume(copy('feat-x', 'in-progress', 'branch'), {
+    ...ENV,
+    worktreePath: 'C:\\Users\\me\\repo-wt\\x',
+    worktreeExists: false,
+    localBranch: true,
+  })
+  assert.deepStrictEqual(r.commands, ['git worktree add C:/Users/me/repo-wt/x feat/x'])
+})
