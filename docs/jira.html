@@ -5,7 +5,7 @@ covers:
   - packages/skitterspec-jira/**
   - packages/sync-core/**
   - packages/provider-kit/**
-verified: b487d5fdf524
+verified: b6132fbe2dc9
 -->
 <html lang="en">
 <head>
@@ -653,6 +653,7 @@ verified: b487d5fdf524
         <p>Install this superset <strong>or</strong> the base — never both; the superset contains the whole base (and exposes the <span class="mono">skitterspec</span> binary name alongside its own).</p>
         <div class="code"><span class="c"># scaffold into .claude/ + specs/</span>
 npx @skitterbyte/skitterspec-jira <span class="p">init</span></div>
+        <p>The only one using skitterspec on a shared repo? Install it globally and run <span class="mono" style="font-size:.9em">skitterspec-jira init --local</span>: the skills, rules and hooks stay on your machine and out of git, and only <span class="mono" style="font-size:.9em">specs/</span> is committed. Never for a team — the hooks and rules are shared policy.</p>
         <p>Connecting Atlassian's remote MCP server is <strong>optional</strong>: with credentials set (step&nbsp;3) the engine talks to Jira Cloud directly and MCP is never consulted. Without them, the sync skills ride the MCP server instead — the engine itself still makes no MCP call.</p>
       </div>
 
@@ -768,7 +769,7 @@ skitterspec-jira spec-sync <span class="p">credentials set</span></div>
     <div class="section-head reveal">
       <div class="eyebrow">Under the skills</div>
       <h2>Every spec-sync verb, and who runs it.</h2>
-      <p class="lede">Most of these are plumbing that <span class="mono" style="font-size:.9em">/spec-push</span> and <span class="mono" style="font-size:.9em">/spec-status</span> drive for you — listed so you can read a plan or debug a mirror, not so you type them. Two providers ship an engine with this name, so the rows write it as <span class="mono" style="font-size:.9em">spec-sync (jira)</span> to say whose table this is; the CLI is a local devDependency and never on <span class="mono" style="font-size:.9em">PATH</span>, so every verb is reached as <span class="mono" style="font-size:.9em">pnpm exec skitterspec-jira spec-sync …</span>.</p>
+      <p class="lede">Most of these are plumbing that <span class="mono" style="font-size:.9em">/spec-push</span> and <span class="mono" style="font-size:.9em">/spec-status</span> drive for you — listed so you can read a plan or debug a mirror, not so you type them. Two providers ship an engine with this name, so the rows write it as <span class="mono" style="font-size:.9em">spec-sync (jira)</span> to say whose table this is; every verb is reached through the way you installed it — <span class="mono" style="font-size:.9em">pnpm exec skitterspec-jira spec-sync …</span> with pnpm, <span class="mono" style="font-size:.9em">npx --no-install skitterspec-jira …</span> with npm, or the bare <span class="mono" style="font-size:.9em">skitterspec-jira …</span> from a global install. The skills are written for whichever it is when they are installed.</p>
     </div>
 
     <div class="table-wrap reveal">

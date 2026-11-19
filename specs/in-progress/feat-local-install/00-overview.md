@@ -12,7 +12,7 @@ github_url: "https://github.com/SkitterByte/skitterspec/issues/234"
 > **Raised:** 2026-11-19
 > **Area:** packages/common/src/init.js, packages/common/src/cli.js, packages/common/src/env/hooks.js, packages/common/src/env/bootstrap.js, packages/common/src/env/config.js, packages/{azure-boards,github,jira,linear}/assets, scripts/build-dist.js, docs
 > **Stack:** worktree
-> **Docs:** reference, azure-boards, github, jira, linear
+> **Docs:** index, reference, azure-boards, github, jira, linear
 
 ## Summary
 
@@ -160,7 +160,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 2 | Fresh `init --local` and scoped `update` | ✅ | [02-local-init.md](02-local-init.md) |
 | 3 | Convert a committed install | ✅ | [03-convert.md](03-convert.md) |
 | 4 | Seed the local install into worktrees | ✅ | [04-worktree-seed.md](04-worktree-seed.md) |
-| 5 | Docs | ⬜ | [05-docs.md](05-docs.md) |
+| 5 | Docs | ✅ | [05-docs.md](05-docs.md) |
 
 ## Open questions
 
@@ -200,3 +200,6 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   to git, so a `SKILL.md`-level exclude did not hide it in the worktree.
   Local excludes now list each skill as its folder (`/.claude/skills/<name>`),
   which also covers the primary checkout.
+- 2026-11-19 — Phase 5: `docs-freshness impact` flagged `index.html`
+  (it covers `init.js` and `cli.js`), so its install step gained the
+  `--local` line too and the `Docs:` header now names it.

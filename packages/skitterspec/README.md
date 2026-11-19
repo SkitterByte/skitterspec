@@ -53,6 +53,31 @@ This installs the skills + rules into `.claude/`, scaffolds `specs/`, and patche
 `CLAUDE.md`. See `.claude/rules/spec-planning.md` after install to set your
 project's typecheck/test/lint commands.
 
+### Just you, on a shared repo — `init --local`
+
+When you are the only one on a team using skitterspec, keep it to yourself:
+
+```sh
+npm i -g @skitterbyte/skitterspec     # or your provider's package
+skitterspec init --local
+```
+
+The skills, commands, rules and hooks are installed exactly as above but kept
+out of git — each path is listed in `.git/info/exclude`, the hooks go in
+`.claude/settings.local.json`, and the workflow block goes in `CLAUDE.local.md`.
+Only `specs/` is committed, so specs still travel with branches and PRs. Each
+spec worktree gets the install seeded in from your checkout, and `update`
+remembers the mode. On a repo where skitterspec is already committed, `--local`
+converts it in place: the files stay on disk, their removal is staged for you
+to commit, and nothing touches `package.json`.
+
+**Never for a team.** The hooks and rules are policy a team shares; `--local`
+takes them away from everyone else.
+
+Skills and commands call the CLI through whatever is installed — `pnpm exec`,
+`npx --no-install`, `yarn`, or the bare binary from a global install — and
+never fetch an unscoped package from npm.
+
 ## Upgrading
 
 ```sh
