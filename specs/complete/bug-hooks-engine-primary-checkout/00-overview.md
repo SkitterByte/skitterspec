@@ -96,3 +96,4 @@ name, so nothing else is needed to reach installs.
 
 - 2026-11-19 — Bug reproduced; failing tests added (red).
 - 2026-11-19 — Fixed: hooks resolve the engine through the primary checkout and name an unreachable one on stderr; tests green.
+- 2026-11-19 — Completed; fix in, tests green.
