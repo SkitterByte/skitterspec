@@ -107,3 +107,26 @@ test('/spec-start no longer promises something only this session can keep', () =
   // And the claim it must NOT have quietly dropped.
   assert.match(START, /nothing\s*\n?about rules 1 to 3 is loosened/i)
 })
+
+// bug-live-release-forgets-spec. After `/spec-live main` the session stands in
+// the primary checkout; with several worktrees the old refusal said "no spec in
+// flight — run /spec-start", which is wrong for specs already started.
+test('the refusal tells "none" from "ambiguous", and names --worktree for the second', () => {
+  assert.match(NEXT, /spec-env resolve --json/)
+  assert.match(NEXT, /reason: "none"/)
+  assert.match(NEXT, /reason: "ambiguous"/)
+  const ambiguous = NEXT.indexOf('- **`reason: "ambiguous"`**')
+  const tail = NEXT.slice(ambiguous, ambiguous + 600)
+  assert.match(tail, /\/spec-next --worktree <path>/)
+  assert.match(tail, /\/spec-start` is wrong here/)
+})
+
+test('rung 4 includes the spec last released on this checkout', () => {
+  assert.match(NEXT, /via: "last-live"/)
+  assert.match(NEXT, /\/spec-live main` last\s+released/)
+})
+
+test('rung 1 reads the line the bare live report actually prints', () => {
+  // The bare report prints `in-flight:`; `live:` is the per-spec form's line.
+  assert.match(NEXT, /read its `in-flight:` line/)
+})

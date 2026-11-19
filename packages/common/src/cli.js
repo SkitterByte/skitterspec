@@ -103,6 +103,9 @@ const {
   readReceipt,
   writeReceipt,
   clearReceipt,
+  readLastLive,
+  writeLastLive,
+  clearLastLive,
   summarizeReceipt,
   migrationsHit,
   depsChanged,
@@ -2757,6 +2760,10 @@ function specEnvDown(dir, config, specArg, flags) {
     writeRegistry(dir, config, next)
   }
 
+  // A torn-down spec is no longer anything a bare resolve should name.
+  const last = readLastLive(dir, config)
+  if (last && last.spec === spec.folder) clearLastLive(dir, config)
+
   const out = []
   out.push(
     `spec-env down: ${spec.folder}` +
@@ -2881,47 +2888,73 @@ function volumeCreatedAt(names) {
  * `soleProvisionedSpec` below is a thin wrapper that turns the two empty-handed
  * cases into the exact errors every other subcommand already relies on.
  */
-function provisionedSpecChoice(dir, config, cwd = process.cwd()) {
+function provisionedSpecChoice(dir, config, cwd = process.cwd(), { lastLive = true } = {}) {
   const worktreePaths = liveWorktreePaths(gitReader(dir))
   const provisioned = allSpecs(dir, config, worktreePaths, speclessMap(dir, config))
-    .map((s) => ({ folder: s.folder, wt: path.resolve(s.worktreePath) }))
+    .map((s) => ({ folder: s.folder, wt: path.resolve(s.worktreePath), project: s.projectPath }))
     // The primary checkout is itself in `git worktree list`; a spec is
     // provisioned only when it has its OWN worktree, separate from it.
     .filter((s) => s.wt !== dir && worktreePaths.has(s.wt))
     .sort((a, b) => a.folder.localeCompare(b.folder))
+  // The project folder, which is what `resolve` prints as `worktree:` and what
+  // `/spec-next --worktree` is checked against — the worktree root only differs
+  // when the project sits below the git root.
+  const worktrees = provisioned.map((s) => ({ spec: s.folder, worktree: s.project }))
 
   // 1. Standing inside a spec's worktree names it outright. Deepest match wins,
   //    so a nested worktree is not shadowed by an ancestor one.
-  let here
-  try {
-    here = fs.realpathSync.native(path.resolve(cwd))
-  } catch {
-    here = path.resolve(cwd)
+  const real = (p) => {
+    try {
+      return fs.realpathSync.native(path.resolve(p))
+    } catch {
+      return path.resolve(p)
+    }
   }
+  const here = real(cwd)
   const inside = provisioned
     .filter((s) => here === s.wt || here.startsWith(s.wt + path.sep))
     .sort((a, b) => b.wt.length - a.wt.length)[0]
-  if (inside) return { folder: inside.folder }
+  if (inside) return { folder: inside.folder, via: 'here', worktrees }
 
-  // 2. Otherwise only an unambiguous set answers.
-  if (provisioned.length === 1) return { folder: provisioned[0].folder }
-  return { candidates: provisioned.map((s) => s.folder) }
+  // 2. From the primary checkout, the spec `live release` last handed back
+  //    (bug-live-release-forgets-spec) — only while it is still provisioned, so
+  //    a record outliving its worktree falls through as cannot-tell. Nowhere
+  //    else: the record is this checkout's, and says nothing about other cwds.
+  const primary = real(dir)
+  if (lastLive && (here === primary || here.startsWith(primary + path.sep))) {
+    const record = readLastLive(dir, config)
+    const hit = record && provisioned.find((s) => s.folder === record.spec)
+    if (hit) return { folder: hit.folder, via: 'last-live', worktrees }
+  }
+
+  // 3. Otherwise only an unambiguous set answers.
+  if (provisioned.length === 1) return { folder: provisioned[0].folder, via: 'sole', worktrees }
+  return { candidates: provisioned.map((s) => s.folder), worktrees }
 }
 
 function soleProvisionedSpec(dir, config, cwd = process.cwd()) {
-  const { folder, candidates } = provisionedSpecChoice(dir, config, cwd)
-  if (folder) return folder
-  if (!candidates.length) {
-    throw new Error(
-      'no spec given, and no spec has a worktree — name one explicitly, or run ' +
-        '/spec-start to provision it.',
-    )
-  }
-  throw new Error(
-    `no spec given, and ${candidates.length} specs have worktrees — name the one ` +
-      `you mean, or run this from inside one:\n` +
-      candidates.map((f, i) => `  ${i + 1}. ${f}`).join('\n'),
-  )
+  return provisionedSpecChoiceOrThrow(dir, config, cwd).folder
+}
+
+// `provisionedSpecChoice`, with the two empty-handed cases turned into the
+// errors every subcommand relies on. Each carries `reason` ('ambiguous' |
+// 'none') and the worktrees, so `resolve --json` can report it as data.
+function provisionedSpecChoiceOrThrow(dir, config, cwd = process.cwd()) {
+  const choice = provisionedSpecChoice(dir, config, cwd)
+  if (choice.folder) return choice
+  const err = !choice.candidates.length
+    ? new Error(
+        'no spec given, and no spec has a worktree — name one explicitly, or run ' +
+          '/spec-start to provision it.',
+      )
+    : new Error(
+        `no spec given, and ${choice.candidates.length} specs have worktrees — name the one ` +
+          `you mean, or run this from inside one:\n` +
+          choice.worktrees.map((w, i) => `  ${i + 1}. ${w.spec}  (${w.worktree})`).join('\n'),
+      )
+  err.reason = choice.candidates.length ? 'ambiguous' : 'none'
+  err.candidates = choice.worktrees
+  throw err
 }
 
 // Resolve a spec argument the ONE way every spec-env subcommand resolves it:
@@ -4490,14 +4523,60 @@ function assertPrimaryClean(dir, config, r) {
 }
 
 // Print the resolved identity/coordinates for a single spec.
+const RESOLVED_VIA = {
+  here: 'the worktree you are standing in',
+  'last-live': 'last live on this checkout',
+  sole: 'the only spec provisioned',
+}
+
 function specEnvResolve(dir, config, specArg, flags = {}) {
+  // Bare, say HOW it resolved as well as what: a caller standing in the primary
+  // checkout cannot see which rung answered. `--json` also reports the two
+  // empty-handed cases as data — `ambiguous` and `none` call for different
+  // next steps, and a skill should not tell them apart by an Error's wording.
+  let via = 'named'
+  if (!specArg) {
+    try {
+      const choice = provisionedSpecChoiceOrThrow(dir, config)
+      specArg = choice.folder
+      via = choice.via
+    } catch (err) {
+      if (!flags.json || !err.reason) throw err
+      process.stdout.write(
+        JSON.stringify({ ok: false, reason: err.reason, error: err.message, candidates: err.candidates }, null, 2) +
+          '\n',
+      )
+      return
+    }
+  }
   const r = resolveSpecWithWorktree(dir, config, specArg)
   if (flags.recordPrimary) return recordPrimary(dir, config, r)
   if (flags.assertPrimaryClean) return assertPrimaryClean(dir, config, r)
+  if (flags.json) {
+    process.stdout.write(
+      JSON.stringify(
+        {
+          ok: true,
+          spec: r.folder,
+          via,
+          bucket: r.specless ? null : r.bucket,
+          type: r.type,
+          slug: r.slug,
+          branch: r.branch,
+          worktree: r.projectPath,
+          project: r.projectName,
+        },
+        null,
+        2,
+      ) + '\n',
+    )
+    return
+  }
   process.stdout.write(
     // A specless branch has no bucket because it has no document — say that
     // rather than printing `(null)`, which reads as a lookup that failed.
     `spec:       ${r.folder} (${r.specless ? 'no spec' : r.bucket})\n` +
+      (RESOLVED_VIA[via] ? `via:        ${RESOLVED_VIA[via]}\n` : '') +
       `type/slug:  ${r.type} / ${r.slug}\n` +
       `branch:     ${r.branch}\n` +
       `worktree:   ${r.projectPath}\n` +
@@ -7564,7 +7643,9 @@ function bareLive(dir, config) {
     return { action: 'status', specArg: undefined }
   }
 
-  const choice = provisionedSpecChoice(dir, config)
+  // The last-live record is a hint for READING which spec you mean, never for a
+  // bare command that switches a branch on it — that stays one possible meaning.
+  const choice = provisionedSpecChoice(dir, config, process.cwd(), { lastLive: false })
   if (!choice.folder) {
     // Several worktrees is the only cannot-tell the status report does not
     // explain — it reports on the repo, not on what you might have meant. With
@@ -7736,6 +7817,9 @@ async function specEnvLiveTake(dir, config, specArg, flags = {}) {
     return
   }
   const receipt = writeReceipt(dir, config, plan.receipt)
+  // Another spec is now the one on this checkout; the last release no longer is.
+  const last = readLastLive(dir, config)
+  if (last && last.spec !== spec.folder) clearLastLive(dir, config)
 
   const out = [`spec-env live take: ${spec.folder} is live on the primary checkout`]
   out.push('')
@@ -7807,10 +7891,17 @@ async function specEnvLiveRelease(dir, config, specArg) {
   }
   if (worktreeExists) runGit(spec.worktreePath, ['switch', spec.branch])
   clearReceipt(dir, config)
+  // Remembered so a bare resolve from here still names this spec — the session
+  // is now standing in the primary checkout, which says nothing on its own.
+  writeLastLive(dir, config, { spec: spec.folder, worktree: spec.projectPath })
 
   process.stdout.write(
     `spec-env live release: ${spec.folder} released — primary back on ${base}, ` +
       `${spec.branch} re-isolated to its worktree.\n` +
+      // The project folder, not the worktree root: it is what `/spec-next
+      // --worktree` checks against `resolve`'s own `worktree:` line.
+      `  worktree:  ${spec.projectPath}\n` +
+      `  next:      /spec-next --worktree ${shellPath(spec.projectPath)}\n` +
       runAfterSwitch(plan.afterSwitch).lines.map((l) => `${l}\n`).join('') +
       plan.warnings.map((w) => `  ! ${w}\n`).join(''),
   )

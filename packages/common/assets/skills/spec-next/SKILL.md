@@ -50,8 +50,10 @@ evidence.
 Otherwise resolve **in this order**, and stop at the first that answers:
 
 1. **The live spec of this checkout** — run
-   `skitterspec spec-env live status` and read its `live:` line. `live: yes`
-   names the spec whose branch is checked out here; that is the one to build.
+   `skitterspec spec-env live status` and read its `in-flight:` line. A spec
+   name there is the spec whose branch is checked out here; that is the one to
+   build. `none` and `unknown` answer nothing — carry on down the list. (The
+   bare report's first line is a bare `spec-env live:` header, not an answer.)
 2. **The worktree you are standing in** — if this session's cwd is inside a
    spec's worktree, that spec is in flight *for this session*. This is the
    manual-parallel path: several specs may be provisioned, and a terminal tab
@@ -62,10 +64,17 @@ Otherwise resolve **in this order**, and stop at the first that answers:
    named, from wherever you happen to be standing:
 
    ```
-   skitterspec spec-env resolve
+   skitterspec spec-env resolve --json
    ```
 
-   Take its `spec:` line **only when it names exactly one spec**.
+   Take its `spec` **only when it names exactly one spec** (`ok: true`); `via`
+   says which rung answered.
+
+   From the primary checkout that includes the spec `/spec-live main` last
+   released here (`via: "last-live"`): releasing leaves the session standing
+   in the primary checkout, which says nothing on its own, so the engine
+   remembers the spec it handed back — for as long as that spec's worktree
+   exists — ahead of counting worktrees.
 
    This is the **durable** rung, and that is the whole reason it exists. Rungs 1
    to 3 all read *session* state, and session state does not survive a `/clear`,
@@ -81,13 +90,14 @@ Otherwise resolve **in this order**, and stop at the first that answers:
    `.claude/rules/spec-planning.md` states has none left.
 
    **Say which spec you resolved and how**, before writing a line of it:
-   *"not standing in a worktree — `<spec>` is the only spec provisioned"*. Rungs
+   *"not standing in a worktree — `<spec>` is the only spec provisioned"*, or
+   *"`<spec>` was last live on this checkout"*. Rungs
    1 to 3 are self-evident to whoever typed the command; this one is not, and
    the operator cannot see from where they sit what you picked.
 
-   **Several worktrees stay a refusal.** The engine names them and resolves
-   nothing — exactly the ambiguity the refusal below exists for. Relay its list
-   unchanged and stop; never pick from it.
+   **Several worktrees stay a refusal.** The engine answers `ok: false` with
+   `reason: "ambiguous"` and lists the `candidates`, each with its `worktree`,
+   and resolves nothing. Relay that list unchanged and stop; never pick from it.
 
    WHAT WOULD FOOL THIS: a worktree left behind by a declined teardown is still
    a worktree, so a finished spec can go on counting as provisioned. That widens
@@ -96,10 +106,18 @@ Otherwise resolve **in this order**, and stop at the first that answers:
    manufacture an *absence*, which is why the absence below is still worth
    refusing on.
 
-**If none answers, refuse and stop:**
-`no spec in flight — run /spec-start <name> to start one`.
+**If none answers, refuse and stop — and say which absence it is.** Rung 4's
+`reason` tells them apart, and they send the reader to different places:
 
-That now answers a real absence — no worktree anywhere, the engine included —
+- **`reason: "none"`** — no spec has a worktree anywhere:
+  `no spec in flight — run /spec-start <name> to start one`.
+- **`reason: "ambiguous"`** — several specs are in flight and this session is
+  standing in none of them: `several specs are in flight and this session is
+  not in one of them`, then the candidates as the engine listed them (spec and
+  worktree), and `/spec-next --worktree <path>` as the way to name one.
+  `/spec-start` is wrong here: every one of them is already started.
+
+The first answers a real absence — no worktree anywhere, the engine included —
 rather than a session that merely lost track of where it was standing.
 
 **Never fall back to the spec "in context".** A spec discussed in conversation
@@ -640,7 +658,8 @@ the shape; this section carries only what is specific here.
   **Some failed** or **Not yet**: the phase stays `🔄`, `Notes` says which steps
   are open, and `Next` is `/commit, then /spec-next` to pick them up.
 - `❌` — the phase's tests are red, or it stopped part-way. Quote the failure.
-- `⏸` — no spec in flight, or the name given does not match the one that is.
+- `⏸` — no spec in flight, several in flight with this session in none of
+  them, or the name given does not match the one that is.
 
 **Fields:** `Tracker` · `Branch` · `Built` · `Tests` · `Notes` · `Review` ·
 `Follow-ups` · `Next`

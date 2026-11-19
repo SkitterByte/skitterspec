@@ -80,6 +80,50 @@ function clearReceipt(rootDir, config) {
   }
 }
 
+// --- the last spec this checkout released ---------------------------------
+
+/**
+ * Which spec `live release` last handed back to its worktree
+ * (bug-live-release-forgets-spec). Releasing leaves the session standing in the
+ * primary checkout, where — with several worktrees — a bare resolve had no way
+ * to say which spec was just there, so `/spec-next` refused a spec in flight.
+ *
+ * A HINT, NEVER AN AUTHORITY. It answers only while the spec it names is still
+ * provisioned (the caller checks against `git worktree list`), and anything
+ * wrong with the file — missing, malformed, no `spec` — reads as null, never an
+ * error: a stale record is cannot-tell and falls through to the rungs below it.
+ *
+ * WHAT WOULD FOOL THIS: a record naming a spec whose worktree was torn down and
+ * then re-provisioned would answer for it again. That spec was released from
+ * this checkout and is in flight again, so the answer is still a real one.
+ */
+function lastLivePath(rootDir, config) {
+  return path.resolve(rootDir, path.dirname(config.registry), 'last-live.json')
+}
+
+function readLastLive(rootDir, config) {
+  try {
+    const record = JSON.parse(fs.readFileSync(lastLivePath(rootDir, config), 'utf-8'))
+    return record && typeof record.spec === 'string' && record.spec ? record : null
+  } catch {
+    return null
+  }
+}
+
+function writeLastLive(rootDir, config, fields) {
+  const file = lastLivePath(rootDir, config)
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  fs.writeFileSync(file, JSON.stringify(fields, null, 2) + '\n')
+}
+
+function clearLastLive(rootDir, config) {
+  try {
+    fs.unlinkSync(lastLivePath(rootDir, config))
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error
+  }
+}
+
 // A one-line human summary of a receipt (or the "free" state when null). Pure.
 function summarizeReceipt(receipt) {
   if (!receipt) return 'free — no spec is live'
@@ -611,6 +655,10 @@ module.exports = {
   readReceipt,
   writeReceipt,
   clearReceipt,
+  lastLivePath,
+  readLastLive,
+  writeLastLive,
+  clearLastLive,
   summarizeReceipt,
   globToRegExp,
   migrationsHit,
