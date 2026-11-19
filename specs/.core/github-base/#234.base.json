@@ -1,0 +1,22 @@
+{
+  "issue": "bb842fbd27cdb50cbfc849fe222e448a85589caf",
+  "issueFields": {
+    "description": "b708b5a42b6be52d7f43cfe496e3a38e4932544a",
+    "state": "5767f380fa5d574444763a1753c78be1df8d9037",
+    "descriptionStream": "4ee3e026c33b193e8104c0965195a38ac7d822c4"
+  },
+  "subIssues": {
+    "#235": "c1baae22736ec466517b48219e120e605b567326",
+    "#236": "4a92b5b7dbd8d706c8b478b3f9dcb804ba9e84ac",
+    "#237": "db608aac21227a164efff91227054d4f7c6d954c",
+    "#238": "9d4b99878947ce4099d9710e265b077d5b9a9db4",
+    "#239": "b903dc63295858afbcd7623fa5247f22140d91cc"
+  },
+  "subIssueStreams": {
+    "#235": "3cfddfdf289fda00cb6c2830ef1f3f661924e133",
+    "#236": "247fd976092901a60363bc27beed82afca5e95ef",
+    "#237": "bc3ce655e375aaf419bf61d98e283e6c1e665847",
+    "#238": "6e6c59c2f77272a90b86889bf68f7d79de88706a",
+    "#239": "e0f3688d79eebc5eedded2519a4f36a9340a82e4"
+  }
+}
