@@ -420,7 +420,7 @@ function fakeIntersection() {
   return io
 }
 
-function runPage(data, { checks = [], failStorage = false, clipboard = true, execCopy = true, protocol = 'file:', fetchWith = null, claudeUse = null, storage = null, noSelection = false, widths = DEFAULT_WIDTHS, intersect = false, canClose = true, closeThrows = false } = {}) {
+function runPage(data, { checks = [], failStorage = false, clipboard = true, execCopy = true, protocol = 'file:', fetchWith = null, storage = null, noSelection = false, widths = DEFAULT_WIDTHS, intersect = false, canClose = true, closeThrows = false } = {}) {
   const html = renderReviewPage(data)
   const island = /<script type="application\/json" id="review-data">([\s\S]*?)<\/script>/.exec(html)
   assert.ok(island, 'the island was not closed early')
@@ -465,10 +465,6 @@ function runPage(data, { checks = [], failStorage = false, clipboard = true, exe
   // The page decides how to send from what it IS — `file:` copies, anything
   // else posts — so the shim has to carry a protocol and a path.
   const location = { protocol, pathname: '/tok/feat-x' }
-  // A PUBLISHED page is distinguished by `window.claude.use` being there at
-  // all, so the shim grows one only when a test asks for it — every other test
-  // keeps describing a page the engine served.
-  if (claudeUse) dom.window.claude = { use: claudeUse }
   const posted = []
   const fetch = (url, opts) => {
     posted.push({ url, ...opts })
@@ -1740,75 +1736,16 @@ test('the header is built as text, never spliced as markup', () => {
   assert.doesNotMatch(TEMPLATE, /context-why[\s\S]{0,400}innerHTML/, 'and it never reaches for innerHTML')
 })
 
-// --- the third transport: a published page, for a reader off the LAN --------
-//
-// The engine serves on a LAN address, which a phone on mobile data cannot
-// reach — and a published page's POST would go to claude.ai and fail. So a
-// page that finds itself published hands the pass to the artifact's own store
-// instead, where Claude reads it back and deletes it.
-
-// A stand-in for the artifact runtime: `use('db')` resolving to a store that
-// records what was written.
-function fakeClaude({ db = true } = {}) {
-  const added = []
-  const use = (name) => {
-    if (name !== 'db' || !db) return Promise.resolve(null)
-    return Promise.resolve({
-      collection: (path) => ({
-        add: (doc) => {
-          added.push({ path, doc })
-          return Promise.resolve({ id: 'doc1' })
-        },
-      }),
-    })
-  }
-  return { use, added }
-}
-
+// The two transports: a served page posts, a `file://` page copies. A
+// published page once had a third, retired with the tier
+// (feat-tailnet-remote-tier); `settle` lets a POST's promise land.
 const settle = () => new Promise((r) => setTimeout(r, 0))
 
-test('a published page stores the pass instead of posting it', async () => {
-  const claude = fakeClaude()
-  const dom = runPage(marked(), { protocol: 'https:', claudeUse: claude.use })
-  dom.byId['verdict-discuss'].dispatch('click')
-  await settle()
-
-  assert.strictEqual(claude.added.length, 1)
-  assert.strictEqual(claude.added[0].path, 'passes')
-  assert.strictEqual(claude.added[0].doc.blob.verdict, 'discuss')
-  assert.strictEqual(claude.added[0].doc.spec, 'feat-x')
-  // The POST is the trap this branch exists to avoid: on a published page it
-  // would go to claude.ai, fail, and surface as "could not reach the server".
-  assert.deepStrictEqual(dom.posted, [])
-  assert.match(dom.byId['copy-hint'].textContent, /Sent/)
+test('STAYS SILENT: no page code reaches for an artifact store', () => {
+  assert.doesNotMatch(TEMPLATE, /window\.claude/)
+  assert.doesNotMatch(TEMPLATE, /sendToStore|isArtifact|allow-remote/)
 })
 
-test('a stored pass names the render it came from, so its age can be read', () => {
-  // Age is how a stranger's pass gives itself away, and a published page has
-  // no six-digit code to carry that for it.
-  const claude = fakeClaude()
-  const data = marked()
-  const dom = runPage(data, { protocol: 'https:', claudeUse: claude.use })
-  dom.byId['verdict-discuss'].dispatch('click')
-  return settle().then(() => {
-    assert.strictEqual(claude.added[0].doc.render, data.generatedAt)
-    assert.ok(claude.added[0].doc.at, 'and when it was sent')
-  })
-})
-
-test('a published page with no store falls back to the clipboard, never silence', async () => {
-  const claude = fakeClaude({ db: false })
-  const dom = runPage(marked(), { protocol: 'https:', claudeUse: claude.use, clipboard: false })
-  dom.byId['verdict-discuss'].dispatch('click')
-  await settle()
-  // Recoverable rather than lost: the reader's work is on screen to copy.
-  assert.strictEqual(dom.byId['copy-out'].hidden, false)
-  assert.match(dom.byId['copy-hint'].textContent, /Could not reach the store/)
-})
-
-// STAYS SILENT. Adding a transport must not change the two that existed — and
-// the check is presence of `window.claude`, so a served page never waits on a
-// capability that is never coming.
 test('a served page still posts, exactly as before', () => {
   const dom = runPage(marked(), { protocol: 'http:' })
   dom.byId['verdict-discuss'].dispatch('click')
@@ -1895,16 +1832,6 @@ test('there is a way back to the diff, and the buttons stay dead there', async (
   assert.match(dom.byId['decided-toggle'].textContent, /Hide the diff/)
 })
 
-test('a stored pass ends the review the same way', () => {
-  const claude = fakeClaude()
-  const dom = runPage(marked(), { protocol: 'https:', claudeUse: claude.use })
-  dom.byId['verdict-discuss'].dispatch('click')
-  return settle().then(() => {
-    assert.ok(decidedOn(dom))
-    assert.match(dom.byId['decided-what'].textContent, /Discuss first/)
-  })
-})
-
 // STAYS SILENT. A clipboard copy is NOT a delivery — the pass is in the
 // reader's hands, not Claude's — so ending the page there would claim
 // something was handed over when the reader still has to paste it.
@@ -1940,21 +1867,6 @@ test('a code keeps its box, because six digits are worth copying', async () => {
   await settle()
   assert.strictEqual(dom.byId['sent-cmd'].hidden, false)
   assert.strictEqual(dom.byId['sent-cmd-text'].textContent, '/spec-reviewed 418207')
-})
-
-test('a bare command is a sentence, not a copyable artefact', async () => {
-  // The store transport has no code to hand back, and `/spec-reviewed` is a
-  // word you type into the terminal you are already in. A Copy button for it
-  // makes a finished page look unfinished.
-  const claude = fakeClaude()
-  const dom = runPage(marked(), { protocol: 'https:', claudeUse: claude.use })
-  dom.byId['verdict-commit'].dispatch('click')
-  await settle()
-  assert.strictEqual(dom.byId['sent-cmd'].hidden, true, 'no command box')
-  assert.strictEqual(dom.byId['copy-hint'].hidden, true, 'and no hint above it')
-  // The instruction is not lost — it is a clause in the panel, where the rest
-  // of the ending already is.
-  assert.match(dom.byId['decided-note'].textContent, /run \/spec-reviewed where it is/)
 })
 
 test('the history line goes quiet once the panel says the same thing', async () => {
@@ -2527,12 +2439,6 @@ test('stays silent: a served page keeps its verdict bar and grows no rows', () =
   assert.deepStrictEqual(cmdRows(dom), [])
 })
 
-test('stays silent: a published page keeps its verdict bar too', () => {
-  const dom = runPage(marked(), { protocol: 'https:', claudeUse: () => Promise.resolve(null) })
-  assert.strictEqual(dom.byId.verdict.hidden, false)
-  assert.deepStrictEqual(cmdRows(dom), [])
-})
-
 // --- the file tree scrolls sideways, and the counts do not go with it --------
 //
 // Wrapped names turned every long path into three ragged lines. Unwrapping them
@@ -2960,12 +2866,11 @@ test('every action has a label and a command, and the two lists agree', () => {
   }
   const labels = list('ACTION_LABEL')
   const cmds = list('ACTION_CMD')
-  assert.deepStrictEqual(labels, ['live-on', 'allow-network', 'allow-remote'])
+  assert.deepStrictEqual(labels, ['live-on', 'allow-network'])
   assert.deepStrictEqual(cmds, labels, 'a label with no command leaves a file:// page mute')
   // The command a PERSON types, not the engine verb behind it — the same reason
-  // the render's own lines name `/spec-live` and `/spec-remote-review`.
+  // the render's own `live:` line names `/spec-live`.
   const cmdBlock = TEMPLATE.match(/var ACTION_CMD = \{([\s\S]*?)\n {2}\}/)[1]
-  assert.match(cmdBlock, /'allow-remote': '\/spec-remote-review'/)
   assert.match(cmdBlock, /'live-on': '\/spec-live'/)
 })
 
