@@ -315,8 +315,8 @@ const DEFAULT_CONFIG = Object.freeze({
   // serving-everywhere free of new exposure: `reader` still decides it, so a
   // remote reader binds every interface exactly as before and a local or
   // unknown one binds loopback. Serving more never means listening wider.
-  // `allowNetwork` and `allowRemote` are the two tiers a project permits. They
-  // exist because the engine CANNOT KNOW where the reader is sitting and kept
+  // `allowNetwork` is the switch for the served tiers a project permits. It
+  // exists because the engine CANNOT KNOW where the reader is sitting and kept
   // being asked to guess: detection reported `unknown` on a local session and
   // produced a page whose buttons cannot POST, reported `remote` and produced a
   // LAN URL a phone off the network could not reach, and flipped mid-session
@@ -325,14 +325,13 @@ const DEFAULT_CONFIG = Object.freeze({
   //
   // So the reader picks instead. `allowNetwork` decides THE BIND — on binds
   // every interface, off binds loopback — which is the last decision detection
-  // had. `allowRemote` PERMITS publishing; it never publishes, because each
-  // publish leaves a page skitterspec cannot delete.
+  // had. Its old sibling `allowRemote` permitted publishing, and is retired —
+  // see `RETIRED_KEYS`.
   review: Object.freeze({
     reader: 'detect',
     servePort: 'auto',
     serve: 'always',
     allowNetwork: true,
-    allowRemote: false,
     commitWith: '/commit',
     required: true,
     // SUPERSEDED by `project.name`, and still read beneath it so a config that
@@ -408,11 +407,22 @@ function isObject(value) {
  * them in here would change what this line means from "I ignored a key you wrote"
  * to "I disagreed with a value you wrote".
  */
+// Keys this engine once read and now ignores. A config that still sets one is
+// a repo that has not tidied up, not a typo, so it is never reported as
+// unknown: accusing a healthy config is the wrong branch of a cannot-tell
+// (`.claude/rules/negative-checks.md` rule 4).
+//
+// `review.allowRemote` permitted publishing the review as a claude.ai page.
+// That tier is gone, and `remote` is the tailnet on `allowNetwork`'s switch
+// (feat-tailnet-remote-tier).
+const RETIRED_KEYS = new Set(['review.allowRemote'])
+
 function collectUnknownKeys(parsed, known = DEFAULT_CONFIG, prefix = '') {
   if (!isObject(parsed)) return []
   const out = []
   for (const key of Object.keys(parsed)) {
     const dotted = prefix ? `${prefix}.${key}` : key
+    if (RETIRED_KEYS.has(dotted)) continue
     if (!Object.prototype.hasOwnProperty.call(known, key)) {
       out.push(dotted)
       continue
@@ -835,9 +845,8 @@ function mergeConfig(base, parsed) {
     // someone WROTE, never something a typo achieved on their behalf.
     assign(base.review, parsed.review, 'required', 'boolean')
     // Same shape as the two above: a non-boolean leaves the default standing, so
-    // a typo cannot quietly widen a bind or permit a publish.
+    // a typo cannot quietly widen a bind.
     assign(base.review, parsed.review, 'allowNetwork', 'boolean')
-    assign(base.review, parsed.review, 'allowRemote', 'boolean')
     // An entry that is neither shape is DROPPED rather than refused, like every
     // other value here — but unlike the scalars above there is no default for it
     // to fall through to, so a dropped entry is a reviewer that silently never

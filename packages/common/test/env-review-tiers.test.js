@@ -11,8 +11,9 @@
  * reader. Each was fixed on its own — so the fix here is to stop guessing.
  *
  * Most of these are stays-silent tests (`.claude/rules/negative-checks.md`
- * rule 3): two new settings decide a BIND and a PUBLISH, and being wrong about
- * either is expensive in a way a wrong render is not.
+ * rule 3): the setting decides a BIND, and being wrong about it is expensive in
+ * a way a wrong render is not. `remote` is the tailnet address of the same
+ * server, on the same switch (feat-tailnet-remote-tier).
  */
 
 const { test } = require('node:test')
@@ -72,11 +73,11 @@ const allow = (dir, ...extra) => runQuiet(['spec-env', 'review', 'allow', ...ext
 
 // --- the settings -----------------------------------------------------------
 
-test('the defaults are network on, remote off', () => {
-  // Network on matches what the engine already did; remote off because a
-  // publish is permanent and must never happen unasked.
+test('the default is network on, and allowRemote is no longer a setting', () => {
+  // Network on matches what the engine already did. The published tier that
+  // `allowRemote` permitted is retired.
   assert.strictEqual(DEFAULT_CONFIG.review.allowNetwork, true)
-  assert.strictEqual(DEFAULT_CONFIG.review.allowRemote, false)
+  assert.ok(!('allowRemote' in DEFAULT_CONFIG.review))
 })
 
 test('STAYS SILENT: a project with neither key gets the defaults', () => {
@@ -84,20 +85,18 @@ test('STAYS SILENT: a project with neither key gets the defaults', () => {
   try {
     const { config } = loadEnvConfig(dir)
     assert.strictEqual(config.review.allowNetwork, true)
-    assert.strictEqual(config.review.allowRemote, false)
   } finally {
     fs.rmSync(dir, { recursive: true, force: true })
   }
 })
 
 test('STAYS SILENT: a non-boolean leaves the default standing', () => {
-  // A typo must not quietly widen a bind or permit a publish, which is the same
-  // shape `serve` and `required` already follow.
-  const dir = repo({ allowNetwork: 'no', allowRemote: 'yes' })
+  // A typo must not quietly narrow a bind, which is the same shape `serve` and
+  // `required` already follow.
+  const dir = repo({ allowNetwork: 'no' })
   try {
     const { config } = loadEnvConfig(dir)
     assert.strictEqual(config.review.allowNetwork, true, 'a string is not a refusal')
-    assert.strictEqual(config.review.allowRemote, false, 'a string is not a permission')
   } finally {
     fs.rmSync(dir, { recursive: true, force: true })
   }
@@ -127,21 +126,6 @@ test('allow network --off writes the key, and back on again', async () => {
   }
 })
 
-test('allow remote permits publishing, and publishes nothing', async () => {
-  const dir = repo()
-  try {
-    // `--project`: the committed, every-spec form. Per spec is the default
-    // now — `env-review-remote-per-spec.test.js` covers it.
-    const out = await allow(dir, 'remote', '--project')
-    assert.strictEqual(cfg(dir).review.allowRemote, true)
-    assert.match(out, /PERMITS publishing; it publishes nothing/)
-    assert.match(out, /cannot be\s+deleted by skitterspec/)
-    assert.match(out, /needs \/spec-reviewed/)
-  } finally {
-    fs.rmSync(dir, { recursive: true, force: true })
-  }
-})
-
 test('it names the absolute path it wrote, and says that tree goes dirty', async () => {
   // Run from a worktree, `dir` is the PRIMARY checkout — so a path relative to
   // `dir` reads as the tree you are standing in and is wrong. Found by running
@@ -162,7 +146,7 @@ test('it touches nothing else in the config', async () => {
   const dir = repo({ servePort: 7777 })
   try {
     const before = cfg(dir)
-    await allow(dir, 'remote')
+    await allow(dir, 'network', '--off')
     const after = cfg(dir)
     assert.strictEqual(after.baseBranch, before.baseBranch)
     assert.deepStrictEqual(after.docker, before.docker)
@@ -211,9 +195,9 @@ test('a config it cannot parse is left alone rather than overwritten', async () 
 })
 
 test('setting a tier to what it already is says so rather than pretending to change it', async () => {
-  const dir = repo({ allowRemote: true })
+  const dir = repo({ allowNetwork: true })
   try {
-    const out = await allow(dir, 'remote', '--project')
+    const out = await allow(dir, 'network')
     assert.match(out, /\(unchanged\)/)
   } finally {
     fs.rmSync(dir, { recursive: true, force: true })
@@ -334,11 +318,25 @@ test('a disabled tier names the command that turns it on, and shows no URL', asy
   }
 })
 
-test('remote permitted but unpublished says publishing is an ask', async () => {
+test('a disabled network takes remote with it, naming the same command', async () => {
+  // The tailnet is the same server on another interface, so it follows the
+  // same switch — a separate key would be a setting nobody has asked for.
+  const { dir } = repoWithSpec({ allowNetwork: false }, await freePort())
+  try {
+    const out = review(dir)
+    assert.match(out, /^ {2}remote: +off — turn on with: skitterspec spec-env review allow network$/m)
+  } finally {
+    stopServe(dir)
+    drop(dir)
+  }
+})
+
+test('STAYS SILENT: a config still setting allowRemote renders no published tier', async () => {
   const { dir } = repoWithSpec({ allowRemote: true }, await freePort())
   try {
     const out = review(dir)
-    assert.match(out, /^ {2}remote: +— +\(publishing is an ask — nothing published yet\)$/m)
+    assert.doesNotMatch(out, /publish/i)
+    assert.doesNotMatch(out, /\/spec-reviewed/)
   } finally {
     stopServe(dir)
     drop(dir)
@@ -351,7 +349,7 @@ test('the stack says which tiers the wait covers, once', async () => {
     const out = review(dir)
     const said = out.match(/the wait covers local \+ network/g) || []
     assert.strictEqual(said.length, 1, 'said once, not per tier')
-    assert.match(out, /a remote verdict needs \/spec-reviewed/)
+    assert.doesNotMatch(out, /\/spec-reviewed/, 'every door is one room now')
   } finally {
     stopServe(dir)
     drop(dir)
@@ -367,7 +365,7 @@ test('--json carries the same tiers, so a skill never parses prose', async () =>
       ['local', 'network', 'remote'],
     )
     assert.match(d.tiers[0].url, /^http:\/\/127\.0\.0\.1:/)
-    assert.strictEqual(d.tiers[2].off, true)
+    assert.ok(!('url' in d) && !('urlFile' in d) && !('publishCopy' in d), 'no published-page keys')
   } finally {
     stopServe(dir)
     drop(dir)
@@ -421,14 +419,13 @@ test('a tailnet alternate is labelled so it reads apart from the LAN one', () =>
   assert.strictEqual(tailnetLabel('http://192.168.0.10:7760/tok/bug-x'), '')
 })
 
-// --- the alternates belong to the network tier -------------------------------
+// --- the tailnet is the remote tier ------------------------------------------
 //
-// The `also:` lines used to be appended AFTER the whole stack — below `remote:`
-// — and the tiers carried them as bare strings, so a skill copying the stack
-// from `--json` had no label to copy and no place the contract let it put one.
-// The tailnet link the engine had found never reached the banner a reader saw.
+// It was an `also:` line under `network`, the hardest link in the stack to
+// find, while `remote` named a published page nobody used. It is its own tier
+// now, labelled by what it is (feat-tailnet-remote-tier).
 
-test('a tailnet alternate reaches the tiers labelled, under network', () => {
+test('a tailnet alternate becomes the remote tier, labelled', () => {
   // The full path a real render takes: fake adapters → ranked offers → served
   // URLs → the stack. en0 is the best guess; utun4 is the tailnet runner-up.
   const { offerableLanAddresses, reviewServedUrls } = require('../src/cli.js')
@@ -444,29 +441,67 @@ test('a tailnet alternate reaches the tiers labelled, under network', () => {
   const stack = reviewTierStack({
     served,
     fileUrl: 'file:///x',
-    publishedUrl: null,
-    config: { review: { allowNetwork: true, allowRemote: false } },
+    config: { review: { allowNetwork: true } },
   })
   const network = stack.find((t) => t.tier === 'network')
-  assert.deepStrictEqual(network.alternates, [
-    { url: 'http://100.101.7.42:7760/tok/bug-x', label: 'tailnet' },
-  ])
+  assert.deepStrictEqual(network.alternates, [], 'no longer an also: under network')
+  const remote = stack.find((t) => t.tier === 'remote')
+  assert.strictEqual(remote.url, 'http://100.101.7.42:7760/tok/bug-x')
+  assert.strictEqual(remote.label, 'tailnet')
+  assert.deepStrictEqual(remote.alternates, [])
+  assert.deepStrictEqual(waitCovers(stack), ['local', 'network', 'remote'], 'one room, one wait')
 })
 
-test('the also: line renders under the network tier, inside its line', () => {
-  // One line per tier was the shape; an alternate is PART of the network tier,
-  // so its line carries it — which is what puts it above `remote:` rather than
-  // dangling after the stack.
-  const line = reviewTierLine({
-    tier: 'network',
-    url: 'http://192.168.0.10:7760/tok/bug-x',
-    alternates: [{ url: 'http://100.101.7.42:7760/tok/bug-x', label: 'tailnet' }],
+test('the remote line carries its label after the URL', () => {
+  const line = reviewTierLine({ tier: 'remote', url: 'http://100.101.7.42:7760/tok/bug-x', label: 'tailnet' })
+  assert.strictEqual(line, '  remote:  http://100.101.7.42:7760/tok/bug-x (tailnet)')
+})
+
+test('a second tailnet address is an also: under remote, and a second LAN one under network', () => {
+  const stack = reviewTierStack({
+    served: {
+      loopbackUrl: 'http://127.0.0.1:7760/tok/bug-x',
+      url: 'http://192.168.0.10:7760/tok/bug-x',
+      alternates: [
+        'http://100.101.7.42:7760/tok/bug-x',
+        'http://192.168.1.20:7760/tok/bug-x',
+        'http://100.90.1.1:7760/tok/bug-x',
+      ],
+      loopback: false,
+    },
+    fileUrl: 'file:///x',
+    config: { review: { allowNetwork: true } },
   })
   assert.strictEqual(
-    line,
-    '  network: http://192.168.0.10:7760/tok/bug-x\n' +
-      '    also:  http://100.101.7.42:7760/tok/bug-x (tailnet)',
+    reviewStackText(stack),
+    '  local:   http://127.0.0.1:7760/tok/bug-x\n' +
+      '  network: http://192.168.0.10:7760/tok/bug-x\n' +
+      '    also:  http://192.168.1.20:7760/tok/bug-x\n' +
+      '  remote:  http://100.101.7.42:7760/tok/bug-x (tailnet)\n' +
+      '    also:  http://100.90.1.1:7760/tok/bug-x (tailnet)\n',
   )
+})
+
+test('STAYS SILENT: no tailnet keeps the remote line and says why, naming no command', () => {
+  const stack = reviewTierStack({
+    served: { loopbackUrl: 'http://127.0.0.1:7760/tok/bug-x', url: 'http://192.168.0.10:7760/tok/bug-x', alternates: [], loopback: false },
+    fileUrl: 'file:///x',
+    config: { review: { allowNetwork: true } },
+  })
+  const remote = stack.find((t) => t.tier === 'remote')
+  assert.strictEqual(reviewTierLine(remote), '  remote:  —   (no tailnet address on this machine)')
+  assert.deepStrictEqual(waitCovers(stack), ['local', 'network'], 'the wait names no door it did not show')
+})
+
+test('a loopback-bound server takes remote off with the same widen command', () => {
+  const stack = reviewTierStack({
+    served: { loopbackUrl: 'http://127.0.0.1:7760/tok/bug-x', loopback: true, widen: 'skitterspec spec-env review serve --host 0.0.0.0' },
+    fileUrl: 'file:///x',
+    config: { review: { allowNetwork: true } },
+  })
+  const remote = stack.find((t) => t.tier === 'remote')
+  assert.strictEqual(remote.off, true)
+  assert.strictEqual(remote.enable, 'skitterspec spec-env review serve --host 0.0.0.0')
 })
 
 test('STAYS SILENT: a LAN alternate carries no label, and no alternates means one line', () => {
@@ -500,10 +535,10 @@ test('STAYS SILENT: virtual adapters still never reach the tiers', () => {
   const stack = reviewTierStack({
     served,
     fileUrl: 'file:///x',
-    publishedUrl: null,
-    config: { review: { allowNetwork: true, allowRemote: false } },
+    config: { review: { allowNetwork: true } },
   })
   assert.deepStrictEqual(stack.find((t) => t.tier === 'network').alternates, [])
+  assert.strictEqual(stack.find((t) => t.tier === 'remote').unavailable, true, 'and none becomes remote')
 })
 
 test('STAYS SILENT: a machine with no network address reports it, not an error', async () => {
@@ -517,22 +552,6 @@ test('STAYS SILENT: a machine with no network address reports it, not an error',
   }
 })
 
-// THE OFF LINE NAMES A COMMAND A PERSON TYPES. It used to hand over
-// `skitterspec spec-env review allow remote` — correct, and nothing anyone
-// reconstructs from a render they are reading on a phone. `/spec-remote-review`
-// toggles, so the same line works whichever way the tier currently is.
-test('a disabled remote names its slash command, not the engine verb', () => {
-  const stack = reviewTierStack({
-    served: null,
-    fileUrl: 'file:///x',
-    publishedUrl: null,
-    config: { review: { allowNetwork: true, allowRemote: false } },
-  })
-  const remote = stack.find((t) => t.tier === 'remote')
-  assert.strictEqual(remote.enable, '/spec-remote-review')
-  assert.strictEqual(reviewTierLine(remote), '  remote:  off — turn on with: /spec-remote-review')
-})
-
 // STAYS SILENT: `network` keeps the engine command, deliberately. It is ON by
 // default, so turning it off is a rare deliberate act — a slash command per
 // tier is clutter for the one nobody touches.
@@ -540,8 +559,7 @@ test('STAYS SILENT: a disabled network keeps naming the engine command', () => {
   const stack = reviewTierStack({
     served: null,
     fileUrl: 'file:///x',
-    publishedUrl: null,
-    config: { review: { allowNetwork: false, allowRemote: true } },
+    config: { review: { allowNetwork: false } },
   })
   const network = stack.find((t) => t.tier === 'network')
   assert.strictEqual(network.enable, 'skitterspec spec-env review allow network')
@@ -560,9 +578,9 @@ const SERVED = {
   alternates: [],
   loopback: false,
 }
-const ON = { review: { allowNetwork: true, allowRemote: false } }
+const ON = { review: { allowNetwork: true } }
 const stackFor = (reader, served = SERVED, config = ON) =>
-  reviewTierStack({ served, fileUrl: 'file:///x', publishedUrl: null, config, reader })
+  reviewTierStack({ served, fileUrl: 'file:///x', config, reader })
 
 test('SKITTERSPEC_READER outranks the committed setting and ssh', () => {
   assert.deepStrictEqual(resolveReader({ review: { reader: 'local' } }, { SKITTERSPEC_READER: 'remote' }), {
@@ -628,10 +646,10 @@ test('STAYS SILENT: a bridge session is not enough to hide a working link', () =
 
 test('with no network URL, local stays and says it is unreachable', () => {
   const reader = { reader: 'remote', why: 'SKITTERSPEC_READER' }
-  const tiers = stackFor(reader, null, { review: { allowNetwork: false, allowRemote: false } })
+  const tiers = stackFor(reader, null, { review: { allowNetwork: false } })
   assert.strictEqual(tiers[0].hidden, undefined)
   assert.match(reviewStackText(tiers), /^ {2}local: {3}file:\/\/\/x {3}\(not reachable from the reader's machine\)/)
-  assert.deepStrictEqual(waitCovers(tiers), ['local', 'network'])
+  assert.deepStrictEqual(waitCovers(tiers), [], 'a file:// page is no door a wait can watch')
 })
 
 test('a render for a remote reader prints no local line, and --json marks it', async () => {
@@ -641,11 +659,13 @@ test('a render for a remote reader prints no local line, and --json marks it', a
     const out = reviewWith(remote, dir)
     assert.doesNotMatch(out, /^ {2}local:/m)
     assert.match(out, /^ {2}network: http:/m)
-    assert.match(out, /the wait covers network; a remote verdict/)
+    // `+ remote` follows only where this machine has a tailnet address.
+    assert.match(out, /the wait covers network(\.| \+ remote\.)$/m)
     const json = JSON.parse(reviewWith(remote, dir, '--json'))
     assert.strictEqual(json.tiers[0].tier, 'local')
     assert.strictEqual(json.tiers[0].hidden, true)
-    assert.deepStrictEqual(json.covers, ['network'])
+    assert.strictEqual(json.covers[0], 'network')
+    assert.ok(!json.covers.includes('local'))
   } finally {
     stopServe(dir)
     drop(dir)
@@ -673,7 +693,7 @@ test('STAYS SILENT: the same render without the signal keeps local and both door
     const out = review(dir)
     assert.match(out, /^ {2}local: {3}http:\/\/127\.0\.0\.1/m)
     assert.match(out, /the wait covers local \+ network/)
-    assert.deepStrictEqual(JSON.parse(review(dir, '--json')).covers, ['local', 'network'])
+    assert.deepStrictEqual(JSON.parse(review(dir, '--json')).covers.slice(0, 2), ['local', 'network'])
   } finally {
     stopServe(dir)
     drop(dir)

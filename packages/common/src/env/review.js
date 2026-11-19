@@ -630,21 +630,20 @@ const DEFAULT_VERDICT = 'discuss'
  *   pass would need a rule about which wins, and any such rule would sometimes
  *   act on the half the reader did not mean.
  *
- * `allow-network`/`allow-remote` turn a review TIER on, and they exist here
- * because the page can now act — which is the premise
- * `feat-three-review-links` decision 5 rejected a page toggle on, having
- * recorded it as open to reopening. Two things replace the limit it rested on.
- * **Only a reader who can already reach the page can press one**, so widening
+ * `allow-network` turns the served tiers on, and it exists here because the
+ * page can now act — which is the premise `feat-three-review-links` decision 5
+ * rejected a page toggle on, having recorded it as open to reopening.
+ * **Only a reader who can already reach the page can press it**, so widening
  * loopback→network can only be pressed from the machine itself, where the
  * command was available anyway, and the serve token still decides who reaches
- * the page at all. And `allow-remote` **permits publishing without
- * publishing** — the permanent claude.ai page still takes an explicit ask.
+ * the page at all. `allow-remote` went with the published tier
+ * (feat-tailnet-remote-tier): `remote` is the tailnet now, on `network`'s switch.
  *
  * There is no disable direction, and `tierAction` is where that is enforced:
  * turning `network` off from a page reached over the network kills the page
  * doing the turning.
  */
-const ACTIONS = ['live-on', 'allow-network', 'allow-remote']
+const ACTIONS = ['live-on', 'allow-network']
 
 /**
  * The action a tier that is OFF offers, or null.
@@ -661,7 +660,6 @@ function tierAction(tier) {
   // command is named on the line; the page offers nothing.
   if (tier.bound === 'loopback') return null
   if (tier.tier === 'network') return 'allow-network'
-  if (tier.tier === 'remote') return 'allow-remote'
   return null
 }
 
@@ -694,8 +692,7 @@ function surfacesFor({ live, tiers, buttons = null }) {
   // learns the surface exists and what to type, which is exactly the trade the
   // strip already makes on a `file://` page.
   //
-  // ONLY `live-on`. `allow-network` and `allow-remote` write a config file
-  // and commit nothing, so they are as valid mid-phase as at the end of one.
+  // ONLY `live-on`. `allow-network` writes a config file and commits nothing, so they are as valid mid-phase as at the end of one.
   const canCommit = buttons !== 'midrun'
   const rows = []
 
@@ -736,19 +733,11 @@ function surfacesFor({ live, tiers, buttons = null }) {
       // touches no tracked file, `allow` edits `specs/.core/env.config.json` in
       // the primary checkout — changing behaviour for everyone who pulls and
       // leaving that tree dirty. A setting change of that reach must not land
-      // because someone tapped a button labelled only `Allow remote`.
-      // `remote` is per spec now (bug-remote-review-toggle): a gitignored
-      // sidecar, so the base branch is untouched and no other spec may publish.
-      note:
-        t.note ||
-        (t.tier === 'remote'
-          ? 'this spec only — nothing committed'
-          : 'writes env.config.json — committed, and shared'),
-      // The same thing from a terminal, for the reader who is nowhere near the
-      // page. Only `remote` has a command of its own: `network` is ON by
-      // default, so turning it off is a rare deliberate act and a slash command
-      // per tier is clutter for the one nobody touches.
-      command: t.tier === 'remote' ? '/spec-remote-review' : null,
+      // because someone tapped a button labelled only `Allow network`.
+      note: t.note || 'writes env.config.json — committed, and shared',
+      // No slash command: `network` is ON by default, so turning it on is a
+      // rare deliberate act and the press or the engine verb covers it.
+      command: null,
       action,
     })
   }
@@ -764,14 +753,19 @@ function surfacesFor({ live, tiers, buttons = null }) {
  * their phone opens should not have to re-read the labels every render, and a
  * stack that reordered itself by availability would make them.
  *
+ * LABELLED BY ADDRESS, never by where the reader sits: `local` is loopback,
+ * `network` the LAN, `remote` the tailnet. Relabelling the LAN `local` whenever
+ * loopback is hidden gave one URL two names depending on who looked, and a
+ * label that moves is one nobody learns (feat-tailnet-remote-tier decision 1).
+ *
  * WHY A STACK AT ALL, when the rule said exactly one link: the engine cannot
  * know where the reader is sitting, and every attempt to guess failed the
- * moment they moved. `local` and `network` are two doors into ONE room — the
- * page POSTs to `location.pathname`, so both reach the same server and the same
- * pending store, and one wait covers both. `remote` is a second store, which is
- * why it carries the line saying so.
+ * moment they moved. All three are doors into ONE room — the page POSTs to
+ * `location.pathname`, so each reaches the same server and the same pending
+ * store, and one wait covers them all. `remote` was once a published page with
+ * a store of its own; that tier is gone, and the tailnet took its name.
  */
-function reviewTierStack({ served, fileUrl, publishedUrl, config, reader = null }) {
+function reviewTierStack({ served, fileUrl, config, reader = null }) {
   const tiers = []
   const loopbackUrl = served && served.loopbackUrl ? served.loopbackUrl : null
 
@@ -781,45 +775,45 @@ function reviewTierStack({ served, fileUrl, publishedUrl, config, reader = null 
       : { tier: 'local', url: fileUrl, note: 'a file:// page cannot send a verdict' },
   )
 
+  // The served alternates, split by what they are. A tailnet address is its
+  // own tier; anything else (a second LAN interface) stays an `also:` under
+  // `network`, because that is still what it is.
+  const alternates = served && !served.loopback && served.url ? served.alternates || [] : []
+  const tailnet = alternates.filter((u) => isTailnetAddress(hostOf(u)))
+  const lan = alternates.filter((u) => !isTailnetAddress(hostOf(u)))
+
   if (!config.review.allowNetwork) {
-    tiers.push({ tier: 'network', off: true, enable: 'skitterspec spec-env review allow network' })
+    const enable = 'skitterspec spec-env review allow network'
+    tiers.push({ tier: 'network', off: true, enable })
+    // THE SAME SERVER ON ANOTHER INTERFACE, so it follows the same switch — a
+    // separate key would be a setting for a distinction nobody has asked for.
+    tiers.push({ tier: 'remote', off: true, enable })
   } else if (served && !served.loopback && served.url) {
-    // LABELLED HERE, not by the renderer: `--json`'s `tiers` is the stack a
-    // skill copies, and an unlabelled alternate made the `(tailnet)` suffix a
-    // fact only the text render knew — so the one link a reader off the wifi
-    // could open reached the JSON indistinguishable from a second LAN address.
-    tiers.push({
-      tier: 'network',
-      url: served.url,
-      alternates: (served.alternates || []).map((u) => {
-        let host = ''
-        try {
-          host = new URL(u).hostname
-        } catch {}
-        return isTailnetAddress(host) ? { url: u, label: 'tailnet' } : { url: u }
-      }),
-    })
+    tiers.push({ tier: 'network', url: served.url, alternates: lan.map((u) => ({ url: u })) })
+    tiers.push(
+      tailnet.length
+        ? {
+            tier: 'remote',
+            url: tailnet[0],
+            label: 'tailnet',
+            alternates: tailnet.slice(1).map((u) => ({ url: u, label: 'tailnet' })),
+          }
+        : // KEPT, AND SAYS WHY. A line that vanished whenever Tailscale was down
+          // would leave a reader off the wifi unable to tell "not offered" from
+          // "not possible". No command is named: none of ours turns it on.
+          { tier: 'remote', unavailable: true, note: 'no tailnet address on this machine' },
+    )
   } else if (served && served.loopback && served.widen) {
     // Permitted, and the machine has addresses — but the running server is
     // bound to loopback. "No network address" here sent readers looking for a
     // network problem; the fix is one command, so the line names it.
     tiers.push({ tier: 'network', off: true, bound: 'loopback', enable: served.widen })
+    tiers.push({ tier: 'remote', off: true, bound: 'loopback', enable: served.widen })
   } else {
     // Permitted, but there is no address to offer — a machine with no network,
     // or a server that could not take one. Not a problem to report as an error.
     tiers.push({ tier: 'network', unavailable: true, note: 'no network address on this machine' })
-  }
-
-  if (!config.review.allowRemote) {
-    // THE COMMAND A PERSON TYPES. `/spec-remote-review` toggles, so the same
-    // line works whichever way the tier currently is — and nobody has to
-    // reconstruct `spec-env review allow remote` from a render they are reading
-    // on a phone.
-    tiers.push({ tier: 'remote', off: true, enable: '/spec-remote-review' })
-  } else if (publishedUrl) {
-    tiers.push({ tier: 'remote', url: publishedUrl, note: 'a verdict here needs /spec-reviewed' })
-  } else {
-    tiers.push({ tier: 'remote', unavailable: true, note: 'publishing is an ask — nothing published yet' })
+    tiers.push({ tier: 'remote', unavailable: true, note: 'no tailnet address on this machine' })
   }
 
   // A READER ON ANOTHER MACHINE gets no `local` door: it points at this
@@ -853,30 +847,39 @@ function reviewStackText(tiers) {
 }
 
 /**
- * The served tiers one wait covers, as the stack shows them. `local` and
- * `network` are two doors into one room; with `local` hidden there is one door,
- * and the line must not name one the reader was never shown.
+ * The served tiers one wait covers, as the stack shows them: every door shown
+ * that has a served URL. They are all one room, so the line names exactly the
+ * doors the reader was shown — never a hidden one, never a `file://` page.
  */
 function waitCovers(tiers) {
-  const local = tiers.find((t) => t.tier === 'local')
-  return local && local.hidden ? ['network'] : ['local', 'network']
+  return tiers
+    .filter((t) => !t.hidden && t.url && !String(t.url).startsWith('file:'))
+    .map((t) => t.tier)
 }
 
 // One tier as a line, padded so the labels form a column the eye can run down.
 // A tier with alternates renders them as indented `also:` lines of its own —
-// they are PART of the tier, which is what puts them under `network:` rather
-// than dangling after the stack (they used to print below `remote:`, against
-// the comment that placed them).
+// they are PART of the tier, which is what puts them under it rather than
+// dangling after the stack.
 function reviewTierLine(t) {
   const label = `  ${t.tier}:`.padEnd(11)
   if (t.url) {
     return [
-      `${label}${t.url}${t.note ? `   (${t.note})` : ''}`,
+      `${label}${t.url}${t.label ? ` (${t.label})` : ''}${t.note ? `   (${t.note})` : ''}`,
       ...(t.alternates || []).map((a) => `    also:  ${a.url}${a.label ? ` (${a.label})` : ''}`),
     ].join('\n')
   }
   if (t.off) return `${label}off — turn on with: ${t.enable}`
   return `${label}—   (${t.note})`
+}
+
+// The hostname of a URL, or '' for anything that does not parse.
+function hostOf(url) {
+  try {
+    return new URL(url).hostname
+  } catch {
+    return ''
+  }
 }
 
 // 100.64.0.0/10 — the CGNAT range Tailscale assigns from.
@@ -1843,8 +1846,8 @@ function markGateOffered(gate, { at }) {
  * The actions whose handling REQUIRES a commit in the spec's own worktree.
  *
  * One, and the list exists so the answer is looked up rather than remembered.
- * `allow-network` and `allow-remote` write a config key and commit nothing, so
- * neither has a precondition to permit — and a permit granted for an action
+ * `allow-network` writes a config key and commits nothing, so it has no
+ * precondition to permit — and a permit granted for an action
  * that never commits is a hole with no commit to close it.
  */
 const PERMITTED_ACTIONS = ['live-on']
@@ -2364,57 +2367,6 @@ function escapeHtml(s) {
  * The data goes in as JSON, never as generated markup — that is the property the
  * whole design rests on.
  */
-/**
- * The fragment form of the template: what an artifact host can accept.
- *
- * A published page is wrapped in the host's own `<!doctype>`/`<head>`/`<body>`
- * skeleton, so handing it a complete document nests two of them. The fragment
- * carries the `<title>` (hosts read it for the tab name), every `<style>` and
- * `<script>` block out of `<head>`, then the body contents — and no wrapper.
- *
- * IT SPLITS THE TEMPLATE, NEVER THE RENDERED PAGE, and that is the whole
- * correctness argument. The template contains exactly one of each boundary tag
- * and nothing but placeholders where content goes. A rendered page contains the
- * diff, and this feature reviews its own source — so `<!doctype html>`,
- * `<html>` and `<body>` appear inside it as ordinary patch text. A regex over
- * the rendered page finds those and cuts in the wrong place; the first hand
- * publish of `feat-review-offer-lands` hit exactly that, with four
- * wrapper-looking tags in the output that were all patch content.
- */
-function fragmentTemplate(template = null) {
-  const t = template || loadTemplate()
-
-  const headStart = t.indexOf('<head>')
-  const headEnd = t.indexOf('</head>')
-  const bodyOpen = t.indexOf('<body')
-  const bodyStart = t.indexOf('>', bodyOpen) + 1
-  const bodyEnd = t.lastIndexOf('</body>')
-  if (headStart < 0 || headEnd < 0 || bodyOpen < 0 || bodyEnd < 0) {
-    throw new Error('review template has no <head>/<body> to split — cannot build a fragment')
-  }
-
-  const head = t.slice(headStart, headEnd)
-  const title = /<title>[\s\S]*?<\/title>/.exec(head)
-  const carried = head.match(/<(style|script)\b[\s\S]*?<\/\1>/g) || []
-
-  return [title ? title[0] : '', ...carried, t.slice(bodyStart, bodyEnd).trim()]
-    .filter(Boolean)
-    .join('\n')
-}
-
-/**
- * The same data, spliced into the fragment instead of the whole document. One
- * pass over the placeholders, for the same reason `renderReviewPage` uses one.
- */
-function renderReviewFragment(data, { template = null, reviewHtml = '' } = {}) {
-  const values = {
-    [TITLE_PLACEHOLDER]: escapeHtml(tabTitle(data)),
-    [REVIEW_PLACEHOLDER]: reviewHtml,
-    [DATA_PLACEHOLDER]: escapeIsland(JSON.stringify(data)),
-  }
-  return fragmentTemplate(template).replace(PLACEHOLDER_RE, (m) => values[m])
-}
-
 // The tab name: `<project> · <spec>`, so pages from two projects open side by
 // side can be told apart from the tab alone — all a phone shows.
 function tabTitle(data) {
@@ -2617,59 +2569,12 @@ function reviewServerNotice({ running, othersServed }) {
   ]
 }
 
-// The publish-ready copy, beside the page it came from. Same stem, so every
-// sidecar (`.notes.json`, `.url`, `.publish.html`, `.render.json`) reads as one
-// spec's set.
-function reviewPublishPath(outPath) {
-  return outPath.replace(/\.html$/, '') + '.publish.html'
-}
-
 function readReviewUrl(outPath) {
   try {
     return fs.readFileSync(reviewUrlPath(outPath), 'utf8').trim() || null
   } catch {
     return null
   }
-}
-
-/**
- * Whether ONE SPEC may publish, beside its page in the gitignored store.
- *
- * WHY PER SPEC. `review.allowRemote` in the committed config permits every
- * spec in the repo at once, and writing it from a worktree dirtied the base
- * branch (bug-remote-review-toggle). Publishing sends a diff to a third party,
- * so what may generate an artifact is decided per worktree; the committed key
- * stays as the project default beneath it.
- */
-function reviewRemotePath(outPath) {
-  return outPath.replace(/\.html$/, '') + '.remote.json'
-}
-
-// true / false when the sidecar says so, null for every cannot-tell — absent,
-// unreadable, a non-boolean — so the committed default stands
-// (`.claude/rules/negative-checks.md` rule 4: a typo must not permit a publish).
-function readRemoteAllow(outPath) {
-  try {
-    const v = JSON.parse(fs.readFileSync(reviewRemotePath(outPath), 'utf8')).allowRemote
-    return typeof v === 'boolean' ? v : null
-  } catch {
-    return null
-  }
-}
-
-function writeRemoteAllow(outPath, on, at = new Date().toISOString()) {
-  const file = reviewRemotePath(outPath)
-  fs.mkdirSync(path.dirname(file), { recursive: true })
-  fs.writeFileSync(file, JSON.stringify({ allowRemote: on, at }, null, 2) + '\n')
-  return file
-}
-
-// The config one spec's render reads: the project's, with this spec's own
-// remote permission over it. A new object — the caller's config is shared.
-function withSpecRemote(config, outPath) {
-  const own = readRemoteAllow(outPath)
-  if (own === null) return config
-  return { ...config, review: { ...config.review, allowRemote: own } }
 }
 
 // Default output path for a spec's page, under the gitignored `.spec-env/`.
@@ -2801,16 +2706,9 @@ module.exports = {
   renderReviewerStrip,
   reviewerSaid,
   reviewUrlPath,
-  reviewPublishPath,
   readReviewUrl,
-  reviewRemotePath,
-  readRemoteAllow,
-  writeRemoteAllow,
-  withSpecRemote,
   publishedPageNotice,
   reviewServerNotice,
-  fragmentTemplate,
-  renderReviewFragment,
   detectReader,
   resolveReader,
   readerOffMachine,

@@ -54,7 +54,6 @@ const {
   renderReviewPage,
   renderReviewBlock,
   reviewOutPath,
-  withSpecRemote,
   validateNotesBlob,
   readPending,
   passState: readPassState,
@@ -367,8 +366,7 @@ function committedDocsFor(root, config, spec) {
  * The tier rows the PAGE needs, from config alone.
  *
  * DELIBERATELY NOT `reviewTierStack`. That stack answers "where can this be
- * read", which needs the server's bind, the machine's addresses and any
- * published URL. The page needs only the half it can act on: which tiers are
+ * read", which needs the server's bind and the machine's addresses. The page needs only the half it can act on: which tiers are
  * OFF, so it can offer the press that turns one on. An `off` tier has no URL by
  * definition, so none of that machinery is required — and an `on` tier
  * contributes nothing here, because the reader is standing on one of them.
@@ -376,8 +374,8 @@ function committedDocsFor(root, config, spec) {
 function pageTiers(config) {
   const r = (config && config.review) || {}
   return [
+    // `remote` is the tailnet on this same switch, so `network` speaks for it.
     { tier: 'network', off: !r.allowNetwork },
-    { tier: 'remote', off: !r.allowRemote },
   ]
 }
 
@@ -632,9 +630,7 @@ function renderSpecPage(dir, config, spec, { branch = false } = {}) {
     receipt: null,
     worktreeExists: Boolean(spec.worktreePath && fs.existsSync(spec.worktreePath)),
   })
-  // This spec's own remote permission, read per request so a toggle shows on
-  // the next refresh without restarting the server.
-  const tiers = pageTiers(withSpecRemote(config, out))
+  const tiers = pageTiers(config)
 
   let data = collectReview({
     spec,

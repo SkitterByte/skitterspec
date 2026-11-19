@@ -224,11 +224,11 @@ test('no live-on, no permit', async () => {
 })
 
 test('a tier action grants nothing', async () => {
-  // `allow-network` and `allow-remote` write a config key and commit nothing,
-  // so neither has a commit to be the precondition of.
+  // `allow-network` writes a config key and commits nothing, so it has no
+  // commit to be the precondition of.
   const { dir, wt } = scaffold()
   try {
-    await pressLiveOn(dir, { action: 'allow-remote' })
+    await pressLiveOn(dir, { action: 'allow-network' })
     const got = runHook({ cwd: wt })
     assert.strictEqual(got.decision && got.decision.permissionDecision, 'deny')
   } finally {

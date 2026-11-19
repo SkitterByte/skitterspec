@@ -127,15 +127,9 @@ const {
   renderReviewBlock,
   reviewOutPath,
   reviewFileUrl,
-  reviewUrlPath,
-  reviewPublishPath,
   readReviewUrl,
-  readRemoteAllow,
-  writeRemoteAllow,
-  withSpecRemote,
   publishedPageNotice,
   reviewServerNotice,
-  renderReviewFragment,
   resolveReader,
   writeReviewPage,
   reviewNotesPath,
@@ -1065,7 +1059,7 @@ async function serveTadaPage({ window, flags, recap }) {
   const withQ = (u) => (u ? `${u}${q}` : u)
   const page = { ...served, loopbackUrl: withQ(served.loopbackUrl), url: withQ(served.url), alternates: (served.alternates || []).map(withQ) }
   const reader = resolveReader(config, process.env, process.platform)
-  const tiers = reviewTierStack({ served: page, fileUrl: null, publishedUrl: null, config, reader })
+  const tiers = reviewTierStack({ served: page, fileUrl: null, config, reader })
   process.stdout.write(`page: ${humanLabel(window)}\n${reviewStackText(tiers)}`)
   return true
 }
@@ -1171,7 +1165,7 @@ function epicPageTiers(inputs, up, epic) {
   if (!up) return { off: true, start: 'skitterspec spec-env review serve --host 0.0.0.0' }
   const served = reviewServedUrls(up, offerableLanAddresses(), epic)
   const reader = resolveReader(inputs.config, process.env, process.platform)
-  return { tiers: reviewTierStack({ served, fileUrl: null, publishedUrl: null, config: inputs.config, reader }) }
+  return { tiers: reviewTierStack({ served, fileUrl: null, config: inputs.config, reader }) }
 }
 
 function epicPageLines(page) {
@@ -5121,11 +5115,11 @@ function readRunningReviewServer(dir, config) {
  * the same functions, with nothing rendered and nothing started.
  */
 function reshowStack(dir, config, spec, out) {
-  const cfg = withSpecRemote(config, out)
+  const cfg = config
   const up = readRunningReviewServer(dir, cfg)
   const served = up ? reviewServedUrls(up, offerableLanAddresses(), spec.folder) : null
   const reader = resolveReader(cfg, process.env, process.platform)
-  const tiers = reviewTierStack({ served, fileUrl: reviewFileUrl(out), publishedUrl: readReviewUrl(out), config: cfg, reader })
+  const tiers = reviewTierStack({ served, fileUrl: reviewFileUrl(out), config: cfg, reader })
   let live = null
   try {
     const primaryState = assertPrimaryOnMain(cfg, gitReader(dir))
@@ -5444,101 +5438,74 @@ function specEnvReviewGate(dir, config, specArg, flags, invokedFrom = dir) {
 }
 
 /**
- * `review allow <network|remote> [<spec>] [--off | --set <on|off|>] [--project]`
- * — permit or withdraw a review tier.
- *
- * TWO SCOPES, because the two tiers are different kinds of decision.
+ * `review allow network [--off | --set <on|off|>]` — permit or withdraw the
+ * served tiers beyond loopback.
  *
  * `network` is a BIND, and one server binds for every spec at once — so it is a
- * project setting and lives in the committed `env.config.json`.
+ * project setting and lives in the committed `env.config.json`. `remote` is the
+ * tailnet address of that same server, so this one switch covers it too.
  *
- * `remote` PERMITS PUBLISHING, which sends one spec's diff to a third party. It
- * was project-wide too, and that was bug-remote-review-toggle: typed from a
- * worktree with a review waiting, it dirtied the base branch's committed config
- * and permitted every other spec in the repo to publish as well. So it is now
- * PER SPEC — a sidecar in the gitignored review store, layered over the
- * committed key by `withSpecRemote`. `--project` keeps the committed write for
- * a team that wants it everywhere.
+ * `allow remote` used to permit publishing the review as a claude.ai page,
+ * per spec. That tier is retired (feat-tailnet-remote-tier), and the verb
+ * refuses by name rather than quietly doing the network thing: a person who
+ * typed it wanted something specific, and should hear where it went.
  *
- * THE COMMITTED WRITE IS NARROW: it reads, sets one key under `review`, and
- * writes back with two-space indent. It never reorders, never adds a key nobody
- * asked for, and never touches another section.
+ * THE WRITE IS NARROW: it reads, sets one key under `review`, and writes back
+ * with two-space indent. It never reorders, never adds a key nobody asked for,
+ * and never touches another section.
  *
  * WHAT WOULD FOOL THIS: a config indented with anything other than two spaces
- * IS reformatted by the committed write — cosmetic, but worth knowing before it
- * shows up in someone's diff. A config with comments already fails to load, so
- * there is no comment-preserving case to protect.
+ * IS reformatted by the write — cosmetic, but worth knowing before it shows up
+ * in someone's diff. A config with comments already fails to load, so there is
+ * no comment-preserving case to protect.
  */
-function specEnvReviewAllow(dir, config, tier, specArg, flags) {
-  const TIERS = { network: 'allowNetwork', remote: 'allowRemote' }
-  const key = TIERS[String(tier || '').trim()]
-  if (!key) {
-    // Refused by name, never coerced to a default: silently permitting the
-    // wrong tier is the one outcome worth more than a round trip.
+function specEnvReviewAllow(dir, config, tier, _specArg, flags) {
+  const said = String(tier || '').trim()
+  if (said === 'remote') {
     process.stdout.write(
-      `spec-env review allow: ${JSON.stringify(tier || '')} is not a tier — ` +
-        `one of ${Object.keys(TIERS).join(', ')}. Nothing changed.\n`,
+      'spec-env review allow: remote is no longer a setting — publishing the review was retired.\n' +
+        '  `remote:` is now the tailnet address of the review server, on whenever network is.\n' +
+        '  Nothing changed.\n',
     )
     process.exitCode = 1
     return
   }
-
-  // WHICH SPEC, for the per-spec scope — resolved before anything is read, so a
-  // refusal changes nothing. An unknown name throws rather than falling back:
-  // permitting the wrong spec to publish looks exactly like permitting the
-  // right one.
-  const perSpec = key === 'allowRemote' && !flags.project
-  let spec = null
-  let out = null
-  if (perSpec) {
-    try {
-      spec = resolveSpecWithWorktree(dir, config, specArg)
-    } catch (err) {
-      process.stdout.write(
-        `spec-env review allow: ${err.message}\n` +
-          '  remote is permitted per spec — name it, or run this from its worktree.\n' +
-          '  --project permits every spec instead (writes the committed env.config.json).\n' +
-          '  Nothing changed.\n',
-      )
-      process.exitCode = 1
-      return
-    }
-    out = reviewOutPath(dir, spec.folder, null)
+  if (said !== 'network') {
+    // Refused by name, never coerced to a default: silently permitting the
+    // wrong tier is the one outcome worth more than a round trip.
+    process.stdout.write(
+      `spec-env review allow: ${JSON.stringify(tier || '')} is not a tier — network is the one ` +
+        'setting. Nothing changed.\n',
+    )
+    process.exitCode = 1
+    return
   }
+  const key = 'allowNetwork'
 
-  // What the tier is now, through the same precedence the render uses — so a
-  // toggle means "the other thing the render showed".
   const file = path.resolve(dir, 'specs/.core/env.config.json')
-  const committed = () => {
+  const current = () => {
     try {
       const now = JSON.parse(fs.readFileSync(file, 'utf8'))
-      return now.review && now.review[key] !== undefined ? now.review[key] : config.review[key]
+      return Boolean(now.review && now.review[key] !== undefined ? now.review[key] : config.review[key])
     } catch {
-      return config.review[key]
+      return Boolean(config.review[key])
     }
-  }
-  const current = () => {
-    if (perSpec) {
-      const own = readRemoteAllow(out)
-      if (own !== null) return own
-    }
-    return Boolean(committed())
   }
 
-  // THREE WAYS TO SAY WHAT THE TIER SHOULD BE. Bare `allow <tier>` turns it ON
+  // THREE WAYS TO SAY WHAT THE TIER SHOULD BE. Bare `allow network` turns it ON
   // and `--off` turns it off, exactly as they always have. `--set` exists
   // because a SLASH COMMAND can only make one static substitution: the word the
   // person typed reaches the engine as a word. An EMPTY value toggles.
   let on = !flags.off
   if (flags.set !== undefined) {
-    const said = String(flags.set).trim().toLowerCase()
-    if (said === '') {
+    const state = String(flags.set).trim().toLowerCase()
+    if (state === '') {
       on = !current()
-    } else if (said === 'on' || said === 'off') {
-      on = said === 'on'
+    } else if (state === 'on' || state === 'off') {
+      on = state === 'on'
     } else {
       // Refused by name, like an unknown tier. The wrong default here opens a
-      // port or permits a publish.
+      // port.
       process.stdout.write(
         `spec-env review allow: ${JSON.stringify(String(flags.set))} is not a state — ` +
           'one of on, off, or nothing at all to toggle. Nothing changed.\n',
@@ -5549,76 +5516,35 @@ function specEnvReviewAllow(dir, config, tier, specArg, flags) {
   }
 
   const before = current()
-  let wrote
-  if (perSpec) {
-    wrote = writeRemoteAllow(out, on)
-  } else {
-    let parsed
-    try {
-      parsed = JSON.parse(fs.readFileSync(file, 'utf8'))
-    } catch (err) {
-      // Cannot tell what is in there, so write nothing. Reachable only if the
-      // file changes between `loadEnvConfig` and here — that load already
-      // refuses an unparseable config.
-      process.stdout.write(
-        `spec-env review allow: ${file} could not be read as JSON (${err.message}) — ` +
-          'nothing changed.\n',
-      )
-      process.exitCode = 1
-      return
-    }
-    parsed.review = { ...(parsed.review || {}), [key]: on }
-    fs.writeFileSync(file, JSON.stringify(parsed, null, 2) + '\n')
-    wrote = file
+  let parsed
+  try {
+    parsed = JSON.parse(fs.readFileSync(file, 'utf8'))
+  } catch (err) {
+    // Cannot tell what is in there, so write nothing. Reachable only if the
+    // file changes between `loadEnvConfig` and here — that load already
+    // refuses an unparseable config.
+    process.stdout.write(
+      `spec-env review allow: ${file} could not be read as JSON (${err.message}) — ` +
+        'nothing changed.\n',
+    )
+    process.exitCode = 1
+    return
   }
+  parsed.review = { ...(parsed.review || {}), [key]: on }
+  fs.writeFileSync(file, JSON.stringify(parsed, null, 2) + '\n')
 
   const lines = [
-    `spec-env review allow: ${tier} reviews${spec ? ` for ${spec.folder}` : ''} are now ${on ? 'ON' : 'OFF'}` +
-      (before === on ? ' (unchanged)' : ''),
+    `spec-env review allow: network reviews are now ${on ? 'ON' : 'OFF'}` + (before === on ? ' (unchanged)' : ''),
     // THE ABSOLUTE PATH. `dir` is re-anchored to the primary checkout, so run
     // from a worktree this writes in a different tree — and a relative path
     // reads as the tree you are standing in.
-    `  wrote: ${wrote}`,
+    `  wrote: ${file}`,
+    '  that is the primary checkout, whichever tree you ran this from, and the file is',
+    '  COMMITTED — so it changes for everyone who pulls, and leaves that tree dirty.',
+    on
+      ? '  the next render binds every interface, so the page opens on your phone and your tailnet.'
+      : '  the next render binds 127.0.0.1 only, reachable from this machine.',
   ]
-  if (perSpec) {
-    lines.push('  this spec only, in the gitignored review store — the committed config is untouched.')
-  } else {
-    lines.push(
-      '  that is the primary checkout, whichever tree you ran this from, and the file is',
-      '  COMMITTED — so it changes for everyone who pulls, and leaves that tree dirty.',
-    )
-  }
-  if (key === 'allowNetwork') {
-    lines.push(
-      on
-        ? '  the next render binds every interface, so the page opens on your phone.'
-        : '  the next render binds 127.0.0.1 only, reachable from this machine.',
-    )
-  } else if (!on) {
-    lines.push(
-      '  publishing is no longer permitted; any page already published stays up.\n' +
-        '  turn it back on with: /spec-remote-review',
-    )
-  } else {
-    lines.push(
-      '  a published page cannot be deleted by skitterspec,\n' +
-        '  and a verdict there needs /spec-reviewed.\n' +
-        '  turn it back off with: /spec-remote-review',
-    )
-    // THE REVIEW IT WAS TYPED FOR. The banner names this command beside a page
-    // the reader cannot reach, so turning remote on is the ask to publish THAT
-    // page — and saying nothing about it left the reader with no link at all.
-    // A page on disk is the positive signal; with none there is nothing to
-    // publish, and nothing is named.
-    if (spec && fs.existsSync(out)) {
-      lines.push(
-        `  review:   ${spec.folder} has a page — publish it and re-show the stack`,
-        `  publish:  skitterspec spec-env review ${spec.folder} --publish-copy`,
-      )
-    } else {
-      lines.push('  this PERMITS publishing; it publishes nothing.')
-    }
-  }
   process.stdout.write(lines.join('\n') + '\n')
 }
 
@@ -5730,9 +5656,6 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
   // CHECKOUT, keyed by the spec's folder name; not one byte of it comes from
   // the worktree. `--out` moves the page and its sidecars together.
   const out = reviewOutPath(dir, spec.folder, flags.out)
-  // This spec's own remote permission over the project default — a
-  // per-worktree decision, never the committed config (bug-remote-review-toggle).
-  config = withSpecRemote(config, out)
 
   // The other half of a confirmation: a pass the operator says is not theirs.
   // Left in the store it is reported on every render until they stop reading the
@@ -6451,21 +6374,6 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
     /* the page is the artefact; this is a note for the daemon */
   }
 
-  // The publish-ready copy, ONLY when asked. An ordinary render must not pay for
-  // a second copy of the whole diff on disk for a path most renders never take.
-  let publishCopy = null
-  if (flags.publishCopy) {
-    publishCopy = reviewPublishPath(out)
-    writeReviewPage(
-      publishCopy,
-      renderReviewFragment(data, { reviewHtml: renderReviewBlock(data.review) }),
-    )
-  }
-
-  // Read, never written, and never interpreted: the engine cannot publish, and
-  // names this file only so the skill that can never has to build a path.
-  const urlFile = reviewUrlPath(out)
-  const url = readReviewUrl(out)
 
   // Resolved before the --json early return, so both outputs agree.
   const reader = resolveReader(config, process.env, process.platform)
@@ -6537,7 +6445,7 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
 
   // ONE STACK for both outputs, so `--json` and the text cannot disagree about
   // which tiers exist — or which one is hidden.
-  const stackTiers = reviewTierStack({ served, fileUrl: reviewFileUrl(out), publishedUrl: url, config, reader })
+  const stackTiers = reviewTierStack({ served, fileUrl: reviewFileUrl(out), config, reader })
 
   if (flags.json) {
     process.stdout.write(
@@ -6559,7 +6467,6 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
           // project folder.
           ...(docs ? { docs: { paths: docs.owned.map((p) => projectRelative(p, prefixOf(config))) } } : {}),
           out,
-          publishCopy,
           reader: reader.reader,
           readerWhy: reader.why,
           served,
@@ -6580,8 +6487,6 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
           ...(served ? {} : noServeBecause ? { notServed: noServeBecause } : {}),
           ...(serverSaid ? { server: serverSaid } : {}),
           fileUrl: reviewFileUrl(out),
-          urlFile,
-          url,
           notesFile: reviewNotesPath(out),
           // Absent stays absent, exactly as it is in the page payload: the
           // committing set is what a caller that did not ask always got, so
@@ -6688,16 +6593,15 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
       // use, and the engine cannot know — that guess failed three separate ways
       // in one day. Now every tier is listed, labelled, and either a URL or the
       // one command that turns it on.
-      // The runners-up print as `also:` lines inside the network tier's own
-      // rendering — `reviewTierLine` carries them, which is what puts them
-      // under `network:` rather than dangling after the stack (they used to
-      // print below `remote:`, against the comment that placed them).
+      // Any runners-up print as `also:` lines inside their tier's own
+      // rendering — `reviewTierLine` carries them.
       reviewStackText(stackTiers) +
-      // WHICH TIERS THE WAIT COVERS, once, next to the stack. `local` and
-      // `network` are two doors into one room — the page POSTs to
-      // `location.pathname`, so both reach this server and this pending store.
-      // `remote` writes to the artifact's own store, which nothing here can see.
-      `  the wait covers ${waitCovers(stackTiers).join(' + ')}; a remote verdict needs /spec-reviewed.\n` +
+      // WHICH TIERS THE WAIT COVERS, once, next to the stack. Every served door
+      // is one room — the page POSTs to `location.pathname`, so each reaches
+      // this server and this pending store.
+      // Nothing at all for a `file://` page: there is no door to watch, and
+      // the `not served:` line below says why.
+      (waitCovers(stackTiers).length ? `  the wait covers ${waitCovers(stackTiers).join(' + ')}.\n` : '') +
       // WHETHER IT IS ALSO RUNNING SOMEWHERE, which is the other way to judge a
       // change. `unavailable` prints nothing — see `liveStateLine`.
       (liveStateLine(live) ? `${liveStateLine(live)}\n` : '') +
@@ -6711,9 +6615,6 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
       // One line, and only when something was actually done on the reader's
       // behalf. An action nobody asked for is reported, not hidden.
       (serverSaid ? `  ${serverSaid}\n` : '') +
-      // Named on its own line so the skill never has to build the path itself.
-      (publishCopy ? `  publish: ${publishCopy}\n` : '') +
-      (url ? `  published: ${url}\n` : '') +
       (t.files === 0 ? '  nothing to review — no changes found.\n' : ''),
   )
 }
@@ -8127,19 +8028,17 @@ async function specEnv(rest) {
     else if (args[i] === '--stop') flags.stop = true
     else if (args[i] === '--rotate-token') flags.rotateToken = true
     else if (args[i] === '--off') flags.off = true
-    else if (args[i] === '--project') flags.project = true
     else if (args[i] === '--status') flags.status = true
     else if (args[i] === '--port') flags.port = args[++i]
     else if (args[i] === '--host') flags.host = args[++i]
-    else if (args[i] === '--publish-copy') flags.publishCopy = true
     else if (args[i] === '--buttons') flags.buttons = args[++i]
     else if (args[i] === '--out') flags.out = args[++i]
     else if (args[i] === '--review') flags.review = args[++i]
     else if (args[i] === '--run-reviewers') flags.runReviewers = true
     else if (args[i] === '--notes') flags.notes = args[++i]
     else if (args[i] === '--verdict') flags.verdict = args[++i]
-    // `--set` keeps an EMPTY STRING rather than coercing it away: empty is the
-    // bare `/spec-remote-review`, and it means toggle. `??` so a missing value
+    // `--set` keeps an EMPTY STRING rather than coercing it away: empty means
+    // toggle. `??` so a missing value
     // at the end of argv is still the empty form rather than `undefined`, which
     // would read as the flag never having been passed.
     else if (args[i] === '--set') flags.set = args[++i] ?? ''
@@ -8382,7 +8281,7 @@ async function specEnvDispatch(sub, dir, config, positional, flags, present, inv
         `Usage: skitterspec spec-env <${SPEC_ENV_VERBS.join('|')}> [spec] [--keep-volumes] [--force] [--also <tag>] [--older-than <days>] [--branch] [--out <file>] [--review <json>] [--run-reviewers] [--notes <json>] [--verdict <word>] [--resolve <json>] [--outcome <text>] [--claim <code>] [--drop <code>] [--buttons <set>] [--json] [--record-primary] [--assert-primary-clean]\n` +
         '  review serve [--port <n>] [--host <addr>] [--stop] [--status]  serve every diff locally\n' +
         '  review serve --rotate-token    mint a new URL token; every handed-out link dies\n' +
-        '  review allow <network|remote> [<spec>] [--off] [--project]  permit a review tier\n' +
+        '  review allow network [--off]  permit the network and tailnet tiers\n' +
         '                                   (network: env.config.json; remote: this spec only)\n' +
           '  review arm [spec] [--phase <n>]        a phase ended — its diff now owes a verdict\n' +
           '  review gate [spec] [--check] [--json]  is one owed? --check exits non-zero if so\n' +

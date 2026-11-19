@@ -13,7 +13,7 @@ const { execFileSync } = require('node:child_process')
 
 const { loadEnvConfig, CONFIG_FILE } = require('../src/env/config.js')
 const { primaryAnchor, attachProject, projectName } = require('../src/env/project.js')
-const { rawGitReader, collectReview, renderReviewPage, renderReviewFragment } = require('../src/env/review.js')
+const { rawGitReader, collectReview, renderReviewPage } = require('../src/env/review.js')
 
 function git(cwd, ...argv) {
   return execFileSync('git', ['-C', cwd, ...argv], { encoding: 'utf8' }).trim()
@@ -100,7 +100,6 @@ test('the tab reads <project> · <spec>, and the island carries the name', () =>
   assert.strictEqual(d.project, 'acme')
   assert.strictEqual(d.title, 'feat-x', 'the heading stays the spec')
   assert.strictEqual(tabOf(renderReviewPage(d)), 'acme · feat-x')
-  assert.strictEqual(tabOf(renderReviewFragment(d)), 'acme · feat-x', 'the published page too')
 })
 
 test('a name carrying markup is escaped in the tab', () => {

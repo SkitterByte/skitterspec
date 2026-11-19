@@ -17,7 +17,9 @@ are quiet.
       `review.allowRemote`.
 - [ ] `docs/linear.html`, `docs/jira.html`, `docs/azure-boards.html`: fix the
       one publish/remote mention on each.
-- [ ] `packages/common/README.md`: remove the remote-review lines.
+- [ ] `packages/common/README.md` and `packages/skitterspec/README.md` (the
+      prose about publishing a page and the command table row): remove the
+      remote-review lines.
 - [ ] `MIGRATION.md`: add an entry. Publishing is gone, `allowRemote` is
       ignored, `/spec-remote-review` is retired by `update`, and the tailnet
       URL is now `remote`.

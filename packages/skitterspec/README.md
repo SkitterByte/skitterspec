@@ -191,15 +191,14 @@ reaches you rather than the engine guessing:
 ```
 local:   http://127.0.0.1:7760/7e9e123e7540/feat-orders
 network: http://192.168.0.136:7760/7e9e123e7540/feat-orders
-remote:  off — turn on with: /spec-remote-review
+remote:  http://100.126.111.34:7760/7e9e123e7540/feat-orders (tailnet)
 live:    off — /spec-live to put it live
 ```
 
-`local` and `network` are two doors into one room — the same server, the same
-waiting verdict — so the wait covers both. `remote` is a published page, which
-is a separate store: a verdict there needs `/spec-reviewed`, and it is off until
-you type `/spec-remote-review`, which permits **that spec** to publish, publishes
-the waiting page and re-shows the links. The `live:` line is the other way to judge a
+Each line is labelled by what the address is: `local` is this machine,
+`network` your LAN, `remote` your tailnet. They are three doors into one room —
+the same server, the same waiting verdict — so one wait covers them all. On a
+machine with no tailnet address the `remote` line says so. The `live:` line is the other way to judge a
 change: whether it is also **running**, and the page has a button to put it
 there.
 
@@ -216,8 +215,7 @@ All optional, in `specs/.core/env.config.json`:
 | Key | Default | Does |
 |-----|---------|------|
 | `review.serve` | `"always"` | whether a render stands the local server up. `"never"` gives you a `file://` page, whose buttons copy a command instead of sending |
-| `review.allowNetwork` | `true` | whether that server binds every interface, so the page opens on your phone |
-| `review.allowRemote` | `false` | whether publishing is permitted for every spec — the project default. `/spec-remote-review` permits one spec at a time in a gitignored sidecar and never edits this key (`review allow remote --project` does) |
+| `review.allowNetwork` | `true` | whether that server binds every interface, so the page opens on your phone and over your tailnet |
 | `review.required` | `true` | whether a finished phase owes a verdict |
 | `review.commitWith` | `"/commit"` | the skill a committing verdict hands off to |
 | `review.projectName` | `""` | the name generated pages carry in their tab and above their heading. Empty means the project folder's name |

@@ -5,8 +5,8 @@
  *
  * AN ACTION IS NOT A VERDICT, and almost every test here is about that
  * separation being structural rather than remembered. A verdict is the reader's
- * conclusion, consumed once by the thing it asked for. `live-on`, `live-off`,
- * `allow-network` and `allow-remote` change something and hand the reader back
+ * conclusion, consumed once by the thing it asked for. `live-on`, `live-off`
+ * and `allow-network` change something and hand the reader back
  * to the same page with the same options — so a run answering one has concluded
  * nothing, and the gate a finished phase armed must survive it untouched.
  *
@@ -38,13 +38,15 @@ const blob = (extra) => ({ version: 1, spec: 'feat-x', ...extra })
 
 // --- the vocabularies stay apart ------------------------------------------
 
-// THREE, NOT FOUR. `live-off` was removed: putting THIS change live is about
+// TWO. `allow-remote` went with the published tier (feat-tailnet-remote-tier):
+// `remote` is the tailnet now, on `network`'s switch. `live-off` was removed: putting THIS change live is about
 // the diff on screen, while handing the whole instance back to `main` is a
 // workspace decision with nothing to do with this review — and a control for it
 // on a review page invites the reader to make it while thinking about something
 // else. The `live:` line names `/spec-live main` for it instead.
-test('the three actions, and none of them is a verdict', () => {
-  assert.deepStrictEqual(ACTIONS, ['live-on', 'allow-network', 'allow-remote'])
+test('the two actions, and none of them is a verdict', () => {
+  assert.deepStrictEqual(ACTIONS, ['live-on', 'allow-network'])
+  assert.ok(!ACTIONS.includes('allow-remote'), 'there is no published tier to permit')
   assert.ok(!ACTIONS.includes('live-off'), 'the page does not hand main back')
   for (const a of ACTIONS) {
     assert.ok(!VERDICTS.includes(a), `${a} must never be a verdict`)
@@ -109,9 +111,11 @@ test('a blob carrying both a verdict and an action is refused', () => {
 // the command. So there is no disable direction anywhere.
 test('only an off tier offers an action', () => {
   assert.strictEqual(tierAction({ tier: 'network', off: true }), 'allow-network')
-  assert.strictEqual(tierAction({ tier: 'remote', off: true }), 'allow-remote')
   assert.strictEqual(tierAction({ tier: 'network', url: 'http://x' }), null)
-  assert.strictEqual(tierAction({ tier: 'remote', url: 'https://x' }), null)
+  assert.strictEqual(tierAction({ tier: 'remote', url: 'http://100.101.7.42:7760/x' }), null)
+  // An off `remote` is off because `network` is, and the press on the network
+  // row is what turns both on — two buttons for one switch would disagree.
+  assert.strictEqual(tierAction({ tier: 'remote', off: true }), null)
 })
 
 test('local has no action at all — there is no setting to flip', () => {
@@ -123,11 +127,10 @@ test('the actions the tier stack can produce are exactly the enables', () => {
   const stack = reviewTierStack({
     served: null,
     fileUrl: 'file:///x',
-    publishedUrl: null,
-    config: { review: { allowNetwork: false, allowRemote: false } },
+    config: { review: { allowNetwork: false } },
   })
   const actions = stack.map(tierAction).filter(Boolean)
-  assert.deepStrictEqual(actions, ['allow-network', 'allow-remote'])
+  assert.deepStrictEqual(actions, ['allow-network'])
 })
 
 // --- the surfaces block --------------------------------------------------
@@ -162,21 +165,18 @@ test('an off tier becomes a row with its enable; an on one contributes nothing',
     live: null,
     tiers: [
       { tier: 'local', url: 'file:///x' },
-      { tier: 'network', url: 'http://192.168.0.1:7760/x' },
+      { tier: 'network', off: true },
       { tier: 'remote', off: true },
     ],
   })
   assert.deepStrictEqual(
     rows.map((r) => [r.tier, r.action]),
-    [['remote', 'allow-remote']],
+    [['network', 'allow-network']],
   )
-  // And remote carries the command too, for a reader nowhere near the page.
-  assert.strictEqual(rows[0].command, '/spec-remote-review')
 })
 
-// ONLY `remote` GETS A SLASH COMMAND. `network` is ON by default, so turning it
-// off is a rare deliberate act — a command per tier is clutter for the one
-// nobody touches, and the engine accepts `--set` for both either way.
+// NO TIER GETS A SLASH COMMAND. `network` is ON by default, so turning it on
+// is a rare deliberate act, and the press or the engine verb covers it.
 test('network names no slash command, deliberately', () => {
   const rows = surfacesFor({ live: null, tiers: [{ tier: 'network', off: true }] })
   assert.strictEqual(rows[0].action, 'allow-network')
@@ -201,7 +201,7 @@ test('STAYS SILENT: nothing to say produces null, never an empty block', () => {
 test('STAYS SILENT: an unavailable live state is no row, not a row reading unavailable', () => {
   const rows = surfacesFor({
     live: { state: 'unavailable', reason: 'no worktree to put live' },
-    tiers: [{ tier: 'remote', off: true }],
+    tiers: [{ tier: 'network', off: true }],
   })
   assert.deepStrictEqual(
     rows.map((r) => r.kind),
@@ -217,27 +217,18 @@ test('STAYS SILENT: a permitted tier with no address is no row', () => {
     live: null,
     tiers: [
       { tier: 'network', unavailable: true, note: 'no network address on this machine' },
-      { tier: 'remote', unavailable: true, note: 'publishing is an ask — nothing published yet' },
+      { tier: 'remote', unavailable: true, note: 'no tailnet address on this machine' },
     ],
   })
   assert.strictEqual(rows, null)
 })
 
 // SAID BEFORE THE PRESS. `allow network` edits a COMMITTED file in the primary
-// checkout — behaviour for everyone who pulls, and a dirty tree. `allow remote`
-// is per spec since bug-remote-review-toggle, and says that instead. A reader
-// tapping a button must not discover either afterwards.
+// checkout — behaviour for everyone who pulls, and a dirty tree. A reader
+// tapping a button must not discover that afterwards.
 test('an enable row says what it writes', () => {
-  const rows = surfacesFor({
-    live: null,
-    tiers: [
-      { tier: 'network', off: true },
-      { tier: 'remote', off: true },
-    ],
-  })
-  const note = (tier) => rows.find((r) => r.tier === tier).note
-  assert.match(note('network'), /committed, and shared/)
-  assert.match(note('remote'), /this spec only — nothing committed/)
+  const rows = surfacesFor({ live: null, tiers: [{ tier: 'network', off: true }] })
+  assert.match(rows[0].note, /committed, and shared/)
 })
 
 // The live rows carry no such warning, because there is nothing to warn about:
@@ -274,17 +265,17 @@ test('every other button set still offers the press, including the unstated defa
   }
 })
 
-// The two config actions commit nothing, so a mid-phase page is as good a place
+// The config action commits nothing, so a mid-phase page is as good a place
 // to press them as any other.
 test('midrun withholds only the live press, never the enables', () => {
   const rows = surfacesFor({
     live: { state: 'off' },
-    tiers: [{ tier: 'remote', off: true }],
+    tiers: [{ tier: 'network', off: true }],
     buttons: 'midrun',
   })
   assert.deepStrictEqual(
     rows.map((r) => r.action),
-    [null, 'allow-remote'],
+    [null, 'allow-network'],
   )
 })
 

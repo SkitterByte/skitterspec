@@ -3,8 +3,8 @@
 /**
  * A claimed pass must report the ACTION it carried.
  *
- * The page's surfaces strip sends an action blob — `live-on`, `allow-network`,
- * `allow-remote` — through exactly the transport a verdict uses: POST, held in
+ * The page's surfaces strip sends an action blob — `live-on` or
+ * `allow-network` — through exactly the transport a verdict uses: POST, held in
  * `<spec>.pending.json`, claimed by code. `/spec-diff` §2b then does the thing
  * and hands the page back.
  *
@@ -130,12 +130,12 @@ test('--json carries the action on the claim', async () => {
   // would leave §2b exactly as unreachable as it was.
   const { dir } = scaffold()
   try {
-    const code = hold(dir, blobOf({ action: 'allow-remote' }))
+    const code = hold(dir, blobOf({ action: 'allow-network' }))
     const said = await review(dir, '--claim', code, '--json')
     const json = JSON.parse(said)
 
     assert.strictEqual(json.claimed.code, code)
-    assert.strictEqual(json.claimed.action, 'allow-remote')
+    assert.strictEqual(json.claimed.action, 'allow-network')
   } finally {
     cleanup(dir)
   }

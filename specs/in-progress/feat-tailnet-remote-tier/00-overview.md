@@ -130,7 +130,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Engine: tailnet is the `remote` tier | ⬜ | [01-engine-tiers.md](01-engine-tiers.md) |
+| 1 | Engine: tailnet is the `remote` tier | ✅ | [01-engine-tiers.md](01-engine-tiers.md) |
 | 2 | Page: no publish, no allow-remote | ⬜ | [02-the-page.md](02-the-page.md) |
 | 3 | Skills, rules and the command | ⬜ | [03-skills-and-rules.md](03-skills-and-rules.md) |
 | 4 | Docs and migration | ⬜ | [04-docs.md](04-docs.md) |
@@ -142,3 +142,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-11-19 — Spec created.
+- 2026-11-19 — Phase 1: the publish-only fragment renderer and `--publish-copy`
+  were removed with the tier. `remote` follows the loopback bind as well as
+  `allowNetwork`. With a `file://` page `waitCovers` is empty, and no wait line
+  prints.
