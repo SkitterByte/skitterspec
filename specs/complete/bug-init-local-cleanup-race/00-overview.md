@@ -79,3 +79,4 @@ _No external surface changes — internal refactor only._
 - 2026-11-19 — Bug reproduced; failing test added (red). Root cause found by
   an instrumented cleanup under full-suite load.
 - 2026-11-19 — Fixed: `repo()` sets `gc.auto 0` and `maintenance.auto false`; test green, and three full `pnpm test` runs had no failures (each had 2–5 before).
+- 2026-11-19 — Completed; fix done, tests green.
