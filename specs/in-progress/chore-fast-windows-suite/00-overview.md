@@ -3,22 +3,22 @@ github_identifier: "#255"
 github_url: "https://github.com/SkitterByte/skitterspec/issues/255"
 ---
 
-# Fast Windows suite, one test pass per release batch
+# Windows-gated releases, one test pass per batch
 
 > **Type:** Chore
 > **Name:** chore-fast-windows-suite (the spec folder name — the handle you paste into `/spec-start`)
 > **Tracker:** https://github.com/SkitterByte/skitterspec/issues/255
 > **Author:** Reuben Greaves
 > **Raised:** 2026-11-19
-> **Area:** scripts/release.js, scripts/release.test.js, packages/common/test/helpers/repo.js, packages/*/test/*.test.js (the slowest on Windows), RELEASING.md
+> **Area:** scripts/release.js, scripts/release.test.js, .github/workflows/release.yml, scripts/workflows.test.js, packages/common/test/helpers/repo.js, packages/*/test/*.test.js (the slowest on Windows), RELEASING.md
 > **Stack:** worktree
 > **Docs:** none: test and release tooling only, no reader-visible behaviour
 
 ## Summary
 
-Get the Windows run of the suite from about 17 minutes to under 5. Make a
-multi-package release run its suites once, not once per package. Releasing
-all five distributions should cost one test pass, not five.
+A release stages on npm only after the Windows suite passes in CI, and a
+batch of releases runs its local suites once rather than once per package.
+The local Windows run, 22 minutes in a VM, is retired.
 
 ## Problem
 
@@ -34,10 +34,10 @@ real-time scanning in a VM. A release that should take minutes took hours.
 - `node scripts/release.js <pkg>,<pkg>,… minor --yes` releases several
   packages with one native, one Linux and one Windows run, then commits and
   tags each one.
-- The full suite runs on the Windows VM in under 5 minutes. Before and after
-  numbers are recorded in this spec.
-- RELEASING.md says how to exclude the VM clone and the test temp dir from
-  Defender, and what that bought.
+- A tag push stages nothing until `release.yml`'s Windows job is green. A red
+  Windows run leaves nothing to approve.
+- `release.js` runs no Windows suite locally, and the old flag and variable
+  still work, with a note.
 - No test's coverage is lost. Every rewritten test still asserts what it
   asserted, and real-git behaviour (ranges, worktrees, remotes) keeps a
   real-git test.
@@ -61,14 +61,21 @@ real-time scanning in a VM. A release that should take minutes took hours.
    tests over real repos that only check planner logic are rewritten against
    the pure planners (`planUp`, `planResume`, `blockersFrom` …). A real-git
    test stays wherever only git can show the behaviour.
-6. **Cache the engine's read-only git calls per process.** On the Mac the suite
-   spawns 18,100 subprocesses, and about half are the engine asking git the
-   same question again within one command (`rev-parse`, `symbolic-ref`,
-   `worktree list`, `status`). A memo around those reads, cleared by any write
-   the same process makes, cuts them. Every real command gets faster on
-   Windows too, so the commit carries a `Release-Note:` even though the spec
-   is a chore.
-7. **Out of scope: making CI's Windows job stop a release.** `release.yml` is
+6. **Windows gates the release in CI, not on the releaser's machine.**
+   `ci.yml` already ran Windows on every tag, but beside `release.yml` rather
+   than before it, so a release staged in about 90 seconds while Windows still
+   had 5–10 minutes to go. A red Windows run never stopped anything
+   (`skitterspec-azure-boards@2.16.0`). `release.yml` now runs the Windows
+   suite itself and its stage job `needs:` it. That job takes 7–12 minutes on
+   GitHub, unattended, which is why the local 22-minute VM run can go.
+   Rejected: checking CI status at `npm run approve`, because approving on the
+   npm website skips that script.
+7. **Not pursued: a sub-5-minute Windows suite.** The cost is spawn count
+   (17,000 subprocesses) and the VM's 4 CPUs against the Mac's 18. A
+   per-command git cache saved only 3%, because the engine asks distinct
+   questions rather than repeating them, so it was reverted. With CI owning
+   Windows, the suite's speed on Windows is no longer on anyone's critical
+   path. `release.yml` is
    separate from `ci.yml`, and that is its own design question.
 
 ## Solution overview
@@ -87,9 +94,9 @@ real-time scanning in a VM. A release that should take minutes took hours.
 |---------|--------|--------|
 | CLI command | update | `scripts/release.js <pkg>[,<pkg>…]`: one test pass per batch |
 | Service | add | `fixture()` in `packages/common/test/helpers/repo.js` |
-| Service | update | engine git reader: per-process memo of read-only calls |
+| Config key | update | `.github/workflows/release.yml`: `windows` job; `stage` needs it |
 | CLI command | add | `scripts/spawn-census.js` (a `--require` hook) |
-| Business rule | update | RELEASING.md: Defender exclusions; batch releases |
+| Business rule | update | RELEASING.md: CI Windows gate; batch releases; local Windows gate retired |
 
 ## Phases
 
@@ -101,8 +108,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | Measure, and Defender exclusions | ✅ | [01-measure-and-exclude.md](01-measure-and-exclude.md) |
 | 2 | One test pass per release batch | ✅ | [02-batch-release.md](02-batch-release.md) |
 | 3 | Fixture copies for the slowest files | ✅ | [03-fixture-copies.md](03-fixture-copies.md) |
-| 4 | Cache the engine's repeated git reads | ⬜ | [04-engine-git-cache.md](04-engine-git-cache.md) |
-| 5 | Planner logic to pure tests, then confirm the target | ⬜ | [05-pure-tests.md](05-pure-tests.md) |
+| 4 | Stage only after Windows passes, in CI | ✅ | [04-ci-windows-gate.md](04-ci-windows-gate.md) |
+| 5 | Retire the local Windows gate | ⬜ | [05-retire-local-windows.md](05-retire-local-windows.md) |
 
 ## Open questions
 
@@ -113,7 +120,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-11-19 — Spec created. A five-package release spent hours in the
   Windows VM.
 - 2026-11-19 — Follow-up surfaced: Windows failures in CI do not stop a
-  release (`release.yml` runs on Ubuntu only). Not in scope here.
+  release (`release.yml` runs on Ubuntu only). Not in scope here. (Brought
+  into scope later the same day; see below.)
 - 2026-11-19 — Phase 1: the Windows baseline is 22.7 min, against 42 s on the
   Mac. Defender real-time protection was already off in the VM, so Decision 2's
   lever bought nothing here, and the target now rests on phases 3 and 4. The
@@ -128,3 +136,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-11-19 — Phase 3 closed after three conversions and a 3.4% suite-wide
   spawn cut. The rest of the scaffold conversions move to phase 5, after the
   engine cache, where the ranking will have changed.
+- 2026-11-19 — Changed course after phase 3. The engine git cache was built
+  and reverted: it cut spawns by only 3%. The real gap is that CI's Windows
+  run never gated a release, and the VM has 4 CPUs against 18. Phases 4 and 5
+  are now "Windows gates staging in `release.yml`" and "retire the local
+  Windows gate", and the sub-5-minute target is dropped (Decision 7).
+  Phases 1–3 stand: batch releases, the timing and census tools, and
+  `fixture()`.

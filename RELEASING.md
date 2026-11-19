@@ -106,6 +106,14 @@ GitHub events, so `release.yml` never fires for any of them.
 package's `prepack` runs `build-dist.js` to assemble the self-contained tree, so
 the workflow packs from the package directory.
 
+**Nothing stages until Windows is green.** The stage job `needs` the
+workflow's own Windows job, which runs the same suite as `ci.yml`'s, so a run
+takes about 10 minutes and a red Windows run leaves nothing to approve.
+`ci.yml` has always run Windows on a tag too, but alongside this workflow
+rather than before it: a release staged in about 90 seconds while Windows still
+had minutes to go, and `skitterspec-azure-boards@2.16.0` was staged while its
+Windows run failed.
+
 **Staged is not published.** A staged build waits for a human to approve it with
 2FA:
 

@@ -277,3 +277,45 @@ test('a step that really continues on error is caught', () => {
 test('STAYS SILENT: a comment mentioning continue-on-error is not an accusation', () => {
   assert.strictEqual(continuesOnError('  # once ran with continue-on-error: true\n      - run: pnpm test\n'), false)
 })
+
+// --- the Windows gate (chore-fast-windows-suite) ----------------------------
+//
+// ci.yml ran Windows beside release.yml, not before it, so a release staged
+// while its Windows run was still going, and a red one stopped nothing.
+
+// One job's block: from its `  <name>:` line to the next job at that indent.
+function jobBlock(yaml, name) {
+  const lines = withoutComments(yaml).split('\n')
+  const start = lines.findIndex((l) => l === `  ${name}:`)
+  if (start === -1) return null
+  const end = lines.findIndex((l, i) => i > start && /^ {2}\S/.test(l))
+  return lines.slice(start, end === -1 ? undefined : end).join('\n')
+}
+
+// The suite a job runs: its `run:` lines, in order.
+const runLines = (block) => (block.match(/^\s*- run: .*$/gm) || []).map((l) => l.trim())
+
+test('release.yml stages only after its Windows job', () => {
+  const stage = jobBlock(RELEASE(), 'stage')
+  assert.ok(stage, 'release.yml has a stage job')
+  assert.match(stage, /^\s*needs:\s*\[?\s*windows\s*\]?\s*$/m)
+})
+
+test('release.yml\'s Windows job runs the same suite as ci.yml\'s', () => {
+  const ci = jobBlock(fs.readFileSync(path.join(WORKFLOWS, 'ci.yml'), 'utf8'), 'windows')
+  const rel = jobBlock(RELEASE(), 'windows')
+  assert.ok(rel, 'release.yml has a windows job')
+  assert.match(rel, /runs-on:\s*windows-latest/)
+  assert.deepStrictEqual(runLines(rel), runLines(ci))
+})
+
+test('the Windows job does not get the OIDC token', () => {
+  const rel = jobBlock(RELEASE(), 'windows')
+  assert.match(rel, /^\s*permissions:\s*$/m)
+  assert.doesNotMatch(rel, /id-token/)
+})
+
+test('a stage job that does not wait for Windows is caught', () => {
+  const yaml = 'jobs:\n  windows:\n    runs-on: windows-latest\n  stage:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm stage publish\n'
+  assert.doesNotMatch(jobBlock(yaml, 'stage'), /^\s*needs:/m)
+})
