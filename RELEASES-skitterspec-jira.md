@@ -5,6 +5,20 @@ What's new for users of skitterspec-jira. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 2.17.0 — 19 Nov 2026
+
+### Install
+- **New** — After converting to a local install, skitterspec now tells you which long-lived branches (such as master) still carry the committed install, so teammates working from them stop getting the skills once you clean them up.
+
+### Live
+- **Fixed** — After /spec-live main, /spec-next carries on with the spec you just released instead of refusing, and when several specs are in flight it lists them with the --worktree line to pick one.
+
+### Review
+- **New** — The review links are now labelled by address: local is this machine, network your LAN and remote your tailnet, each on its own line and all covered by the same wait. Publishing a review as a claude.ai page has been retired.
+
+### Skills
+- **New** — The /spec-remote-review command is gone. A reader off your wifi opens the remote (tailnet) link in the review banner instead, and their verdict reaches the session like any other.
+
 ## 2.16.0 — 19 Nov 2026
 
 **Highlights:** `/spec-resume <spec|#ticket> [message]` takes you back into a spec that was waiting on a deploy or another project. It rebuilds the worktree if this machine has none, and acts on what you tell it, whether that is feedback, "it's released", or a question. `/spec #N` on a ticket that already has a spec now offers it instead of starting over.
