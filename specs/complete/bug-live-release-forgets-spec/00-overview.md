@@ -96,3 +96,4 @@ stays-silent cases pass before and after.
 - 2026-11-19 — Decision: the ambiguity error and `--json` candidates list each
   spec's project folder (what `resolve` prints as `worktree:`), so the path
   pastes straight into `/spec-next --worktree`.
+- 2026-11-19 — Completed; all fix tasks done, tests green.
