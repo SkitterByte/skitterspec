@@ -20,6 +20,7 @@ const {
   cmpSemver,
   tagName,
   buildPlan,
+  buildBatchPlan,
   assertCleanTree,
   assertTagAvailable,
   formatPlan,
@@ -317,6 +318,7 @@ test('parseArgs derives package, bump, and the escalating level flags', () => {
     skipLinux: false,
     skipWindows: false,
     pkg: 'skitterspec',
+    pkgs: ['skitterspec'],
     bump: 'patch',
   })
   // --publish is gone: it is not a flag that does nothing, it is not a flag.
@@ -784,4 +786,67 @@ test('--skip-tests skips the Windows run too', () => {
   const p = plan({ skipTests: true, windows: RUN })
   assert.strictEqual(windowsStep(p), undefined)
   assert.doesNotMatch(formatPlan(p), /Windows run skipped/, 'the skip-tests note already says it')
+})
+
+// --- batches (chore-fast-windows-suite) -------------------------------------
+//
+// Five releases cut one at a time ran the Windows VM five times over identical
+// code. A batch writes every bump, runs each suite once, then commits and tags
+// each package.
+
+const entry = (name, dirRel, currentVersion, nextVersion) => ({ name, npm: `@skitterbyte/${name}`, dirRel, currentVersion, nextVersion })
+const BASE = entry('skitterspec', 'packages/skitterspec', '1.0.0', '1.1.0')
+const GH = entry('skitterspec-github', 'packages/skitterspec-github', '2.0.0', '2.1.0')
+const WIN = { state: 'run', command: 'win-suite' }
+
+test('a batch runs each suite once, between every bump and every commit', () => {
+  const p = buildBatchPlan([GH, BASE], { linux: { state: 'run' }, windows: WIN })
+  const verify = p.steps.filter((s) => s.kind === 'verify')
+  assert.strictEqual(verify.length, 3, 'native, Linux and Windows, once each')
+  const idx = (pred) => p.steps.findIndex(pred)
+  const lastWrite = p.steps.map((s) => s.kind === 'write-version' || (s.argv && s.argv[1] === 'scripts/release-notes.js')).lastIndexOf(true)
+  assert.ok(lastWrite < idx((s) => s.kind === 'verify'), 'every bump is on disk before the first suite')
+  assert.ok(p.steps.lastIndexOf(verify[2]) < idx((s) => s.argv && s.argv[1] === 'add'), 'nothing is staged before the last suite')
+})
+
+test('a batch cuts the base first, whatever order it was named in', () => {
+  const p = buildBatchPlan([GH, BASE], { skipTests: true })
+  const tags = p.steps.filter((s) => s.argv && s.argv[1] === 'tag').map((s) => s.argv[3])
+  assert.deepStrictEqual(tags, ['skitterspec@1.1.0', 'skitterspec-github@2.1.0'])
+})
+
+test('a red suite in a batch names every file it wrote', () => {
+  const p = buildBatchPlan([BASE, GH], {})
+  assert.deepStrictEqual(p.steps.find((s) => s.kind === 'verify').restore, [
+    'packages/skitterspec/package.json',
+    'RELEASES-skitterspec.md',
+    'packages/skitterspec-github/package.json',
+    'RELEASES-skitterspec-github.md',
+  ])
+})
+
+test('a batch pushes each tag on its own, never several in one push', () => {
+  const p = buildBatchPlan([BASE, GH], {})
+  assert.deepStrictEqual(p.followUp.slice(0, 3), ['git push', 'git push origin skitterspec@1.1.0', 'git push origin skitterspec-github@2.1.0'])
+})
+
+test('the batch plan names every release and says the suites run once', () => {
+  const text = formatPlan(buildBatchPlan([BASE, GH], {}))
+  assert.match(text, /release: skitterspec {2}1\.0\.0 → 1\.1\.0/)
+  assert.match(text, /release: skitterspec-github {2}2\.0\.0 → 2\.1\.0/)
+  assert.match(text, /one batch — each suite runs once for all 2 packages/)
+})
+
+// STAYS SILENT: one package is not a batch, and its plan is what it always was.
+test('a single package parses and plans exactly as before', () => {
+  const opts = parseArgs(['node', 'release.js', 'skitterspec', 'minor'])
+  assert.deepStrictEqual(opts.pkgs, ['skitterspec'])
+  assert.strictEqual(opts.pkg, 'skitterspec')
+  const single = buildPlan({ ...BASE })
+  assert.strictEqual(single.batch, undefined)
+  assert.doesNotMatch(formatPlan(single), /one batch/)
+})
+
+test('a comma list parses into packages', () => {
+  assert.deepStrictEqual(parseArgs(['node', 'release.js', 'skitterspec, skitterspec-github', 'minor']).pkgs, ['skitterspec', 'skitterspec-github'])
 })

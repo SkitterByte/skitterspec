@@ -84,6 +84,22 @@ The tool escalates by flag — **a bare run changes nothing**:
   **runs the suite**, commits, and tags `name@version`. It never pushes and
   **never publishes**.
 
+**Several packages at once are one batch:**
+
+```
+node scripts/release.js skitterspec,skitterspec-linear,skitterspec-github minor --yes
+```
+
+Every bump and notes file is written first, and the native, Linux and Windows
+suites run **once** over that tree. Each package is then committed and tagged,
+base first, whatever order you named them in. The code under test is the same
+for every package in a batch, so running the suites per package bought nothing
+but time: five releases cut one at a time ran the Windows VM five times. Any
+package that would refuse (nothing to ship, a taken tag) refuses the whole
+batch before anything is written. Push the branch, then
+**each tag on its own**, as the plan prints it. More than three tags in one push creates no
+GitHub events, so `release.yml` never fires for any of them.
+
 **Pushing the tag is what releases.** `.github/workflows/release.yml` triggers on
 `<package>@*`, checks the tag agrees with the manifest, runs the suite, and then
 `npm stage publish` — staging the build on npm without any token, by OIDC. The

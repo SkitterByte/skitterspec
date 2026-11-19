@@ -90,7 +90,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Measure, and Defender exclusions | ✅ | [01-measure-and-exclude.md](01-measure-and-exclude.md) |
-| 2 | One test pass per release batch | ⬜ | [02-batch-release.md](02-batch-release.md) |
+| 2 | One test pass per release batch | ✅ | [02-batch-release.md](02-batch-release.md) |
 | 3 | Fixture copies for the slowest files | ⬜ | [03-fixture-copies.md](03-fixture-copies.md) |
 | 4 | Planner logic to pure tests, then confirm the target | ⬜ | [04-pure-tests.md](04-pure-tests.md) |
 

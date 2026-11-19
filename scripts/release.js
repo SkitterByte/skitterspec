@@ -182,6 +182,82 @@ function tagName(name, version) {
   return `${name}@${version}`
 }
 
+/**
+ * The suite's steps — native, then Linux, then Windows where each gate says
+ * run — with `restore` naming what a red run leaves behind. Shared by a
+ * single release and a batch, so a batch runs each suite exactly once.
+ */
+function verifySteps({ linux, windows, root, restore }) {
+  const steps = []
+  steps.push({
+    phase: 'local',
+    kind: 'verify',
+    cmd: 'pnpm test',
+    argv: ['pnpm', 'test'],
+    desc: 'run the suite against the version being released',
+    restore,
+  })
+
+  // AND THE SAME SUITE ON LINUX, because the run above is on whatever the
+  // releaser happens to be sitting at. Two releases were cut off a green
+  // macOS run and could not build on Linux; see `linuxGate`.
+  //
+  // Ordered AFTER the native run deliberately: it is the slower of the two,
+  // and a failure common to both platforms should surface in seconds rather
+  // than minutes. The Linux run is the second opinion, not the first.
+  if (linux.state === 'run') {
+    steps.push({
+      phase: 'local',
+      kind: 'verify',
+      cmd: `docker run --rm --init -v "$PWD":/app -w /app ${LINUX_IMAGE} node --test`,
+      argv: [
+        'docker',
+        'run',
+        '--rm',
+        // `--init` IS LOAD-BEARING, NOT TIDINESS. Without it PID 1 in the
+        // container is the test runner, which does not reap orphans — so a
+        // killed detached `sh` stays a ZOMBIE, its process-table entry
+        // survives, and `process.kill(pid, 0)` goes on succeeding. Two
+        // teardown tests that assert a process is gone then fail in the
+        // container and pass on a real machine, which is a false accusation
+        // pointed at healthy code — the precise inverse of the bug this gate
+        // exists to catch, and far more corrosive, because a gate that cries
+        // wolf gets passed `--skip-linux` forever.
+        //
+        // A GitHub runner has a real init, so it never saw this. The
+        // container had to be told.
+        '--init',
+        '-v',
+        `${root}:/app`,
+        '-w',
+        '/app',
+        LINUX_IMAGE,
+        'node',
+        '--test',
+      ],
+      desc: `run the same suite on Linux (${LINUX_IMAGE})`,
+      restore,
+    })
+  }
+
+  // AND ON WINDOWS, through whatever command the releaser configured — see
+  // `windowsGate`. Last, because it is the slowest of the three: a failure
+  // common to every platform has already surfaced by the time it starts.
+  // Through `sh -c` because the command is the releaser's whole line
+  // (`vm pnpm test`), quoting and all.
+  if (windows.state === 'run') {
+    steps.push({
+      phase: 'local',
+      kind: 'verify',
+      cmd: windows.command,
+      argv: ['sh', '-c', windows.command],
+      desc: 'run the same suite on Windows',
+      restore,
+    })
+  }
+  return steps
+}
+
 // Build the structured release plan — the single source of truth for both the
 // printed output and the test assertions. Every step is `phase: 'local'` — the
 // publish is CI's, triggered by the tag this plan cuts.
@@ -242,72 +318,7 @@ function buildPlan({
   // runs. Nothing is staged or committed yet at this point, so a red suite
   // leaves exactly two unstaged files behind — execute() names them.
   if (!skipTests) {
-    steps.push({
-      phase: 'local',
-      kind: 'verify',
-      cmd: 'pnpm test',
-      argv: ['pnpm', 'test'],
-      desc: 'run the suite against the version being released',
-      restore: needsBump ? [`${dirRel}/package.json`, notesFile] : [],
-    })
-
-    // AND THE SAME SUITE ON LINUX, because the run above is on whatever the
-    // releaser happens to be sitting at. Two releases were cut off a green
-    // macOS run and could not build on Linux; see `linuxGate`.
-    //
-    // Ordered AFTER the native run deliberately: it is the slower of the two,
-    // and a failure common to both platforms should surface in seconds rather
-    // than minutes. The Linux run is the second opinion, not the first.
-    if (linux.state === 'run') {
-      steps.push({
-        phase: 'local',
-        kind: 'verify',
-        cmd: `docker run --rm --init -v "$PWD":/app -w /app ${LINUX_IMAGE} node --test`,
-        argv: [
-          'docker',
-          'run',
-          '--rm',
-          // `--init` IS LOAD-BEARING, NOT TIDINESS. Without it PID 1 in the
-          // container is the test runner, which does not reap orphans — so a
-          // killed detached `sh` stays a ZOMBIE, its process-table entry
-          // survives, and `process.kill(pid, 0)` goes on succeeding. Two
-          // teardown tests that assert a process is gone then fail in the
-          // container and pass on a real machine, which is a false accusation
-          // pointed at healthy code — the precise inverse of the bug this gate
-          // exists to catch, and far more corrosive, because a gate that cries
-          // wolf gets passed `--skip-linux` forever.
-          //
-          // A GitHub runner has a real init, so it never saw this. The
-          // container had to be told.
-          '--init',
-          '-v',
-          `${root}:/app`,
-          '-w',
-          '/app',
-          LINUX_IMAGE,
-          'node',
-          '--test',
-        ],
-        desc: `run the same suite on Linux (${LINUX_IMAGE})`,
-        restore: needsBump ? [`${dirRel}/package.json`, notesFile] : [],
-      })
-    }
-
-    // AND ON WINDOWS, through whatever command the releaser configured — see
-    // `windowsGate`. Last, because it is the slowest of the three: a failure
-    // common to every platform has already surfaced by the time it starts.
-    // Through `sh -c` because the command is the releaser's whole line
-    // (`vm pnpm test`), quoting and all.
-    if (windows.state === 'run') {
-      steps.push({
-        phase: 'local',
-        kind: 'verify',
-        cmd: windows.command,
-        argv: ['sh', '-c', windows.command],
-        desc: 'run the same suite on Windows',
-        restore: needsBump ? [`${dirRel}/package.json`, notesFile] : [],
-      })
-    }
+    steps.push(...verifySteps({ linux, windows, root, restore: needsBump ? [`${dirRel}/package.json`, notesFile] : [] }))
   }
 
   if (needsBump) {
@@ -378,6 +389,55 @@ function buildPlan({
     steps,
     followUp,
   }
+}
+
+/**
+ * Several packages released together, with each suite run ONCE
+ * (chore-fast-windows-suite). The code under test is the same for every
+ * package in a batch: what differs is a version string and a notes file. So
+ * every bump and every notes file is written first, the suites run over that
+ * one tree, and each package is then staged, committed and tagged in turn.
+ * Five releases cut one at a time ran the Windows VM five times over the same
+ * code, about 17 minutes each.
+ *
+ * Packages go in PACKAGES order, whatever order they were named in, so the
+ * base is always cut before the supersets built from it.
+ *
+ * @param {object[]} entries  buildPlan inputs, one per package
+ */
+function buildBatchPlan(
+  entries,
+  {
+    level = 'plan',
+    skipTests = false,
+    linux = { state: 'unknown', why: 'not asked' },
+    windows = { state: 'unknown', why: 'not asked' },
+    root = ROOT,
+  } = {},
+) {
+  const order = Object.keys(PACKAGES)
+  const members = [...entries]
+    .sort((a, b) => order.indexOf(a.name) - order.indexOf(b.name))
+    .map((e) => buildPlan({ ...e, level, skipTests: true, linux, windows, root }))
+  // A member's steps split at its stage: the version and notes before the
+  // suites, the add, commit and tag after.
+  const isPre = (st) => st.kind === 'write-version' || (st.argv && st.argv[1] === 'scripts/release-notes.js')
+  const restore = members.flatMap((m) =>
+    m.steps.filter((st) => st.kind === 'write-version').flatMap((st) => [st.file, `RELEASES-${m.name}.md`]),
+  )
+  const steps = [
+    ...members.flatMap((m) => m.steps.filter(isPre)),
+    ...(skipTests ? [] : verifySteps({ linux, windows, root, restore })),
+    ...members.flatMap((m) => m.steps.filter((st) => !isPre(st))),
+  ]
+  // ONE TAG PER PUSH. More than three tags in a single push creates no GitHub
+  // events at all, so release.yml would never fire for any of them.
+  const followUp = [
+    'git push',
+    ...members.map((m) => `git push origin ${m.tag}`),
+    ...members.map((m) => `npm run approve ${m.name} ${m.nextVersion}   # after the run stages it`),
+  ]
+  return { batch: true, members, level, skipTests, linux, windows, steps, followUp }
 }
 
 // --- guards (pure; fed real git output by the CLI) --------------------------
@@ -530,11 +590,14 @@ function assertTagAvailable(tag, existingTags) {
 
 function formatPlan(plan) {
   const lines = []
-  lines.push(`release: ${plan.name}  ${plan.currentVersion} → ${plan.nextVersion}`)
-  lines.push(`  tag:   ${plan.tag}`)
-  if (!plan.needsBump) {
-    lines.push(`  note:  version already ${plan.nextVersion} — tagging existing commit, no bump`)
+  for (const m of plan.members || [plan]) {
+    lines.push(`release: ${m.name}  ${m.currentVersion} → ${m.nextVersion}`)
+    lines.push(`  tag:   ${m.tag}`)
+    if (!m.needsBump) {
+      lines.push(`  note:  version already ${m.nextVersion} — tagging existing commit, no bump`)
+    }
   }
+  if (plan.batch) lines.push(`  note:  one batch — each suite runs once for all ${plan.members.length} packages`)
   if (plan.skipTests) {
     lines.push('  note:  --skip-tests — the suite will NOT run before this release is cut')
   }
@@ -598,13 +661,17 @@ function listTags(root) {
 function execute(plan, { root = ROOT, level, allowEmpty = false }) {
   assertCleanTree(gitPorcelain(root))
   const tags = listTags(root)
-  assertTagAvailable(plan.tag, tags)
-  const sinceTag = lastTagFor(plan.name, tags)
-  assertShippableChange(changedInputs(root, plan.name, sinceTag), {
-    name: plan.name,
-    sinceTag,
-    allowEmpty,
-  })
+  // Every member is checked before anything is written: one refusal stops the
+  // whole batch, so a batch is never left half cut.
+  for (const m of plan.members || [plan]) {
+    assertTagAvailable(m.tag, tags)
+    const sinceTag = lastTagFor(m.name, tags)
+    assertShippableChange(changedInputs(root, m.name, sinceTag), {
+      name: m.name,
+      sinceTag,
+      allowEmpty,
+    })
+  }
 
   for (const step of plan.steps) {
     if (step.kind === 'write-version') {
@@ -633,7 +700,11 @@ function execute(plan, { root = ROOT, level, allowEmpty = false }) {
 const HELP = `release — cut a per-package release for the skitterspec monorepo
 
 Usage:
-  node scripts/release.js <package> <patch|minor|major|x.y.z> [--yes]
+  node scripts/release.js <package>[,<package>…] <patch|minor|major|x.y.z> [--yes]
+
+Several packages, comma-separated, are one batch: every bump is written, each
+suite runs once over that tree, then each package is committed and tagged, base
+first. The bump level applies to each.
 
 Packages: ${Object.keys(PACKAGES).join(', ')}
 
@@ -678,6 +749,7 @@ function parseArgs(argv) {
     skipLinux: flags.has('--skip-linux'),
     skipWindows: flags.has('--skip-windows'),
     pkg: positional[0],
+    pkgs: positional[0] ? positional[0].split(',').map((p) => p.trim()).filter(Boolean) : [],
     bump: positional[1],
   }
 }
@@ -717,23 +789,19 @@ function main(argv) {
 
   const level = opts.yes ? 'local' : 'plan'
 
-  const resolved = resolvePackage(opts.pkg)
-  const currentVersion = readVersion(resolved.pkgJsonPath)
-  const nextVersion = computeNextVersion(currentVersion, opts.bump)
+  // Every name resolves before anything else, so a typo in a batch refuses the
+  // whole batch rather than the package after it.
+  const entries = opts.pkgs.map((name) => {
+    const resolved = resolvePackage(name)
+    const currentVersion = readVersion(resolved.pkgJsonPath)
+    return { ...resolved, currentVersion, nextVersion: computeNextVersion(currentVersion, opts.bump) }
+  })
   // Asked once, here, so the printed plan and the executed plan cannot
   // disagree about whether Linux was checked.
   const linux = linuxGate({ dockerAvailable: dockerAvailable(), skip: opts.skipLinux })
   const windows = windowsGate({ command: process.env.SKITTERSPEC_RELEASE_WINDOWS, skip: opts.skipWindows })
-  const plan = buildPlan({
-    ...resolved,
-    currentVersion,
-    nextVersion,
-    level,
-    skipTests: opts.skipTests,
-    linux,
-    windows,
-    root: ROOT,
-  })
+  const common = { level, skipTests: opts.skipTests, linux, windows, root: ROOT }
+  const plan = entries.length > 1 ? buildBatchPlan(entries, common) : buildPlan({ ...entries[0], ...common })
 
   console.log(formatPlan(plan))
   console.log('')
@@ -765,6 +833,7 @@ module.exports = {
   computeNextVersion,
   tagName,
   buildPlan,
+  buildBatchPlan,
   assertCleanTree,
   assertTagAvailable,
   linuxGate,
