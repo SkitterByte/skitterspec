@@ -339,6 +339,36 @@ export SKITTERSPEC_RELEASE_WINDOWS='vm pnpm test'
 that exits 0 when the suite inside it failed. Either reads as a green Windows
 run.
 
+**Check Defender before blaming the code.** The suite builds hundreds of
+throwaway git repos and starts a process for nearly every test, and real-time
+scanning inspects each file and process as it appears. In the VM, ask
+whether it is on:
+
+```
+(Get-MpComputerStatus).RealTimeProtectionEnabled
+```
+
+If it is, exclude the VM's clone and a dedicated temp dir from an elevated
+PowerShell, and point `TMP` and `TEMP` at that dir for the suite's run only:
+
+```
+Add-MpPreference -ExclusionPath 'C:\Code\skitterspec-wincheck'
+Add-MpPreference -ExclusionPath 'C:\Code\skitterspec-tmp'
+```
+
+`Remove-MpPreference -ExclusionPath <path>` undoes either line. On this repo's
+VM real-time protection was already off, so the 22-minute run was Windows
+process and filesystem overhead, not scanning. That cost is what
+`chore-fast-windows-suite` phases 3 and 4 go after.
+
+**Finding what is slow.** `scripts/suite-timings.js` is a `node --test`
+reporter that ranks test files by the time spent in their tests:
+
+```
+node --test --test-reporter=./scripts/suite-timings.js --test-reporter-destination=timings.json
+node scripts/suite-timings.js timings.json --top 30
+```
+
 A red suite leaves **no commit and no tag**, and exactly two unstaged files. The
 next run refuses on a dirty tree, so the failure names them:
 

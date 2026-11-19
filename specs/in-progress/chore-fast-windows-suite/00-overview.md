@@ -89,7 +89,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Measure, and Defender exclusions | ⬜ | [01-measure-and-exclude.md](01-measure-and-exclude.md) |
+| 1 | Measure, and Defender exclusions | ✅ | [01-measure-and-exclude.md](01-measure-and-exclude.md) |
 | 2 | One test pass per release batch | ⬜ | [02-batch-release.md](02-batch-release.md) |
 | 3 | Fixture copies for the slowest files | ⬜ | [03-fixture-copies.md](03-fixture-copies.md) |
 | 4 | Planner logic to pure tests, then confirm the target | ⬜ | [04-pure-tests.md](04-pure-tests.md) |
@@ -104,3 +104,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   Windows VM.
 - 2026-11-19 — Follow-up surfaced: Windows failures in CI do not stop a
   release (`release.yml` runs on Ubuntu only). Not in scope here.
+- 2026-11-19 — Phase 1: the Windows baseline is 22.7 min, against 42 s on the
+  Mac. Defender real-time protection was already off in the VM, so Decision 2's
+  lever bought nothing here, and the target now rests on phases 3 and 4. The
+  four slowest files account for about a quarter of in-test time.
