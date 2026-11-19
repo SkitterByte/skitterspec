@@ -21,6 +21,10 @@ function repo() {
   git(dir, 'init', '-q', '-b', 'main')
   git(dir, 'config', 'user.email', 't@example.invalid')
   git(dir, 'config', 'user.name', 'T')
+  // No detached housekeeping after a commit: it would still be writing into
+  // .git while cleanup() deletes the repo (bug-init-local-cleanup-race).
+  git(dir, 'config', 'gc.auto', '0')
+  git(dir, 'config', 'maintenance.auto', 'false')
   fs.writeFileSync(path.join(dir, 'README.md'), '# shared\n')
   git(dir, 'add', 'README.md')
   git(dir, 'commit', '-q', '-m', 'init')
@@ -50,6 +54,22 @@ const visible = (dir) =>
 function cleanup(dir) {
   fs.rmSync(dir, { recursive: true, force: true })
 }
+
+// bug-init-local-cleanup-race: a commit can start git's housekeeping
+// (`gc --auto`, `maintenance run --auto`) DETACHED, and it goes on writing
+// `.git/objects/info/packs` after the test has moved on to deleting the repo.
+// The delete then fails ENOTEMPTY. Whether it starts is git's sampled guess
+// at the loose-object count, which a commit of a whole install sometimes
+// crosses, so it failed some full runs and never a run of this file alone.
+test('the fixture repo never starts git\'s background housekeeping', () => {
+  const dir = repo()
+  try {
+    assert.strictEqual(git(dir, 'config', '--get', 'gc.auto'), '0')
+    assert.strictEqual(git(dir, 'config', '--get', 'maintenance.auto'), 'false')
+  } finally {
+    cleanup(dir)
+  }
+})
 
 test('a fresh local init leaves git seeing only specs/', async () => {
   const dir = repo()
