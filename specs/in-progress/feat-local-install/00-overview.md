@@ -203,3 +203,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-11-19 — Phase 5: `docs-freshness impact` flagged `index.html`
   (it covers `init.js` and `cli.js`), so its install step gained the
   `--local` line too and the `Docs:` header now names it.
+- 2026-11-19 — Follow-up considered and dropped: `bunx` (and `yarn`)
+  can fetch an unscoped name when the local bin is missing. The bun row in
+  `PACKAGE_MANAGERS` is speculative — no spec asked for it and no known
+  project uses bun — so it is left as is until one does.
