@@ -182,17 +182,26 @@ function fixture(name, build) {
 // Swap the template's paths for the copy's wherever git keeps an absolute
 // path: a worktree's `.git` file, each git dir's `config` (a remote that is a
 // folder beside the repo) and `worktrees/*/gitdir`. git writes these with
-// forward slashes on Windows, so both spellings are replaced.
+// forward slashes on Windows, so both spellings are replaced — and a third,
+// because a config file escapes each backslash in a value it was given
+// (`url = C:\\Users\\…` for a remote added by its native path).
 function repoint(roots, tpls) {
   const pairs = []
   roots.forEach((root, i) => {
     pairs.push([tpls[i], root], [tpls[i].split(path.sep).join('/'), root.split(path.sep).join('/')])
+    if (path.sep === '\\') pairs.push([tpls[i].split('\\').join('\\\\'), root.split('\\').join('\\\\')])
   })
   const swap = (file) => {
     const before = fs.readFileSync(file, 'utf8')
     let text = before
     for (const [from, to] of pairs) text = text.split(from).join(to)
-    if (text !== before) fs.writeFileSync(file, text)
+    // Truncated and rewritten in place, never recreated: git for Windows marks
+    // a worktree's `.git` file hidden, and opening a hidden file with `w`
+    // (CREATE_ALWAYS) is EPERM there. `r+` opens the existing file instead.
+    if (text !== before) {
+      fs.truncateSync(file, 0)
+      fs.writeFileSync(file, text, { flag: 'r+' })
+    }
   }
   // A git dir is a `.git` folder or a bare repo (`*.git`); a `.git` FILE is a
   // worktree's link. Not entered: node_modules, and anything inside a git dir
