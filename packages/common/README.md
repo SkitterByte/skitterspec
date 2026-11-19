@@ -169,7 +169,7 @@ a question it cannot answer itself or a failure at the moment it happens:
 | **Branch** | `spec/feat-orders` · 3 commits, clean |
 | **Built** | POST /orders handler, orders schema |
 | **Tests** | 128 passed · npm test |
-| **Review** | 7 files, +212 −18 · **local** `http://127.0.0.1:7760/…` · **network** `http://192.168.0.136:7760/…` · **remote** off |
+| **Review** | 7 files, +212 −18 · **local** `http://127.0.0.1:7760/…` · **network** `http://192.168.0.136:7760/…` · **remote** `http://100.126.111.34:7760/…` (tailnet) |
 | **Follow-ups** | none |
 | **Next** | `/spec-next` → phase 3 (Auth) |
 

@@ -1,5 +1,32 @@
 # Migration guide
 
+## The tailnet is `remote`; publishing the review is retired (nothing to edit)
+
+The review stack's `remote:` line used to be a claude.ai page the review was
+published to. That tier is gone. `remote:` is now the review server's
+**tailnet address**, on its own line, labelled `(tailnet)`. It is the same
+server as `local` and `network`, so one wait covers all three, and a verdict
+pressed there wakes the waiting session like any other.
+
+```
+  local:   http://127.0.0.1:7760/7e9e…/feat-orders
+  network: http://192.168.0.136:7760/7e9e…/feat-orders
+  remote:  http://100.126.111.34:7760/7e9e…/feat-orders (tailnet)
+```
+
+- **`/spec-remote-review` is removed.** `skitterspec update` retires the command
+  file. A copy you edited is kept, with the usual warning, and you can delete
+  it.
+- **`review.allowRemote` is ignored.** A config that still sets it loads
+  without a warning, and you can delete the key whenever you like.
+  `spec-env review allow remote` now refuses and names the tailnet line.
+- **`remote` follows `review.allowNetwork`.** It is off whenever `network` is,
+  with the same command to turn it on. On a machine with no tailnet address it
+  reads `— (no tailnet address on this machine)`.
+- **`--publish-copy` is gone**, along with the page's published mode and its
+  `Allow remote` button. A page published before this change still exists, and
+  `spec-env down` still names it at teardown.
+
 ## `issue` and `incident` spec kinds, per-type states, incident log (additive — nothing breaks)
 
 Specs can now be **issues** (`issue-` prefix — non-code work done as recorded

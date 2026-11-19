@@ -11,13 +11,13 @@ covers:
   - packages/common/src/env/epicpage.js
   - packages/common/assets/hooks/review-gate.cjs
   - packages/common/assets/rules/spec-reports.md
-verified: f97e26bb9822
+verified: fd90cb222ad8
 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="How skitterspec review works — every phase ends on a self-contained diff page you can read anywhere, mark up, and answer with one press: locally, over the LAN, or published for out of the house.">
+<meta name="description" content="How skitterspec review works — every phase ends on a self-contained diff page you can read anywhere, mark up, and answer with one press: locally, over the LAN, or over your tailnet out of the house.">
 <meta name="color-scheme" content="light dark">
 <link rel="alternate icon" href="favicon.svg" type="image/svg+xml">
 <meta property="og:title" content="skitterspec — the review loop">
@@ -848,8 +848,8 @@ verified: f97e26bb9822
         <p class="lede"><b>The page is local by default.</b> It lands in <span class="mono" style="font-size:.9em">.spec-env/reviews/&lt;spec&gt;.html</span>, which is gitignored — reviewing a branch leaves no change in the branch you're reviewing. On a desktop that's the whole feature; nothing is sent anywhere.</p>
       </details>
       <details class="reveal">
-        <summary>What does publishing actually do?</summary>
-        <p class="lede"><b>Publishing is opt-in, and one page per spec.</b> Ask, and the page becomes a private link you can open on a phone. Every later phase updates <em>that</em> page under a version label rather than adding another entry — so a spec is one link, not eight. It's never automatic, for one blunt reason: publishing leaves something behind that this tooling cannot remove.</p>
+        <summary>Can I publish the page?</summary>
+        <p class="lede"><b>No — the tailnet does that job now.</b> Publishing the page as a claude.ai artifact was retired: it wrote verdicts to a store no wait could watch, and left a page this tooling could never remove. Out of the house, open the <span class="mono" style="font-size:.9em">remote</span> line — the review server's tailnet address — and your verdict reaches the same waiting session as any other door.</p>
       </details>
       <details class="reveal">
         <summary>Why a page instead of a terminal tab?</summary>

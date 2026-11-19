@@ -126,13 +126,12 @@ A phase is built in its own worktree, so `git diff` in your terminal answers
 about the base branch — and a 350-line diff read as terminal text is scrolling,
 not review. **`/spec-diff`** collects the worktree's changes with `git -C` and
 writes a self-contained HTML page: whole-file context that folds away, a file
-tree, new files included. Open it locally, or publish it and read it on a phone.
+tree, new files included. Open it locally, or on a phone over your LAN or tailnet.
 
 The page lands in `.spec-env/reviews/<spec>.html`, which is gitignored — so
 reviewing a branch leaves no change in the branch you are reviewing. **The diff never passes through the model**, so it costs no context tokens however large it
 is; the optional *written* review (a short read plus `flag`/`confirm`/`good`
-notes) is the part that costs, and it is offered rather than assumed. Publishing
-is always opt-in, and one page per spec — later phases update the same link.
+notes) is the part that costs, and it is offered rather than assumed.
 
 ### The page takes a verdict back, and the phase waits for it
 
@@ -247,7 +246,7 @@ a question it cannot answer itself or a failure at the moment it happens:
 | **Branch** | `spec/feat-orders` · 3 commits, clean |
 | **Built** | POST /orders handler, orders schema |
 | **Tests** | 128 passed · npm test |
-| **Review** | 7 files, +212 −18 · **local** [http://127.0.0.1:7760/…](http://127.0.0.1:7760/…) · **network** [http://192.168.0.136:7760/…](http://192.168.0.136:7760/…) · **remote** off |
+| **Review** | 7 files, +212 −18 · **local** [http://127.0.0.1:7760/…](http://127.0.0.1:7760/…) · **network** [http://192.168.0.136:7760/…](http://192.168.0.136:7760/…) · **remote** [http://100.126.111.34:7760/…](http://100.126.111.34:7760/…) (tailnet) |
 | **Follow-ups** | none |
 | **Next** | `/spec-next` → phase 3 (Auth) |
 
