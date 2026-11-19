@@ -88,8 +88,11 @@ function isObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
 
-function settingsPath(dir) {
-  return path.join(dir, '.claude', 'settings.json')
+// A local install registers its hooks in the per-machine file, so a repo
+// shared with people who do not use skitterspec gains nothing in its committed
+// settings (`init --local`).
+function settingsPath(dir, { local = false } = {}) {
+  return path.join(dir, '.claude', local ? 'settings.local.json' : 'settings.json')
 }
 
 function writeSettings(file, settings) {
@@ -181,8 +184,8 @@ function ensureOneHook(parsed, hook) {
  * already there did change the file, and reporting `present` for it would tell
  * an operator nothing happened when something did.
  */
-function ensureHooks(dir) {
-  const file = settingsPath(dir)
+function ensureHooks(dir, { local = false } = {}) {
+  const file = settingsPath(dir, { local })
 
   let raw
   try {

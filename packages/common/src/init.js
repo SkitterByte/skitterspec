@@ -308,9 +308,16 @@ function assertComposedAssets() {
 const SPEC_MARKER_START = '<!-- skitterspec:start -->'
 const SPEC_MARKER_END = '<!-- skitterspec:end -->'
 
+// `team` (the default: everything committed) or `local` (`init --local`: the
+// managed files kept out of git, hooks in settings.local.json, the CLAUDE block
+// in CLAUDE.local.md). Set once per run by `resolveScope`, and recorded in the
+// manifest so a later `update` cannot write team-mode files into a local repo.
+let scope = 'team'
+
 const report = { created: [], updated: [], skipped: [], refused: [], removed: [], customized: [], adopted: [], healed: [], warnings: [], suggestions: [] }
 
 function resetReport() {
+  scope = 'team'
   for (const k of Object.keys(report)) report[k].length = 0
   for (const k of Object.keys(writtenHashes)) delete writtenHashes[k]
 }
@@ -414,20 +421,24 @@ function readManifest(dir) {
         version: parsed.version || MANIFEST_VERSION,
         files,
         baselined: Object.keys(files).length > 0,
+        // Absent means team: every manifest written before `--local` existed
+        // reads exactly as it did.
+        scope: parsed.scope === 'local' ? 'local' : 'team',
       }
     }
   } catch {
     /* missing or malformed → empty baseline */
   }
-  return { version: MANIFEST_VERSION, files: {}, baselined: false }
+  return { version: MANIFEST_VERSION, files: {}, baselined: false, scope: 'team' }
 }
 
-function writeManifest(dir, files) {
+function writeManifest(dir, files, { local = false } = {}) {
   const target = path.join(dir, MANIFEST_FILE)
   ensureDir(path.dirname(target))
   const sorted = {}
   for (const k of Object.keys(files).sort()) sorted[k] = files[k]
-  fs.writeFileSync(target, JSON.stringify({ version: MANIFEST_VERSION, files: sorted }, null, 2) + '\n')
+  const body = local ? { version: MANIFEST_VERSION, scope: 'local', files: sorted } : { version: MANIFEST_VERSION, files: sorted }
+  fs.writeFileSync(target, JSON.stringify(body, null, 2) + '\n')
 }
 
 // Classify a managed file against the manifest baseline.
@@ -499,7 +510,7 @@ function flushManifest(dir) {
   for (const relPath of Object.keys(next)) {
     if (!fs.existsSync(path.join(dir, relPath))) delete next[relPath] // prune gone
   }
-  writeManifest(dir, next)
+  writeManifest(dir, next, { local: scope === 'local' })
 }
 
 function writeFile(dir, target, content, { force }) {
@@ -614,18 +625,17 @@ function registerReviewGateHook(dir) {
   // "hooks", plural, because two ship now — the review gate and the main guard.
   // The label names the file and the subject rather than one script, so adding a
   // third does not leave a report that undercounts what it wrote.
-  const label = '.claude/settings.json (skitterspec hooks)'
+  const file = scope === 'local' ? '.claude/settings.local.json' : '.claude/settings.json'
+  const label = `${file} (skitterspec hooks)`
   let res
   try {
-    res = ensureHooks(dir)
+    res = ensureHooks(dir, { local: scope === 'local' })
   } catch {
-    report.warnings.push('could not write .claude/settings.json — skitterspec hooks not registered')
+    report.warnings.push(`could not write ${file} — skitterspec hooks not registered`)
     return
   }
   if (res.reason === 'malformed') {
-    report.warnings.push(
-      '.claude/settings.json is not valid JSON — did not register the skitterspec hooks',
-    )
+    report.warnings.push(`${file} is not valid JSON — did not register the skitterspec hooks`)
   } else if (res.reason === 'created') {
     report.created.push(label)
   } else if (res.reason === 'added') {
@@ -635,9 +645,9 @@ function registerReviewGateHook(dir) {
     // that: rewriting the registered path and then reporting "already
     // registered" — a run that acts and says it did not, which is the shape of
     // the bug this whole change exists to fix.
-    report.updated.push('.claude/settings.json (skitterspec hooks repointed at the renamed script)')
+    report.updated.push(`${file} (skitterspec hooks repointed at the renamed script)`)
   } else {
-    report.skipped.push('.claude/settings.json (skitterspec hooks already registered)')
+    report.skipped.push(`${file} (skitterspec hooks already registered)`)
   }
 }
 
@@ -824,8 +834,16 @@ function trustWorktreeRoot(dir) {
 // that someone stripped it deliberately (`stripClaudeMdSection` exists and is
 // reachable from `reset`). Neither is a fault, so both answer `not installed`
 // and neither is reported as a problem.
+// The file the CLAUDE block lives in: CLAUDE.md, or CLAUDE.local.md for a local
+// install. Read from the manifest when no run has set the scope, so `--check`
+// looks where the block actually is.
+function claudeMdName(dir) {
+  const local = scope === 'local' || readManifest(dir).scope === 'local'
+  return local ? 'CLAUDE.local.md' : 'CLAUDE.md'
+}
+
 function claudeMdSectionState(dir) {
-  const target = path.join(dir, 'CLAUDE.md')
+  const target = path.join(dir, claudeMdName(dir))
   if (!fs.existsSync(target)) return 'not installed'
   const existing = fs.readFileSync(target, 'utf8')
   if (!existing.includes(SPEC_MARKER_START) || !existing.includes(SPEC_MARKER_END)) {
@@ -862,7 +880,7 @@ function checkSync(dir, { claudeMd = true, log = console.log } = {}) {
   // report people learn to skim, and then the one line that mattered is missed.
   if (section === 'differs') {
     rows.push([
-      'CLAUDE.md (spec workflow section)',
+      `${claudeMdName(dir)} (spec workflow section)`,
       'differs from the shipped one — `update` would replace it (it is a copy, so this is either your edit or an out-of-date one)',
     ])
   }
@@ -877,11 +895,12 @@ function checkSync(dir, { claudeMd = true, log = console.log } = {}) {
 function installClaudeMd(dir, { mode }) {
   const section = fs.readFileSync(path.join(ASSETS, 'claude-md-section.md'), 'utf8').trim()
   const block = `${SPEC_MARKER_START}\n${section}\n${SPEC_MARKER_END}\n`
-  const target = path.join(dir, 'CLAUDE.md')
+  const name = claudeMdName(dir)
+  const target = path.join(dir, name)
 
   if (!fs.existsSync(target)) {
-    fs.writeFileSync(target, `# ${path.basename(dir)}\n\n${block}`)
-    report.created.push('CLAUDE.md')
+    fs.writeFileSync(target, name === 'CLAUDE.md' ? `# ${path.basename(dir)}\n\n${block}` : block)
+    report.created.push(name)
     return
   }
 
@@ -889,28 +908,28 @@ function installClaudeMd(dir, { mode }) {
 
   if (existing.includes(SPEC_MARKER_START) && existing.includes(SPEC_MARKER_END)) {
     if (mode !== 'update') {
-      report.skipped.push('CLAUDE.md (spec workflow already present)')
+      report.skipped.push(`${name} (spec workflow already present)`)
       return
     }
     const re = new RegExp(`${SPEC_MARKER_START}[\\s\\S]*?${SPEC_MARKER_END}\\n?`)
     const next = existing.replace(re, block)
     if (next === existing) {
-      report.skipped.push('CLAUDE.md')
+      report.skipped.push(`${name}`)
     } else {
       fs.writeFileSync(target, next)
-      report.updated.push('CLAUDE.md (spec workflow section)')
+      report.updated.push(`${name} (spec workflow section)`)
     }
     return
   }
 
   if (/^##\s+Spec workflow/m.test(existing)) {
-    report.skipped.push('CLAUDE.md (has a manual "Spec workflow" section — left alone)')
+    report.skipped.push(`${name} (has a manual "Spec workflow" section — left alone)`)
     return
   }
 
   const sep = existing.endsWith('\n') ? '\n' : '\n\n'
   fs.writeFileSync(target, `${existing}${sep}${block}`)
-  report.updated.push('CLAUDE.md (appended spec workflow section)')
+  report.updated.push(`${name} (appended spec workflow section)`)
 }
 
 // --- detection, resync, reset (safe re-run) ---------------------------------
@@ -925,8 +944,10 @@ function installClaudeMd(dir, { mode }) {
 function isExistingSetup(dir) {
   if (managedTargets(dir).some((t) => fs.existsSync(t.abs))) return true
   if (SPEC_FOLDERS.some((f) => fs.existsSync(path.join(dir, 'specs', f)))) return true
-  const claude = path.join(dir, 'CLAUDE.md')
-  return fs.existsSync(claude) && fs.readFileSync(claude, 'utf8').includes(SPEC_MARKER_START)
+  return ['CLAUDE.md', 'CLAUDE.local.md'].some((name) => {
+    const claude = path.join(dir, name)
+    return fs.existsSync(claude) && fs.readFileSync(claude, 'utf8').includes(SPEC_MARKER_START)
+  })
 }
 
 // RESYNC: bring managed files to the latest bundled version WITHOUT clobbering
@@ -965,9 +986,10 @@ function resyncManagedFile(dir, target, manifest, force) {
   write('updated')
 }
 
-function resync(dir, { force = false, claudeMd = true, diff = false } = {}) {
+function resync(dir, { force = false, claudeMd = true, diff = false, local = false } = {}) {
   if (!fs.existsSync(dir)) throw new Error(`target dir does not exist: ${dir}`)
   resetReport()
+  resolveScope(dir, local)
   const manifest = readManifest(dir)
   for (const t of managedTargets(dir)) resyncManagedFile(dir, t, manifest, force)
   installFolders(dir)
@@ -985,6 +1007,7 @@ function resync(dir, { force = false, claudeMd = true, diff = false } = {}) {
   if (claudeMd) installClaudeMd(dir, { mode: 'update' })
   suggestReleaseWith(dir)
   flushManifest(dir)
+  if (scope === 'local') writeLocalExcludes(dir)
   printReport(dir, 'resync', { diff })
 }
 
@@ -1175,9 +1198,82 @@ function suggestReleaseWith(dir) {
   )
 }
 
-async function init({ dir, force, claudeMd, mode, isolation, workspaceMode, gating, project }) {
+// Decide this run's scope. A local manifest stays local whether or not the
+// flag is passed — a later `update`, or an `init` without it, must not start
+// writing hooks into the committed settings of a repo set up to keep them out.
+// Switching a local install back to team is out of scope and says so.
+function resolveScope(dir, local) {
+  const recorded = readManifest(dir).scope
+  scope = local || recorded === 'local' ? 'local' : 'team'
+  if (!local && recorded === 'local') report.skipped.push('local install (recorded in the manifest) — kept local')
+  if (local && recorded !== 'local') {
+    report.warnings.push(
+      '--local keeps skitterspec on this machine: teammates get none of its skills, rules ' +
+        'or hooks. Use it where nobody else here uses skitterspec — never for a team that ' +
+        'shares the hooks and rules as policy',
+    )
+  }
+}
+
+// The paths a local install keeps out of git: every managed file, the block's
+// file, the per-machine settings, the manifest and the review store. Listed per
+// PATH rather than per directory, so a teammate's own `.claude/skills/foo` is
+// untouched.
+function localExcludes(dir) {
+  const paths = managedTargets(dir)
+    .map((t) => t.relPath)
+    .filter((p) => !p.startsWith('specs/') || p === MANIFEST_FILE.replace(/\\/g, '/'))
+  return [
+    ...paths,
+    'CLAUDE.local.md',
+    '.claude/settings.local.json',
+    MANIFEST_FILE.replace(/\\/g, '/'),
+    '.spec-env/',
+  ]
+}
+
+const EXCLUDE_START = '# >>> skitterspec (local install)'
+const EXCLUDE_END = '# <<< skitterspec'
+
+// Write the managed block into `.git/info/exclude` — never `.gitignore`, which
+// is itself a committed change. The common dir, so it covers every worktree.
+// Entries carry the install folder's prefix when it sits below the git root.
+// Not a git repo, or git unreachable: warn and write nothing.
+function writeLocalExcludes(dir) {
+  let commonDir, prefix
+  try {
+    const git = (...args) => execFileSync('git', ['-C', dir, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim()
+    commonDir = path.resolve(dir, git('rev-parse', '--git-common-dir'))
+    prefix = git('rev-parse', '--show-prefix')
+  } catch {
+    report.warnings.push('not a git repository — nothing excluded; the local install is not hidden from git')
+    return
+  }
+  const file = path.join(commonDir, 'info', 'exclude')
+  const lines = [...new Set(localExcludes(dir))].map((p) => `/${prefix}${p}`)
+  const block = [EXCLUDE_START, ...lines, EXCLUDE_END].join('\n') + '\n'
+  let existing = ''
+  try {
+    existing = fs.readFileSync(file, 'utf8')
+  } catch {
+    /* no exclude file yet */
+  }
+  const start = existing.indexOf(EXCLUDE_START)
+  const end = existing.indexOf(EXCLUDE_END, start)
+  const next =
+    start !== -1 && end !== -1
+      ? existing.slice(0, start) + block + existing.slice(end + EXCLUDE_END.length).replace(/^\n/, '')
+      : existing + (existing && !existing.endsWith('\n') ? '\n' : '') + block
+  if (next === existing) return report.skipped.push('.git/info/exclude (skitterspec block)')
+  ensureDir(path.dirname(file))
+  fs.writeFileSync(file, next)
+  report.updated.push('.git/info/exclude (skitterspec block)')
+}
+
+async function init({ dir, force, claudeMd, mode, isolation, workspaceMode, gating, project, local = false }) {
   if (!fs.existsSync(dir)) throw new Error(`target dir does not exist: ${dir}`)
   resetReport()
+  resolveScope(dir, local)
 
   installSkills(dir, { force })
   installCommands(dir, { force })
@@ -1195,6 +1291,7 @@ async function init({ dir, force, claudeMd, mode, isolation, workspaceMode, gati
   // Record what we wrote (and migrate a pre-manifest repo) so a later resync can
   // tell our files from the user's.
   flushManifest(dir)
+  if (scope === 'local') writeLocalExcludes(dir)
 
   printReport(dir, mode)
 }
@@ -1227,4 +1324,7 @@ module.exports = {
   renderCommand,
   renderExec,
   distributionPackage,
+  localExcludes,
+  EXCLUDE_START,
+  EXCLUDE_END,
 }

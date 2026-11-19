@@ -157,7 +157,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Runner token in provider assets | ✅ | [01-provider-runner.md](01-provider-runner.md) |
-| 2 | Fresh `init --local` and scoped `update` | ⬜ | [02-local-init.md](02-local-init.md) |
+| 2 | Fresh `init --local` and scoped `update` | ✅ | [02-local-init.md](02-local-init.md) |
 | 3 | Convert a committed install | ⬜ | [03-convert.md](03-convert.md) |
 | 4 | Seed the local install into worktrees | ⬜ | [04-worktree-seed.md](04-worktree-seed.md) |
 | 5 | Docs | ⬜ | [05-docs.md](05-docs.md) |

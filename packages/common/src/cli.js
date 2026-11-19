@@ -409,8 +409,12 @@ Options (init / update):
   --dir <path>             Target project dir (default: positional arg or cwd)
   --gating                 (init) Adopt release gating: each spec records whether
                            it ships behind a feature flag
+  --local                  (init) Keep the install on this machine: managed
+                           files excluded from git, hooks in
+                           settings.local.json, the block in CLAUDE.local.md.
+                           For one developer on a shared repo — never a team
   --no-claude-md           Skip creating/patching CLAUDE.md
-  --yes, -y                Accept defaults; skip the interactive setup prompts
+  --yes, -y               Accept defaults; skip the interactive setup prompts
   --isolation / --no-isolation        Enable/skip per-spec isolation (a git
                                       worktree per spec; writes env.config.json)
   --name <name> / --category <c>      (init --isolation) Write project.name /
@@ -444,6 +448,7 @@ function parse(argv) {
     if (a === '--force') opts.force = true
     else if (a === '--no-claude-md') opts.claudeMd = false
     else if (a === '--yes' || a === '-y') opts.yes = true
+    else if (a === '--local') opts.local = true
     else if (a === '--isolation') opts.isolation = true
     else if (a === '--no-isolation') opts.isolation = false
     else if (a === '--gating') opts.gating = true
@@ -8336,7 +8341,7 @@ async function run(argv) {
           break
         }
         if (action === 'resync') {
-          resync(dir, { claudeMd: opts.claudeMd, force: opts.force, diff: opts.diff })
+          resync(dir, { claudeMd: opts.claudeMd, force: opts.force, diff: opts.diff, local: opts.local })
           break
         }
         // action === 'create-missing' → fall through to a normal (skip-existing) init.
@@ -8363,6 +8368,7 @@ async function run(argv) {
         workspaceMode,
         gating,
         project: opts.project,
+        local: opts.local,
       })
       break
     }
@@ -8374,7 +8380,7 @@ async function run(argv) {
         checkSync(dir, { claudeMd: opts.claudeMd })
         break
       }
-      resync(dir, { claudeMd: opts.claudeMd, force: opts.force, diff: opts.diff })
+      resync(dir, { claudeMd: opts.claudeMd, force: opts.force, diff: opts.diff, local: opts.local })
       await cleanupReleaseTooling(dir, opts)
       break
     default:
