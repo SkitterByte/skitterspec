@@ -179,3 +179,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-11-19 — Phase 4: parked specs are a third `/spec-todo` blocker kind,
   next to waiting verdicts and armed gates. The tracker shows a phase's blocker
   on that phase's sub-issue rather than lifting it onto the spec's ticket.
+- 2026-11-19 — Completed; all phases done, tests green.
