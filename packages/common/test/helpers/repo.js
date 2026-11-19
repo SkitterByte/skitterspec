@@ -161,7 +161,7 @@ function fixture(name, build) {
     const key = JSON.stringify(args)
     if (!templates.has(key)) {
       const tpl = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), name)))
-      build(tpl, ...args)
+      withoutHousekeeping(() => build(tpl, ...args))
       templates.set(key, tpl)
     }
     const tpl = templates.get(key)
@@ -176,6 +176,35 @@ function fixture(name, build) {
     }
     repoint(roots, tpls)
     return root
+  }
+}
+
+// Run `fn` with git's automatic housekeeping off for every git it spawns.
+// A `git commit` may start `gc --auto` or `maintenance run --auto` DETACHED,
+// and it goes on repacking `.git/objects` after the build returns — so the
+// copy that follows read a directory being rewritten under it and failed
+// ENOENT on CI. Passed by environment rather than `git config`, because a
+// build owns its own repos and may create several; every git that inherits
+// `process.env` sees it, whoever's repo it runs in.
+function withoutHousekeeping(fn) {
+  const saved = {}
+  const n = Number(process.env.GIT_CONFIG_COUNT) || 0
+  const set = { GIT_CONFIG_COUNT: String(n + 2) }
+  set[`GIT_CONFIG_KEY_${n}`] = 'gc.auto'
+  set[`GIT_CONFIG_VALUE_${n}`] = '0'
+  set[`GIT_CONFIG_KEY_${n + 1}`] = 'maintenance.auto'
+  set[`GIT_CONFIG_VALUE_${n + 1}`] = 'false'
+  for (const k of Object.keys(set)) {
+    saved[k] = process.env[k]
+    process.env[k] = set[k]
+  }
+  try {
+    return fn()
+  } finally {
+    for (const [k, v] of Object.entries(saved)) {
+      if (v === undefined) delete process.env[k]
+      else process.env[k] = v
+    }
   }
 }
 

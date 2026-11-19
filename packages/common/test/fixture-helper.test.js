@@ -113,3 +113,25 @@ test('a remote built beside the repo, under root, is re-pointed at the copy', ()
     for (const r of [a, b]) rm(r)
   }
 })
+
+// A detached `gc --auto` left running by the build repacked `.git/objects`
+// while the copy read it, and the copy failed ENOENT on CI. The build runs with
+// git's housekeeping off; the test process's own environment is left as found.
+test('a build runs with git housekeeping off, and the environment is restored', () => {
+  const before = process.env.GIT_CONFIG_COUNT
+  let seen
+  const probe = fixture('skitterspec-fixture-gc-', (root) => {
+    git(root, 'init', '-q', '-b', 'main')
+    seen = {
+      gc: git(root, 'config', '--get', 'gc.auto'),
+      maintenance: git(root, 'config', '--get', 'maintenance.auto'),
+    }
+  })
+  const root = probe()
+  try {
+    assert.deepStrictEqual(seen, { gc: '0', maintenance: 'false' })
+    assert.strictEqual(process.env.GIT_CONFIG_COUNT, before)
+  } finally {
+    rm(root)
+  }
+})
