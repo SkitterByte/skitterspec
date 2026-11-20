@@ -113,3 +113,5 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   since a multi-row `Next` is growth that section said was not allowed.
   docs/review.html had nothing on `Next` to change; it was stamped after a
   re-read.
+- 2026-11-20 — Completed; all phases done, tests green. docs/index.html
+  re-read and stamped.
