@@ -27,9 +27,9 @@ Two things about Jira Cloud shape everything below:
 
 ## 1. Install the package
 
-Install the Jira superset (or, if you already run the base or the Linear
-superset, switch — every distribution contains the entire base, so install
-exactly one):
+Install the Jira provider. Install the base, `@skitterbyte/skitterspec`, beside it at
+the same version: the base answers the `skitterspec` command the skills run.
+Every provider contains the whole base engine, so a project uses one provider.:
 
 ```sh
 npx @skitterbyte/skitterspec-jira init

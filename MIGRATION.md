@@ -1,5 +1,130 @@
 # Migration guide
 
+## Providers drop the `skitterspec` bin: install the base alongside (action required)
+
+Every provider used to answer to two names: its own (`skitterspec-github`)
+and `skitterspec`. That alias kept a machine to **one** global provider, because
+npm refuses a second package claiming a bin another already owns:
+
+```
+npm error File exists: /usr/local/bin/skitterspec
+npm error Remove the existing file and try again, or run npm
+npm error with --force to overwrite files recklessly.
+```
+
+Now `skitterspec` belongs to the base package, `@skitterbyte/skitterspec`, and
+each provider exposes only its own name. The skills and commands still run
+`skitterspec …`, so
+**the base is installed alongside your provider, at the same version**.
+In exchange, every provider can be installed globally on one
+machine, and `skitterspec update --all` updates every local install in one go.
+
+`update` warns when it cannot find `skitterspec` beside a provider, and when
+the base and the provider are different versions.
+
+Find your install below. You can check what you have with:
+
+```bash
+npm ls -g --depth=0 | grep skitterbyte    # global installs
+grep skitterbyte package.json             # a project dependency
+```
+
+### A global provider (the usual setup for `init --local`)
+
+Upgrade the provider and install the base **in the same command**. The upgrade
+removes the old `skitterspec` link, so the base can take it. List every
+provider you use:
+
+```bash
+npm i -g @skitterbyte/skitterspec@latest @skitterbyte/skitterspec-github@latest @skitterbyte/skitterspec-azure-boards@latest
+skitterspec update --all
+```
+
+Then check that both names answer, at the same version:
+
+```bash
+skitterspec --version
+skitterspec-github --version
+```
+
+**If you installed the base on its own first** and got the `File exists` error
+above, the old provider still owns the name. Upgrade the provider
+(`npm i -g @skitterbyte/skitterspec-<provider>@latest`), then install the base
+again. Don't use `--force`: it overwrites the link and leaves the old
+provider's files in place.
+
+### A solo project with a committed install or a `package.json` dependency
+
+Move it to a local install with a global CLI, so that later releases never
+touch a tracked file there:
+
+1. Do the global install above on this machine.
+2. In the project, start a branch (`/no-spec skitterspec-local`), because the
+   next steps change tracked files.
+3. `skitterspec init --local`. This stages the managed files for removal from
+   git, moves the hooks into `.claude/settings.local.json`, and moves the
+   CLAUDE block into `CLAUDE.local.md`. The files stay on disk.
+4. Remove the dependency, which updates `package.json` and the lockfile:
+   `npm uninstall @skitterbyte/skitterspec-<provider>` (or `pnpm remove …`).
+5. `skitterspec update`. The commands are rewritten to call `skitterspec`
+   from your PATH.
+6. Commit the staged removals together with `package.json` and the lockfile
+   (`/commit`), review the page and land.
+
+From then on, `skitterspec update --all` covers this project.
+
+### A team project with a `package.json` dependency
+
+The dependency stays, because that is how everyone runs one version. Add the
+base beside it, at the provider's version:
+
+```bash
+pnpm add -D @skitterbyte/skitterspec@<version> @skitterbyte/skitterspec-<provider>@<version>
+skitterspec update
+```
+
+Do this on a `/no-spec` branch, since it changes tracked files. On every
+later bump, move the two together:
+`pnpm up @skitterbyte/skitterspec @skitterbyte/skitterspec-<provider>`.
+`update --all` lists a team project and never writes to it.
+
+### A Windows VM
+
+Global installs belong to one machine, and the VM has its own. Inside the VM,
+run the same `npm i -g …` line and then `skitterspec update --all`. That reads
+the VM's own Claude Code project list. Where the Mac and the VM share one
+checkout, keep both machines on the same version. Otherwise each `update`
+rewrites the other's files.
+
+### After every release, from now on
+
+```bash
+npm i -g @skitterbyte/skitterspec@latest @skitterbyte/skitterspec-<provider>@latest   # every provider you use
+skitterspec update --all
+```
+
+Repeat both lines inside the VM.
+
+## `@skitterbyte/skitterspec-github` v2 → v3 (the `skitterspec` bin moves to the base)
+
+Install `@skitterbyte/skitterspec` alongside. See
+[Providers drop the `skitterspec` bin](#providers-drop-the-skitterspec-bin-install-the-base-alongside-action-required).
+
+## `@skitterbyte/skitterspec-azure-boards` v2 → v3 (the `skitterspec` bin moves to the base)
+
+Install `@skitterbyte/skitterspec` alongside. See
+[Providers drop the `skitterspec` bin](#providers-drop-the-skitterspec-bin-install-the-base-alongside-action-required).
+
+## `@skitterbyte/skitterspec-jira` v2 → v3 (the `skitterspec` bin moves to the base)
+
+Install `@skitterbyte/skitterspec` alongside. See
+[Providers drop the `skitterspec` bin](#providers-drop-the-skitterspec-bin-install-the-base-alongside-action-required).
+
+## `@skitterbyte/skitterspec-linear` v19 → v20 (the `skitterspec` bin moves to the base)
+
+Install `@skitterbyte/skitterspec` alongside. See
+[Providers drop the `skitterspec` bin](#providers-drop-the-skitterspec-bin-install-the-base-alongside-action-required).
+
 ## A PR-mode finish runs the `afterLand` entries its land matched (nothing to edit)
 
 After the host merged a PR, `spec-env integrate` used to print `nothing to

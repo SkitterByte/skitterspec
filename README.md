@@ -7,7 +7,10 @@ composes two publishable distributions.
 
 ## Published distributions
 
-Install exactly **one** — the Linear package is a strict superset of the base.
+Use the base alone, or one provider **with** the base beside it at the same
+version: a provider carries its tracker's sync, and the base answers the
+`skitterspec` command the skills run. Several providers can be installed
+globally side by side.
 
 | Package | What you get | README |
 |---------|--------------|--------|

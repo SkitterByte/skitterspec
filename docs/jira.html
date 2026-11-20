@@ -5,7 +5,7 @@ covers:
   - packages/skitterspec-jira/**
   - packages/sync-core/**
   - packages/provider-kit/**
-verified: 5957c667aeff
+verified: 956e5b9bb2c9
 -->
 <html lang="en">
 <head>
@@ -650,7 +650,7 @@ verified: 5957c667aeff
 
       <div class="qbox">
         <h3><span class="q-badge">2</span> Install the superset</h3>
-        <p>Install this superset <strong>or</strong> the base — never both; the superset contains the whole base (and exposes the <span class="mono">skitterspec</span> binary name alongside its own).</p>
+        <p>Install this provider <strong>and</strong> the base, <span class="mono">@skitterbyte/skitterspec</span>, at the same version: the provider carries the sync, and the base answers the <span class="mono">skitterspec</span> command the skills run. One provider per project; several install globally side by side.</p>
         <div class="code"><span class="c"># scaffold into .claude/ + specs/</span>
 npx @skitterbyte/skitterspec-jira <span class="p">init</span></div>
         <p>The only one using skitterspec on a shared repo? Install it globally and run <span class="mono" style="font-size:.9em">skitterspec-jira init --local</span>: the skills, rules and hooks stay on your machine and out of git, and only <span class="mono" style="font-size:.9em">specs/</span> is committed. To pause it, <span class="mono" style="font-size:.9em">skitterspec-jira disable</span> stops Claude using it and leaves the files; <span class="mono" style="font-size:.9em">skitterspec-jira enable</span> turns it back on, installing it if it is gone, and <span class="mono" style="font-size:.9em">skitterspec-jira uninstall</span> takes it off the machine. Never for a team — the hooks and rules are shared policy.</p>

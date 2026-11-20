@@ -5,8 +5,17 @@ superset of [`@skitterbyte/skitterspec`](https://www.npmjs.com/package/@skitterb
 the base filesystem workflow plus `/spec-push` · `/spec-status` · `/spec-list` · `/spec-claim`
 and the `spec-sync` CLI. The repo is canonical; GitHub is a generated mirror.
 
-Install exactly one distribution — this, the base, or one other superset —
-never two:
+Install this provider **and** the base, `@skitterbyte/skitterspec`, at the
+same version: the provider carries the sync, and the base answers the
+`skitterspec` command the skills run. Use one provider per project; several
+can be installed globally side by side — see `MIGRATION.md`,
+*Providers drop the `skitterspec` bin*.
+
+```
+npm i -g @skitterbyte/skitterspec @skitterbyte/skitterspec-github
+```
+
+Then, in the project:
 
 ```
 npx @skitterbyte/skitterspec-github init

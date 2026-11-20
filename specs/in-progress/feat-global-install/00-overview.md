@@ -166,7 +166,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Providers drop the alias; the base answers `skitterspec` | ✅ | [01-drop-alias.md](01-drop-alias.md) |
 | 2 | `update --all` | ✅ | [02-update-all.md](02-update-all.md) |
-| 3 | Install and conversion guide | ⬜ | [03-install-guide.md](03-install-guide.md) |
+| 3 | Install and conversion guide | 🔄 | [03-install-guide.md](03-install-guide.md) |
 
 ## Open questions
 
@@ -190,3 +190,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   from the bins' uncomposed-assets refusal: it writes nothing itself and runs
   each project's own bin. A read-only run of the planner on the author's
   machine found 7 projects in 357 ms (3 local, 4 team).
+- 2026-11-20 — Phase 3: decision 10 checked against npm with stand-in
+  packages. Installing the upgraded provider and the base in one command
+  works in either order, and so does upgrading the provider first. Only the
+  base on its own, while an old provider still owns the name, hits
+  `EEXIST`. The guide gives the one-command form. The "install one
+  distribution, never both" wording in the READMEs, the SETUP files and the
+  docs pages is replaced. Walking the guide needs the release to exist, so
+  it waits as the phase's manual steps.

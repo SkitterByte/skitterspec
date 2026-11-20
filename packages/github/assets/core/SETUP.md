@@ -20,8 +20,9 @@ pnpm add -D @skitterbyte/skitterspec-github
 {{exec}} skitterspec init --isolation
 ```
 
-Install exactly one distribution: the base, or one superset. This one provides
-both `skitterspec-github` and `skitterspec`.
+Install this provider and the base, `@skitterbyte/skitterspec`, beside it at
+the same version: the base answers the `skitterspec` command the skills run.
+Every provider contains the whole base engine, so a project uses one provider.
 
 **A project in a subfolder of its repo** (a solution folder beside `Sql/`,
 say) installs and runs exactly the same way, from that folder: install the

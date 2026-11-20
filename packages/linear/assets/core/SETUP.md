@@ -36,8 +36,9 @@ one. `push` detects this and refuses to let the plan be applied blind, but read
 
 ## 1. Install the package
 
-Install the Linear superset (or, if you already run the base, switch to it — it
-contains the entire base, so install one **or** the other, never both):
+Install the Linear provider. Install the base, `@skitterbyte/skitterspec`, beside it at
+the same version: the base answers the `skitterspec` command the skills run.
+Every provider contains the whole base engine, so a project uses one provider.:
 
 ```sh
 npx @skitterbyte/skitterspec-linear init
