@@ -36,9 +36,10 @@ one. `push` detects this and refuses to let the plan be applied blind, but read
 
 ## 1. Install the package
 
-Install the Linear provider. Install the base, `@skitterbyte/skitterspec`, beside it at
-the same version: the base answers the `skitterspec` command the skills run.
-Every provider contains the whole base engine, so a project uses one provider.:
+Install the Linear provider, and the base, `@skitterbyte/skitterspec`, beside
+it, updating the two together: the base answers the `skitterspec` command the
+skills run. Every provider contains the whole base engine, so a project uses
+one provider:
 
 ```sh
 npx @skitterbyte/skitterspec-linear init

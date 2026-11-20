@@ -32,7 +32,7 @@ machine's real projects and the Windows VM).
       and on the VM) and fix anything that didn't match.
   - [ ] 1. After the release, on the Mac: `npm i -g @skitterbyte/skitterspec@latest @skitterbyte/skitterspec-github@latest @skitterbyte/skitterspec-azure-boards@latest`
         succeeds, and `skitterspec --version`, `skitterspec-github --version`
-        and `skitterspec-azure-boards --version` print the same version.
+        and `skitterspec-azure-boards --version` all answer.
   - [ ] 2. `skitterspec update --all` on the Mac: skitterload, skittership and
         FF.CSC.Solution show `updated` or `current`; ereqs, jira-smoke,
         skitterspec and tendering are listed as team installs.

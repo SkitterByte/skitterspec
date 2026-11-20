@@ -587,11 +587,11 @@ Part of that contract is the **binary name**. `skitterspec` belongs to the base
 package alone, and a provider exposes only its own name
 (`skitterspec-<provider>`). The shipped commands and skills invoke
 `skitterspec`, so a provider is installed **alongside the base**, globally or
-as two dev dependencies, at the same version. Providers used to alias
+as two dev dependencies, and the two are updated together. Providers used to alias
 `skitterspec` to their own entry point. That kept a machine to one global
 provider, because npm refuses a second package claiming a bin another already
 owns (feat-global-install). `init` and `update` warn when `skitterspec` cannot
-be found beside a provider, or when the two versions differ.
+be found beside a provider.
 Sync is **one-way**: the repo is the source of truth and the tracker is a
 **generated mirror**. It ships `/spec-push` (repo→tracker; computes a create/update plan
 against a committed last-pushed snapshot and applies it) and `/spec-status`

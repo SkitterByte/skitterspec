@@ -7,8 +7,8 @@ composes two publishable distributions.
 
 ## Published distributions
 
-Use the base alone, or one provider **with** the base beside it at the same
-version: a provider carries its tracker's sync, and the base answers the
+Use the base alone, or one provider **with** the base beside it, updated
+together: a provider carries its tracker's sync, and the base answers the
 `skitterspec` command the skills run. Several providers can be installed
 globally side by side.
 

@@ -9,8 +9,8 @@ its linked Linear issue — the repo is canonical, Linear is a generated mirror.
 npx @skitterbyte/skitterspec-linear init
 ```
 
-Install this provider **and** the base, `@skitterbyte/skitterspec`, at the
-same version: the provider carries the sync, and the base answers the
+Install this provider **and** the base, `@skitterbyte/skitterspec`, and
+update the two together: the provider carries the sync, and the base answers the
 `skitterspec` command the skills run. Use one provider per project; several
 can be installed globally side by side — see `MIGRATION.md`,
 *Providers drop the `skitterspec` bin*.

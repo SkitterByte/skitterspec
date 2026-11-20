@@ -3,7 +3,7 @@
 const fs = require('fs')
 const path = require('path')
 const crypto = require('crypto')
-const { execFileSync, spawnSync } = require('child_process')
+const { execFileSync } = require('child_process')
 
 const { ensureWorktreeDirTrusted } = require('./env/trust.js')
 const { ensureHooks, removeHooks, HOOKS: GATE_HOOKS } = require('./env/hooks.js')
@@ -718,66 +718,7 @@ function installCommands(dir, opts) {
         `install ${base}${beside} (npm i -g, or as a dev ` +
         'dependency) and re-run `skitterspec update` to rewrite them',
     )
-  } else if (COMMANDS.length) {
-    const drift = baseVersionDrift(dir)
-    if (drift) report.warnings.push(drift)
   }
-}
-
-const SEMVER_RE = /^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/
-
-// This distribution's own version, or null when it cannot be read.
-function ownVersion() {
-  try {
-    return JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8')).version || null
-  } catch {
-    return null
-  }
-}
-
-// The version of the base that answers `skitterspec` here: a local install
-// first (walking up, as the ladder does), then the one on PATH. Null is
-// cannot-tell — an unreadable package, a bin that would not say — and never a
-// mismatch.
-function baseVersion(dir, env = process.env) {
-  let at = path.resolve(dir)
-  for (let i = 0; i < 6; i++) {
-    try {
-      const v = JSON.parse(fs.readFileSync(path.join(at, 'node_modules', '@skitterbyte', 'skitterspec', 'package.json'), 'utf8')).version
-      return SEMVER_RE.test(v) ? v : null
-    } catch {
-      /* not here — keep walking */
-    }
-    const up = path.dirname(at)
-    if (up === at) break
-    at = up
-  }
-  if (!hasPathInstall(env, 'skitterspec')) return null
-  const r = spawnSync('skitterspec', ['--version'], {
-    encoding: 'utf8',
-    env,
-    timeout: 5000,
-    shell: process.platform === 'win32',
-  })
-  const v = (r.stdout || '').trim()
-  return r.status === 0 && SEMVER_RE.test(v) ? v : null
-}
-
-/**
- * One warning line when a provider and the base answering `skitterspec` are
- * different versions, else null (feat-global-install, decision 3). They are
- * released in lockstep, but two global installs updated at different times can
- * drift, and then a command and a skill in one project run two engines.
- *
- * A warning, never a refusal, and silent on every cannot-tell: the base itself
- * (nothing to compare), an unreadable own version, a base that would not say.
- */
-function baseVersionDrift(dir, env = process.env, own = ownVersion(), dist = distributionPackage()) {
-  const base = packageForBin('skitterspec')
-  if (dist === base || !own) return null
-  const theirs = baseVersion(dir, env)
-  if (!theirs || theirs === own) return null
-  return `${base} is ${theirs} but ${dist} is ${own} — they release together; install the same version of both`
 }
 
 function installRule(dir, opts) {
@@ -2087,7 +2028,6 @@ module.exports = {
   detectPackageManager,
   detectRunner,
   renderCommand,
-  baseVersionDrift,
   hasPathInstall,
   packageForBin,
   renderExec,

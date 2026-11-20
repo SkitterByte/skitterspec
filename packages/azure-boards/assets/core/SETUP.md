@@ -29,9 +29,10 @@ Two things about Azure Boards shape everything below:
 
 ## 1. Install the package
 
-Install the Azure Boards provider. Install the base, `@skitterbyte/skitterspec`, beside it at
-the same version: the base answers the `skitterspec` command the skills run.
-Every provider contains the whole base engine, so a project uses one provider.:
+Install the Azure Boards provider, and the base, `@skitterbyte/skitterspec`, beside
+it, updating the two together: the base answers the `skitterspec` command the
+skills run. Every provider contains the whole base engine, so a project uses
+one provider:
 
 ```sh
 npx @skitterbyte/skitterspec-azure-boards init

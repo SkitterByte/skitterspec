@@ -65,10 +65,10 @@ is no single command to update every project.
    was rewriting every bin mention in skills and rules to the provider's bin at
    install time: a lot of asset churn, easy to break, and it touches text that
    isn't tokenised today.
-3. **The base and a provider must be the same version, and only a warning says
-   so.** They're released in lockstep, but two global installs can drift.
-   `update` compares the base version on PATH (or in `node_modules`) with its
-   own and prints one line when they differ. A mismatch never stops an update.
+3. **Dropped 2026-11-20: no version check between the base and a provider.**
+   The two packages number their versions separately (base v23, GitHub v3),
+   so comparing the strings warned on every healthy install. Install the
+   latest of each together instead. See the Changelog.
 4. **The rendered command lines name the bin they invoke, with the right
    package.** Commands keep `{{exec}} skitterspec`. The local-rung launcher
    (bug-commands-outside-project) currently looks for the *distribution's*
@@ -114,9 +114,7 @@ is no single command to update every project.
     do today. Nothing goes into `~/.claude`, so repos without skitterspec pay
     nothing. That per-repo cost was the reason the user-scope install was
     rejected (feat-local-install, decision 1). A global CLI changes only where
-    the engine is found, and the hooks spawn the same engine either way. The
-    version check (decision 3) adds one `skitterspec --version` per `update`
-    (about 40 ms), never per tool call. `--all` runs only when asked. Measured
+    the engine is found, and the hooks spawn the same engine either way. `--all` runs only when asked. Measured
     2026-11-20 on this repo, per command run: `pnpm exec` 108 ms, `npx` 195 ms,
     the launcher 67 ms, a bare global bin about 40 ms.
 
@@ -142,7 +140,7 @@ Conversions the guide walks through:
 |----------|----|
 | A global provider from before the major | `npm i -g @skitterbyte/skitterspec-<p>@latest` first (drops its `skitterspec` link), then `npm i -g @skitterbyte/skitterspec` |
 | A solo project with a committed install or dependency | `skitterspec init --local`, commit the staged removals, remove the dependency from `package.json` and the lockfile, install globally |
-| A team project with a dependency | add `@skitterbyte/skitterspec` as a second dev dependency at the same version; `update` on a `/no-spec` branch as before |
+| A team project with a dependency | add `@skitterbyte/skitterspec` as a second dev dependency, both at `@latest`; `update` on a `/no-spec` branch as before |
 | A Windows VM | the same global installs inside the VM; it has its own PATH |
 
 ## Impact
@@ -201,3 +199,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-11-20 — Landed intermediate work onto main so it can be released:
   phase 3's manual steps walk the guide against the published packages.
   The spec stays in progress.
+- 2026-11-20 — Decision 3 dropped before release: the base and the providers
+  number their versions separately (23.22.0 against 3.0.0 for this release),
+  so the drift warning would have fired on every provider project, and the
+  guide's "same version" steps could not be followed. Removed the check and
+  its tests; the docs now say to install the latest of both and update them
+  together. A real pairing check (each provider recording the base it
+  shipped with) is a possible follow-up.

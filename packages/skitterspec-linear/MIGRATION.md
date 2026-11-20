@@ -15,12 +15,13 @@ npm error with --force to overwrite files recklessly.
 Now `skitterspec` belongs to the base package, `@skitterbyte/skitterspec`, and
 each provider exposes only its own name. The skills and commands still run
 `skitterspec …`, so
-**the base is installed alongside your provider, at the same version**.
+**the base is installed alongside your provider, and the two are updated together**.
 In exchange, every provider can be installed globally on one
 machine, and `skitterspec update --all` updates every local install in one go.
 
-`update` warns when it cannot find `skitterspec` beside a provider, and when
-the base and the provider are different versions.
+`update` warns when it cannot find `skitterspec` beside a provider. The two
+packages number their versions separately (the base is v23, GitHub v3), so
+they never match by number. Install the latest of each at the same time.
 
 Find your install below. You can check what you have with:
 
@@ -40,7 +41,7 @@ npm i -g @skitterbyte/skitterspec@latest @skitterbyte/skitterspec-github@latest 
 skitterspec update --all
 ```
 
-Then check that both names answer, at the same version:
+Then check that both names answer:
 
 ```bash
 skitterspec --version
@@ -76,10 +77,10 @@ From then on, `skitterspec update --all` covers this project.
 ### A team project with a `package.json` dependency
 
 The dependency stays, because that is how everyone runs one version. Add the
-base beside it, at the provider's version:
+base beside it, taking the latest of both together:
 
 ```bash
-pnpm add -D @skitterbyte/skitterspec@<version> @skitterbyte/skitterspec-<provider>@<version>
+pnpm add -D @skitterbyte/skitterspec@latest @skitterbyte/skitterspec-<provider>@latest
 skitterspec update
 ```
 
@@ -93,7 +94,7 @@ later bump, move the two together:
 Global installs belong to one machine, and the VM has its own. Inside the VM,
 run the same `npm i -g …` line and then `skitterspec update --all`. That reads
 the VM's own Claude Code project list. Where the Mac and the VM share one
-checkout, keep both machines on the same version. Otherwise each `update`
+checkout, update both machines at the same time. Otherwise each `update`
 rewrites the other's files.
 
 ### After every release, from now on

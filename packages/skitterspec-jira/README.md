@@ -5,8 +5,8 @@ superset of [`@skitterbyte/skitterspec`](https://www.npmjs.com/package/@skitterb
 the base filesystem workflow plus `/spec-push` · `/spec-status` and the
 `spec-sync` CLI. The repo is canonical; Jira is a generated mirror.
 
-Install this provider **and** the base, `@skitterbyte/skitterspec`, at the
-same version: the provider carries the sync, and the base answers the
+Install this provider **and** the base, `@skitterbyte/skitterspec`, and
+update the two together: the provider carries the sync, and the base answers the
 `skitterspec` command the skills run. Use one provider per project; several
 can be installed globally side by side — see `MIGRATION.md`,
 *Providers drop the `skitterspec` bin*.
