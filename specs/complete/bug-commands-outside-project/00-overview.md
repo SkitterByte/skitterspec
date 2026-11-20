@@ -88,3 +88,4 @@ no install anywhere. Run: `node --test packages/common/test/init-command-launche
 
 - 2026-11-20 — Bug reproduced; failing test added (red).
 - 2026-11-20 — Fixed: commands render an inline `node -e` launcher that finds the project folder from any cwd; test green.
+- 2026-11-20 — Completed; fix done, tests green.
