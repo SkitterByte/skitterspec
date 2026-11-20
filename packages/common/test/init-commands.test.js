@@ -200,7 +200,7 @@ test('renderCommand fills every {{exec}} occurrence', () => {
     const src = 'allowed-tools: Bash({{exec}} skitterspec:*)\n!`{{exec}} skitterspec spec-env connect`\n'
     const out = renderCommand(src, dir)
     assert.doesNotMatch(out, /\{\{exec\}\}/, 'no placeholder survives')
-    assert.strictEqual(out.split('pnpm exec').length - 1, 2, 'both occurrences filled')
+    assert.strictEqual(out.split('node -e ').length - 1, 2, 'both occurrences filled')
   } finally {
     fs.rmSync(dir, { recursive: true, force: true })
   }
@@ -275,19 +275,24 @@ test('init installs every command with the detected prefix baked in', async () =
     for (const name of COMMANDS) {
       const body = fs.readFileSync(cmdPath(dir, name), 'utf8')
       assert.doesNotMatch(body, /\{\{exec\}\}/, `${name} has no placeholder left`)
-      assert.match(body, /pnpm exec skitterspec/, `${name} carries a working invocation`)
+      // The launcher, not the runner: a command's line runs wherever the
+      // session stands, so it finds the install itself (bug-commands-outside-project).
+      assert.match(body, /node -e "[^"]+" -- /, `${name} carries a working invocation`)
+      assert.doesNotMatch(body, /pnpm exec/, `${name} does not resolve from the cwd`)
     }
   } finally {
     fs.rmSync(dir, { recursive: true, force: true })
   }
 })
 
-test('a yarn project gets the yarn invocation, not pnpm', async () => {
+// The runner a lockfile picks still reaches skills (init-render-exec.test.js);
+// a command's line takes the launcher whatever the lockfile says.
+test('a yarn project gets the launcher in its commands, and no runner', async () => {
   const dir = await installInto('yarn.lock')
   try {
     const body = fs.readFileSync(cmdPath(dir, COMMANDS[0]), 'utf8')
-    assert.match(body, /yarn skitterspec/, 'rendered for yarn')
-    assert.doesNotMatch(body, /pnpm exec/, 'no pnpm leaked in')
+    assert.match(body, /node -e "/, 'rendered as the launcher')
+    assert.doesNotMatch(body, /yarn skitterspec|pnpm exec/, 'no runner leaked in')
   } finally {
     fs.rmSync(dir, { recursive: true, force: true })
   }
@@ -499,6 +504,28 @@ test('stays silent: an edited /epic command is kept, not deleted', async () => {
     fs.writeFileSync(path.join(dir, rel), '# old command, with my notes\n')
     quietResync(dir)
     assert.ok(fs.existsSync(path.join(dir, rel)), 'a user edit is never discarded')
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+// An install from before the launcher (bug-commands-outside-project) holds the
+// runner form, recorded in the manifest as ours. `update` must rewrite it — a
+// fix that only reached fresh installs would leave every existing project's
+// commands 404ing from the git root.
+test('update rewrites a pristine runner-form command to the launcher', async () => {
+  const dir = await installInto()
+  try {
+    const rel = path.join('.claude', 'commands', 'spec-live.md')
+    const old = fs.readFileSync(cmdPath(dir, 'spec-live.md'), 'utf8').replace(/node -e "[^"]+" --/g, 'pnpm exec skitterspec')
+    fs.writeFileSync(path.join(dir, rel), old)
+    const manifest = readManifest(dir)
+    manifest.files[rel.split(path.sep).join('/')] = sha1(old)
+    writeManifest(dir, manifest.files)
+    quietResync(dir)
+    const body = fs.readFileSync(cmdPath(dir, 'spec-live.md'), 'utf8')
+    assert.match(body, /!`node -e "[^"]+" -- spec-env live \$ARGUMENTS`/)
+    assert.doesNotMatch(body, /pnpm exec/)
   } finally {
     fs.rmSync(dir, { recursive: true, force: true })
   }

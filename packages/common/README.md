@@ -90,8 +90,13 @@ npx @skitterbyte/skitterspec update                   # re-copy skills + rule, l
 
 `init` writes four slash commands that **pre-execute the CLI**, so they need an
 invocation that resolves later — and it picks one by looking, not by guessing:
-a local install (the lockfile then picks `pnpm exec` / `yarn` / `npx`), else the
-bin on `PATH`, else `npx` with a warning that it could not find one.
+a local install, else the bin on `PATH`, else `npx` with a warning that it could
+not find one. With a local install a command runs a small `node -e` launcher
+rather than `pnpm exec` / `npx`, because the line runs wherever the session is
+standing — the git root, a worktree's root — and a project in a subfolder of its
+repo has no install there. The launcher uses the current folder when the install
+is there, else the project folder in this checkout (or the primary checkout's
+install, for a worktree with none), else refuses in one line naming the folder.
 
 **Any project can use skitterspec, whatever it is written in.** The engine
 shells out to `git` and — only for a spec that asks for one — `docker`; it never

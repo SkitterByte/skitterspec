@@ -36,6 +36,18 @@ finding one. They are marked `disable-model-invocation`, meaning
 **only you can run them** — a skill that wants one will tell you to type it
 rather than invoking it.
 
+**A command finds the project itself, wherever the session stands.** Its line
+runs in the session's current directory, which after a `cd` may be the git root
+or a worktree's root rather than the project folder — and in a repo whose
+project is a subfolder, a runner started there found no install and printed
+npm's registry 404. So with a local install the line is a small `node -e`
+launcher, written that way because both `/bin/sh` and cmd.exe can start it. It
+runs in the current directory when the install is there, which is the usual case and unchanged. Otherwise
+it runs in this checkout's project folder, using the subfolder recorded when
+the command was installed and the primary checkout's install when a worktree
+has none. Failing both, it refuses in one line naming the folder it expected.
+`skitterspec update` rewrites the command files to this form.
+
 **The `spec-remote-review` command was retired** with the published review tier
 (feat-tailnet-remote-tier). It toggled whether a spec might publish its review
 as a claude.ai page — a second store no wait could watch, and a page this

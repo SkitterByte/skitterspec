@@ -245,8 +245,88 @@ function renderExec(content, dir, env = process.env) {
   })
 }
 
-// The original name, kept because commands were the first thing rendered.
-const renderCommand = renderExec
+// --- the command launcher (bug-commands-outside-project) -------------------
+//
+// A command file lives in the project folder's `.claude/commands/`, but its `!`
+// line runs in whatever directory the SESSION is standing in. A runner resolves
+// the install from there, so in a repo whose project is a subfolder a session
+// that had cd'd to the git root — or to a worktree's root — got npm's registry
+// 404 instead of the engine. So on the local rung a command's `{{exec}}` renders
+// as a launcher that picks the folder first:
+//
+//   1. the cwd, walking up, when the install is there — the healthy path, run
+//      in the cwd exactly as before;
+//   2. else this checkout's project folder (git toplevel + the prefix recorded
+//      here at render time), then the primary checkout's — a `--docs` worktree
+//      has no install of its own — run in THIS checkout's project folder, so a
+//      bare command still means the spec you are standing on;
+//   3. else one line naming the folder it expected, exit 1.
+//
+// It is `node -e`, inline, rather than a script file beside the commands,
+// because finding a file from an unknown cwd is the very problem being solved,
+// and a local-scope install keeps `.claude/` out of git, so a worktree may not
+// have one. Node runs the engine's JS entry directly (no `.bin` shim, no
+// shell), which is the one form both `/bin/sh` and cmd.exe can start — vm-bridge
+// runs these lines through cmd.
+//
+// WHAT WOULD BREAK IT: the line passes through two shells' quoting. It is one
+// double-quoted word, so the script must hold no `"`, `$`, `` ` ``, `\`, `%` or
+// `!` — and neither may anything substituted into it. A prefix holding one of
+// those is cannot-tell and renders as `''` (rule 4): rungs 1 and 3 still hold.
+const LAUNCHER = [
+  "const f=require('fs'),p=require('path'),c=require('child_process'),K='{{pkg}}',B='{{bin}}',P='{{prefix}}'",
+  "const g=a=>{try{return c.execFileSync('git',a,{encoding:'utf8',stdio:['ignore','pipe','ignore']}).trim()}catch(e){}}",
+  'const w=d=>{for(let i=0;i<6;i++){const m=p.join(d,' +
+    "'node_modules',K,'package.json');if(f.existsSync(m)){const b=JSON.parse(f.readFileSync(m,'utf8')).bin;" +
+    "return p.join(p.dirname(m),typeof b=='string'?b:b[B])}const u=p.dirname(d);if(u==d)return;d=u}}",
+  'let d=process.cwd(),e=w(d)',
+  "if(e==null){const t=g(['rev-parse','--show-toplevel']),m=g(['rev-parse','--git-common-dir']);" +
+    'if(t){d=p.join(t,P);e=w(d)||m&&w(p.join(p.dirname(p.resolve(m)),P))}}',
+  "if(e==null){console.error(B+': not installed for '+d+' (no node_modules/'+K+' there or above) - install it there, or run from the project folder');process.exit(1)}",
+  "const r=c.spawnSync(process.execPath,[e,...process.argv.slice(1)],{cwd:d,stdio:'inherit'});process.exit(r.status==null?1:r.status)",
+].join(';')
+
+const UNSAFE_IN_LAUNCHER = /["'$`\\%!]/
+
+// The project's folder within its git repo, as a repo path — '' at the root,
+// outside a repo, or when it cannot be carried safely in the launcher.
+function launcherPrefix(dir) {
+  let top
+  try {
+    top = execFileSync('git', ['-C', dir, 'rev-parse', '--show-toplevel'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim()
+  } catch {
+    return ''
+  }
+  const real = (p) => {
+    try {
+      return fs.realpathSync.native(p)
+    } catch {
+      return path.resolve(p)
+    }
+  }
+  const rel = path.relative(real(top), real(dir))
+  if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) return ''
+  const prefix = rel.split(path.sep).join('/')
+  return UNSAFE_IN_LAUNCHER.test(prefix) ? '' : prefix
+}
+
+function launcherFor(bin, dir) {
+  const script = LAUNCHER.replace('{{pkg}}', distributionPackage())
+    .replace('{{bin}}', bin)
+    .replace('{{prefix}}', launcherPrefix(dir))
+  return `node -e "${script}" --`
+}
+
+// What a command file's `!` line runs. Only the local rung changes: a global
+// install and the `npx -p` fallback resolve the same from any directory.
+function renderCommand(content, dir, env = process.env) {
+  if (!content.includes('{{exec}}')) return content
+  if (detectRunner(dir, env).rung !== 'local') return renderExec(content, dir, env)
+  return content.replace(EXEC_RE, (_m, _sp, bin) => (bin ? launcherFor(bin, dir) : 'node'))
+}
 
 // Which managed files carry the token: markdown only. Hooks and JSON templates
 // are copied byte for byte.
@@ -387,7 +467,7 @@ function managedTargets(dir) {
     })
   for (const name of SKILLS) add(path.join('skills', name, 'SKILL.md'), path.join(dir, '.claude', 'skills', name, 'SKILL.md'))
   for (const name of COMMANDS)
-    add(path.join('commands', name), path.join(dir, '.claude', 'commands', name))
+    add(path.join('commands', name), path.join(dir, '.claude', 'commands', name), renderCommand)
   for (const name of RULES) add(path.join('rules', name), path.join(dir, '.claude', 'rules', name))
   for (const name of HOOKS) add(path.join('hooks', name), path.join(dir, '.claude', 'hooks', name))
   for (const asset of CORE_FILES) add(asset, path.join(dir, 'specs', '.core', path.basename(asset)))
@@ -582,7 +662,8 @@ function writeFile(dir, target, content, { force }) {
 
 function copyAsset(dir, assetRelPath, targetAbs, opts) {
   const raw = fs.readFileSync(path.join(ASSETS, assetRelPath), 'utf8')
-  const content = renderable(assetRelPath) ? renderExec(raw, dir) : raw
+  const render = assetRelPath.startsWith(`commands${path.sep}`) ? renderCommand : renderExec
+  const content = renderable(assetRelPath) ? render(raw, dir) : raw
   writeFile(dir, targetAbs, content, opts)
 }
 
