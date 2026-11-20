@@ -87,3 +87,4 @@ three local cases.
   back to the exclude block; test green. The suggested warn-or-refuse before
   writing team files is subsumed: the exclude block is now read as the scope
   rather than as a reason to stop.
+- 2026-11-20 — Completed; fix done, tests green.
