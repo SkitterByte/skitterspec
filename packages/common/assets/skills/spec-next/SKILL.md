@@ -314,6 +314,13 @@ plain markdown list in the conversation — never fenced, and
 out of the terminal to find out what to do, which is the failure this exists to
 fix; the steps themselves are what they act on.
 
+**Steps you had to write are saved first.** When the phase file holds only a
+vague manual task — "check it on the running host" — and you wrote the steps
+yourself, add them under that task as numbered sub-checkboxes **before** you
+ask. The conversation does not survive a `/clear`, and a later run that makes
+up its own set lists different steps from the ones the reader was shown. A
+phase whose manual steps are already tasks is left as it is.
+
 Then ask one question, with three answers:
 
 - **All done** — tick those steps and carry on to the end of the phase.
@@ -332,6 +339,8 @@ needs no new shape in the report.
 tasks after an unconfirmed step are not built past it, and the phase did not
 end: **skip §4's done-marking and §5 entirely** — no page, no arm, no wait.
 End `⚠️` and name `/spec-next` in `Next`; it re-lists the same unticked steps.
+Its `Next` lists the open steps a row each, copied from the phase file —
+`.claude/rules/spec-reports.md`, *Open manual steps are rows*.
 
 ## 4. Record progress
 
@@ -656,7 +665,8 @@ the shape; this section carries only what is specific here.
 - `⚠️` — built and green, with something worth knowing (a mirror that did not
   refresh, a deviation from the plan) — or stopped at manual steps answered
   **Some failed** or **Not yet**: the phase stays `🔄`, `Notes` says which steps
-  are open, and `Next` is `/commit, then /spec-next` to pick them up.
+  are open, and `Next` is `/commit`, then a row per open step, then
+  `/spec-next` to pick them up.
 - `❌` — the phase's tests are red, or it stopped part-way. Quote the failure.
 - `⏸` — no spec in flight, several in flight with this session in none of
   them, or the name given does not match the one that is.

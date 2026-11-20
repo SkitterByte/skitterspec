@@ -460,6 +460,47 @@ work on. A row that cannot be run spends the trust the position was designed to
 earn — and the two skills that got it wrong got it wrong independently, which is
 what makes it a missing constraint rather than two slips.
 
+### Open manual steps are rows
+
+When the next action includes steps only a person can do — a manual test pass,
+a check in the running app — and any are still open, `Next`
+**lists every one of them, one per row**. The label sits on the first row
+only, each step gets a row of its own with the label cell blank, and a closing
+row names what comes after:
+
+| | |
+|---|---|
+| **Follow-ups** | none |
+| **Next** | `/spec-live`, then: |
+| | 1. Open Settings → Business Unit Setup |
+| | 2. Pick a business unit with gaps; each process shows ✗ with its gaps |
+| | 3. Set one process up, press **Check again**; its card turns ✓ |
+| | then `/spec-next` to finish phase 5 |
+
+**A count is not a list.** `run the seven manual steps` names steps the reader
+cannot see: the list it means is several messages up, or gone after a `/clear`.
+Neither is the phase file's path — that sends the reader out of the terminal to
+find out what to do, which is the failure `/spec-next`'s *Manual steps* exists
+to fix.
+
+**Copy them from the phase file, never from an earlier message.** The open
+manual tasks there — and the numbered sub-tasks `/spec-next` writes under a
+vague one — are the record. A run that did not list them (`/commit`,
+`/spec-resume`) reads them there; one that did copies the same text. A
+conversation is not durable, and steps re-made from memory drift from the ones
+the reader was shown.
+
+**It applies to every skill's block**, not only `/spec-next`'s. The report this
+was written from came from `/commit`, after `/spec-next` had listed the steps
+and been answered **Not yet**.
+
+**It is an amendment, and it is argued from this section's own rule.** It adds
+no row type and nothing after the block — `Next` stays last, and is the same
+single next action, written out. A `Next` that counts steps out of sight is not
+runnable from the state the run leaves behind; one row per step is what makes it
+so, and seven steps in one cell are a paragraph nobody follows. A report with no
+open manual steps keeps its one-row `Next`.
+
 ## Field vocabulary, in this order
 
 A skill emits only the fields it declares, in this order, skipping the rest.
@@ -484,7 +525,7 @@ behind it — say nothing rather than reporting that there was nothing to report
 | `Untouched` | Uncommitted work the run deliberately left alone — whose, and how much. |
 | `Review` | The rendered diff page: files, `+`/`−`, and the stack — the same tiers the banner lists, labelled, run together with `·` because a row is one cell, with any alternates inline after their tier's URL (`also <url>`), plus `live` where the engine reported one. **No question** — a row cannot be waited on, so a question in one is unanswerable by construction (see *asking implies waiting*). **Omitted entirely when the run is waiting on a verdict**: the banner after the block carries it instead, and a row saying the same thing beside it splits the reader's attention across two places. |
 | `Follow-ups` | **Always.** `none`, or one line each. |
-| `Next` | **Last.** The single next action for this work — runnable from the state the run leaves behind. |
+| `Next` | **Last.** The single next action for this work — runnable from the state the run leaves behind. Open manual steps take a row each (*Open manual steps are rows*). |
 
 The order runs identity → context → what happened → where it went → what to do.
 **`Tracker` is first** because the id is what addresses this work outside the
@@ -533,7 +574,8 @@ silence.
 
 ## Where the block may grow
 
-One place only. A non-`✅` verdict adds a `Why` row, and quotes the output that
+Two places. `Next` takes a row per open manual step (*Open manual steps are
+rows*, above). And a non-`✅` verdict adds a `Why` row, and quotes the output that
 justifies it — the failing assertion, the conflict, the engine's refusal — in a
 fenced block **above** the table, where a fence means what a fence should mean:
 
@@ -600,6 +642,22 @@ the reasoning.
 | **Tests** | 140 passed · go test ./... |
 | **Follow-ups** | Session expiry is read from two places; phase 4 leans on one |
 | **Next** | `/spec-next` → phase 4 (Docs) |
+
+**`⚠️` — stopped at manual steps answered Not yet.**
+
+⚠️ **Phase 2 code built; manual check open** — `feat-orders`, 2 of 4
+
+| | |
+|---|---|
+| **Branch** | `spec/feat-orders` · 3 commits, dirty |
+| **Built** | Order form, POST /orders handler |
+| **Tests** | 131 passed · npm test |
+| **Notes** | Manual check answered **Not yet** — the phase stays `🔄` |
+| **Follow-ups** | none |
+| **Next** | `/commit`, then `/spec-live`, then: |
+| | 1. Place an order with two lines; the confirmation lists both |
+| | 2. Place one with a negative quantity; the form refuses it |
+| | then `/spec-next` to finish phase 2 |
 
 **`⏸` — refused, nothing changed.**
 

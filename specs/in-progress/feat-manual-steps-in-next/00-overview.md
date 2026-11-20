@@ -99,7 +99,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Manual steps saved to the phase file and listed in `Next` | ⬜ | [01-steps-in-next.md](01-steps-in-next.md) |
+| 1 | Manual steps saved to the phase file and listed in `Next` | ✅ | [01-steps-in-next.md](01-steps-in-next.md) |
 
 ## Open questions
 
@@ -109,3 +109,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 - 2026-11-20 — Spec created. Follow-up to `feat-spec-next-manual-steps` (#180),
   from the ereqs `feat-project-bu-change-precheck` phase 5 report.
+- 2026-11-20 — The rule also amends *Where the block may grow* to two places,
+  since a multi-row `Next` is growth that section said was not allowed.
+  docs/review.html had nothing on `Next` to change; it was stamped after a
+  re-read.
