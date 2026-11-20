@@ -28,8 +28,10 @@ const { run } = require('../src/cli.js')
 // PRE-composition (seam markers still literal). Installing from it writes those
 // markers into the user's skills. So ask a second, positive question before any
 // install command runs.
+// `update --all` installs nothing itself — it runs each project's own bin —
+// so it is not asked.
 const argv = process.argv.slice(2)
-if (argv[0] === 'init' || argv[0] === 'update') {
+if (argv[0] === 'init' || (argv[0] === 'update' && !argv.includes('--all'))) {
   try {
     require('../src/init.js').assertComposedAssets()
   } catch (err) {

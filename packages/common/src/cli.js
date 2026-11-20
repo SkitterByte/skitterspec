@@ -4,7 +4,7 @@ const fs = require('fs')
 const path = require('path')
 const os = require('os')
 const { pathToFileURL } = require('url')
-const { execFileSync } = require('child_process')
+const { execFileSync, spawnSync } = require('child_process')
 const { init, resync, reset, uninstall, disable, enable, checkSync, isExistingSetup, localSeedFiles } = require('./init.js')
 const {
   detectReleaseTooling,
@@ -286,7 +286,10 @@ Usage:
   skitterspec update [dir]    Resync managed files to the latest, keeping your
                               edits (--force to overwrite). Leaves specs/ + live
                               .core config alone. --check reports what it would
-                              change and writes nothing.
+                              change and writes nothing. --all updates every
+                              local install this machine's Claude Code has run
+                              in, each with its own provider; team installs are
+                              listed, not written.
   skitterspec uninstall [dir] Take a local install (init --local) back off this
                               machine: managed files, hooks, the CLAUDE.local.md
                               block, the git excludes. Prints the plan; --yes
@@ -486,6 +489,39 @@ function parse(argv) {
     else positional.push(a)
   }
   return { opts, positional }
+}
+
+// `update --all`: plan from Claude Code's project list, run each project's own
+// distribution, one line per project. Exit 1 only when an update failed.
+function updateAll() {
+  const { planUpdateAll, runUpdateAll } = require('./updateall.js')
+  const { readManifest, hasPathInstall } = require('./init.js')
+  const git = (dir, args) => {
+    try {
+      return execFileSync('git', ['-C', dir, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim()
+    } catch {
+      return null
+    }
+  }
+  const rows = planUpdateAll({
+    dirs: knownDirs(defaultRoot()),
+    exists: fs.existsSync,
+    git,
+    readManifest,
+    onPath: (bin) => hasPathInstall(process.env, bin),
+  })
+  if (!rows.length) {
+    process.stdout.write("update --all — no skitterspec installs found in Claude Code's project list\n")
+    return 0
+  }
+  process.stdout.write(`update --all — ${rows.length} project${rows.length === 1 ? '' : 's'}\n`)
+  // The run is in the project folder with no dir argument, so no path is ever
+  // quoted for a shell — cmd.exe needs the shell to start a `.cmd` shim.
+  const run = (bin, _args, cwd) =>
+    spawnSync(bin, ['update'], { cwd, encoding: 'utf8', shell: process.platform === 'win32' })
+  const { lines, failed } = runUpdateAll(rows, run)
+  for (const l of lines) process.stdout.write(`${l}\n`)
+  return failed ? 1 : 0
 }
 
 // After an `update`, clean up release tooling left by an older skitterspec (it
@@ -8577,6 +8613,10 @@ async function run(argv) {
       // `update` is a resync — refresh managed files, keep customized ones
       // (--force to overwrite). Leaves specs/ and live .core config alone.
       // `--check` reports what it WOULD change and writes nothing.
+      if (opts.all) {
+        process.exitCode = updateAll()
+        break
+      }
       if (opts.check) {
         checkSync(dir, { claudeMd: opts.claudeMd })
         break

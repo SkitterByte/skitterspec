@@ -2088,6 +2088,7 @@ module.exports = {
   detectRunner,
   renderCommand,
   baseVersionDrift,
+  hasPathInstall,
   packageForBin,
   renderExec,
   distributionPackage,

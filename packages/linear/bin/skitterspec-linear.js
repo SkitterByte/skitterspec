@@ -66,8 +66,9 @@ async function main(argv) {
 // problem lives: a source package HAS a runnable bin and src, but its assets/ is
 // PRE-composition (seam markers still literal). Installing from it writes those
 // markers into the user's skills. So ask a second, positive question before any
-// install command runs.
-  if (cmd === 'init' || cmd === 'update') {
+// install command runs. `update --all` installs nothing itself — it runs each
+// project's own bin — so it is not asked.
+  if (cmd === 'init' || (cmd === 'update' && !rest.includes('--all'))) {
     require('@skitterbyte/skitterspec-common/src/init.js').assertComposedAssets()
   }
 

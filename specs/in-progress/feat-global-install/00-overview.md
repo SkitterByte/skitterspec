@@ -165,7 +165,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Providers drop the alias; the base answers `skitterspec` | ✅ | [01-drop-alias.md](01-drop-alias.md) |
-| 2 | `update --all` | ⬜ | [02-update-all.md](02-update-all.md) |
+| 2 | `update --all` | ✅ | [02-update-all.md](02-update-all.md) |
 | 3 | Install and conversion guide | ⬜ | [03-install-guide.md](03-install-guide.md) |
 
 ## Open questions
@@ -184,3 +184,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   That's decision 2 applied to ourselves. The hooks were left unchanged and
   not covered by a new test: their `ENGINES` walk already looks for
   `skitterspec` first, which is now the base.
+- 2026-11-20 — Phase 2: a linked worktree and a subfolder both fold into the
+  primary checkout's project, so each project is updated once (local
+  installs seed their worktrees from the primary). `update --all` is exempt
+  from the bins' uncomposed-assets refusal: it writes nothing itself and runs
+  each project's own bin. A read-only run of the planner on the author's
+  machine found 7 projects in 357 ms (3 local, 4 team).
