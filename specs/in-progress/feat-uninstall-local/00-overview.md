@@ -144,7 +144,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Uninstall engine and CLI verb, with tests | ✅ | [01-engine.md](01-engine.md) |
 | 2 | Disable and enable, with tests | ✅ | [02-disable-enable.md](02-disable-enable.md) |
-| 3 | Docs | ⬜ | [03-docs.md](03-docs.md) |
+| 3 | Docs | ✅ | [03-docs.md](03-docs.md) |
 
 ## Open questions
 

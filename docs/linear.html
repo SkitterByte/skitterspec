@@ -5,7 +5,7 @@ covers:
   - packages/skitterspec-linear/**
   - packages/sync-core/**
   - packages/provider-kit/**
-verified: fd90cb222ad8
+verified: 5957c667aeff
 -->
 <html lang="en">
 <head>
@@ -673,7 +673,7 @@ npx @skitterbyte/skitterspec-linear <span class="p">init</span>
 <span class="c"># connect Linear's own MCP server (once per machine)</span>
 claude mcp add --transport http linear \
   https://mcp.linear.app/mcp</div>
-        <p>The only one using skitterspec on a shared repo? Install it globally and run <span class="mono" style="font-size:.9em">skitterspec-linear init --local</span>: the skills, rules and hooks stay on your machine and out of git, and only <span class="mono" style="font-size:.9em">specs/</span> is committed. Never for a team — the hooks and rules are shared policy.</p>
+        <p>The only one using skitterspec on a shared repo? Install it globally and run <span class="mono" style="font-size:.9em">skitterspec-linear init --local</span>: the skills, rules and hooks stay on your machine and out of git, and only <span class="mono" style="font-size:.9em">specs/</span> is committed. To pause it, <span class="mono" style="font-size:.9em">skitterspec-linear disable</span> stops Claude using it and leaves the files; <span class="mono" style="font-size:.9em">skitterspec-linear enable</span> turns it back on, installing it if it is gone, and <span class="mono" style="font-size:.9em">skitterspec-linear uninstall</span> takes it off the machine. Never for a team — the hooks and rules are shared policy.</p>
         <p>A newly added server only appears in <span class="mono">/mcp</span> after Claude Code restarts.</p>
       </div>
 

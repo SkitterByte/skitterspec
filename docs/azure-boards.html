@@ -5,7 +5,7 @@ covers:
   - packages/skitterspec-azure-boards/**
   - packages/sync-core/**
   - packages/provider-kit/**
-verified: 5cefa2838986
+verified: 5957c667aeff
 -->
 <html lang="en">
 <head>
@@ -657,7 +657,7 @@ verified: 5cefa2838986
         <p>Install this superset <strong>or</strong> the base — never both; the superset contains the whole base (and exposes the <span class="mono">skitterspec</span> binary name alongside its own).</p>
         <div class="code"><span class="c"># scaffold into .claude/ + specs/</span>
 npx @skitterbyte/skitterspec-azure-boards <span class="p">init</span></div>
-        <p>The only one using skitterspec on a shared repo? Install it globally and run <span class="mono" style="font-size:.9em">skitterspec-azure-boards init --local</span>: the skills, rules and hooks stay on your machine and out of git, and only <span class="mono" style="font-size:.9em">specs/</span> is committed. Never for a team — the hooks and rules are shared policy.</p>
+        <p>The only one using skitterspec on a shared repo? Install it globally and run <span class="mono" style="font-size:.9em">skitterspec-azure-boards init --local</span>: the skills, rules and hooks stay on your machine and out of git, and only <span class="mono" style="font-size:.9em">specs/</span> is committed. To pause it, <span class="mono" style="font-size:.9em">skitterspec-azure-boards disable</span> stops Claude using it and leaves the files; <span class="mono" style="font-size:.9em">skitterspec-azure-boards enable</span> turns it back on, installing it if it is gone, and <span class="mono" style="font-size:.9em">skitterspec-azure-boards uninstall</span> takes it off the machine. Never for a team — the hooks and rules are shared policy.</p>
         <p>Connecting Microsoft's MCP server is <strong>optional</strong>: with a PAT set (step&nbsp;3) the engine talks to Azure DevOps directly and MCP is never consulted. Without it, the sync skills ride the MCP server instead — the engine itself still makes no MCP call.</p>
       </div>
 

@@ -6,7 +6,7 @@ covers:
   - packages/common/src/cli.js
   - packages/common/src/init.js
   - packages/common/bin/**
-verified: adfbfa1ab3cc
+verified: 5957c667aeff
 -->
 <html lang="en">
 <head>
@@ -989,7 +989,7 @@ npx @skitterbyte/skitterspec <span class="p">init</span>
 <span class="c"># or the Linear superset instead — one OR the other,</span>
 <span class="c"># never both; the superset contains the whole base</span>
 <span class="c"># npx @skitterbyte/skitterspec-linear init</span></div>
-        <p>The only one using it on a shared repo? Install it globally and run <span class="mono">skitterspec init --local</span> — the same install, kept on your machine and out of git, with only <span class="mono">specs/</span> committed. Converting is per branch, and it names any long-lived branch (such as <span class="mono">master</span>) still carrying the install. Never for a team: its hooks and rules are shared policy.</p>
+        <p>The only one using it on a shared repo? Install it globally and run <span class="mono">skitterspec init --local</span> — the same install, kept on your machine and out of git, with only <span class="mono">specs/</span> committed. Converting is per branch, and it names any long-lived branch (such as <span class="mono">master</span>) still carrying the install. To pause it, <span class="mono">skitterspec disable</span> stops Claude using it and leaves the files; <span class="mono">skitterspec enable</span> turns it back on, installing it if it is gone, and <span class="mono">skitterspec uninstall</span> takes it off the machine. Never for a team: its hooks and rules are shared policy.</p>
       </div>
 
       <div class="qbox">
