@@ -16,8 +16,7 @@
   "author": "Reuben Greaves",
   "type": "commonjs",
   "bin": {
-    "skitterspec-github": "bin/skitterspec-github.js",
-    "skitterspec": "bin/skitterspec-github.js"
+    "skitterspec-github": "bin/skitterspec-github.js"
   },
   "files": [
     "bin",

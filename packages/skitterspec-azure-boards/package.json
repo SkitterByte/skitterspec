@@ -16,8 +16,7 @@
   "author": "Reuben Greaves",
   "type": "commonjs",
   "bin": {
-    "skitterspec-azure-boards": "bin/skitterspec-azure-boards.js",
-    "skitterspec": "bin/skitterspec-azure-boards.js"
+    "skitterspec-azure-boards": "bin/skitterspec-azure-boards.js"
   },
   "files": [
     "bin",

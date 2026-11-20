@@ -583,12 +583,15 @@ tracker-free: it knows nothing about any specific ticketing system. A
 ticketing provider is installed as its own distribution that plugs into named
 **seams** in the shared skills and fulfils a skill-name + CLI contract.
 
-Part of that contract is the **binary name**: the shipped `/spec-connect` and
-`/spec-live` commands invoke `skitterspec`, so a superset that replaces the base
-must expose that name too, alongside whatever it calls itself — one entry point
-under two names. A distribution shipping only its own name leaves those commands
-failing with `command not found`, which reads as a broken install rather than a
-missing alias.
+Part of that contract is the **binary name**. `skitterspec` belongs to the base
+package alone, and a provider exposes only its own name
+(`skitterspec-<provider>`). The shipped commands and skills invoke
+`skitterspec`, so a provider is installed **alongside the base**, globally or
+as two dev dependencies, at the same version. Providers used to alias
+`skitterspec` to their own entry point. That kept a machine to one global
+provider, because npm refuses a second package claiming a bin another already
+owns (feat-global-install). `init` and `update` warn when `skitterspec` cannot
+be found beside a provider, or when the two versions differ.
 Sync is **one-way**: the repo is the source of truth and the tracker is a
 **generated mirror**. It ships `/spec-push` (repo→tracker; computes a create/update plan
 against a committed last-pushed snapshot and applies it) and `/spec-status`

@@ -164,7 +164,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Providers drop the alias; the base answers `skitterspec` | ⬜ | [01-drop-alias.md](01-drop-alias.md) |
+| 1 | Providers drop the alias; the base answers `skitterspec` | ✅ | [01-drop-alias.md](01-drop-alias.md) |
 | 2 | `update --all` | ⬜ | [02-update-all.md](02-update-all.md) |
 | 3 | Install and conversion guide | ⬜ | [03-install-guide.md](03-install-guide.md) |
 
@@ -178,3 +178,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   The user-scope plugin install (rejected in feat-local-install, Decision 1)
   stays out of scope. This takes the cheaper route of global CLIs plus local
   installs.
+- 2026-11-20 — Phase 1: the private `packages/github` dropped its alias too,
+  so this repo's root now takes the base as a dev dependency
+  (`@skitterbyte/skitterspec-common`) for its own `pnpm exec skitterspec`.
+  That's decision 2 applied to ourselves. The hooks were left unchanged and
+  not covered by a new test: their `ENGINES` walk already looks for
+  `skitterspec` first, which is now the base.

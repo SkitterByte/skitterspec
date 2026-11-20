@@ -3,7 +3,7 @@
 const fs = require('fs')
 const path = require('path')
 const crypto = require('crypto')
-const { execFileSync } = require('child_process')
+const { execFileSync, spawnSync } = require('child_process')
 
 const { ensureWorktreeDirTrusted } = require('./env/trust.js')
 const { ensureHooks, removeHooks, HOOKS: GATE_HOOKS } = require('./env/hooks.js')
@@ -130,19 +130,27 @@ function detectPackageManager(dir) {
 // name alongside `skitterspec`, and either proves the engine is reachable.
 const ENGINE_BINS = ['skitterspec', 'skitterspec-linear', 'skitterspec-jira', 'skitterspec-github', 'skitterspec-azure-boards']
 
-function binNames() {
-  return process.platform === 'win32'
-    ? ENGINE_BINS.flatMap((n) => [n, `${n}.cmd`, `${n}.exe`])
-    : ENGINE_BINS
+// `bin` narrows the look to one name. A provider no longer answers to
+// `skitterspec` (feat-global-install), so a line that runs `skitterspec` is
+// only served by the base being installed — any engine name proving "an
+// install" would render a command for a bin that is not there.
+function binNames(bin) {
+  const names = bin ? [bin] : ENGINE_BINS
+  return process.platform === 'win32' ? names.flatMap((n) => [n, `${n}.cmd`, `${n}.exe`]) : names
+}
+
+// The npm package a bin comes from: each distribution's bin carries its name.
+function packageForBin(bin) {
+  return ENGINE_BINS.includes(bin) ? `@skitterbyte/${bin}` : distributionPackage()
 }
 
 // Rung 1 — a local install, found by walking up. Bounded at 6 levels, matching
 // the hooks' own `findEngine`: a git worktree's checkout has its own
 // `node_modules`, and a monorepo package hoists to the root.
-function hasLocalInstall(dir) {
+function hasLocalInstall(dir, bin) {
   let at = path.resolve(dir)
   for (let i = 0; i < 6; i++) {
-    for (const name of binNames()) {
+    for (const name of binNames(bin)) {
       if (fs.existsSync(path.join(at, 'node_modules', '.bin', name))) return true
     }
     const up = path.dirname(at)
@@ -165,12 +173,12 @@ const NPX_CACHE_RE = /[\\/]_npx[\\/]/
 // for it here would bake a bare `skitterspec …` into four COMMITTED files that
 // stop working the moment init exits. Excluding `_npx` entries is what makes
 // this rung evidence of an install rather than evidence of the install running.
-function hasPathInstall(env = process.env) {
+function hasPathInstall(env = process.env, bin) {
   const raw = env.PATH || env.Path || ''
   if (!raw) return false
   for (const entry of raw.split(path.delimiter)) {
     if (!entry || NPX_CACHE_RE.test(entry)) continue
-    for (const name of binNames()) {
+    for (const name of binNames(bin)) {
       if (fs.existsSync(path.join(entry, name))) return true
     }
   }
@@ -196,9 +204,9 @@ function hasPathInstall(env = process.env) {
  * between pristine and updatable as different people run `update`. A lockfile
  * is committed and answers the same everywhere; PATH is one machine's business.
  */
-function detectRunner(dir, env = process.env) {
-  if (hasLocalInstall(dir)) return { runner: detectPackageManager(dir), rung: 'local' }
-  if (hasPathInstall(env)) return { runner: '', rung: 'path' }
+function detectRunner(dir, env = process.env, bin) {
+  if (hasLocalInstall(dir, bin)) return { runner: detectPackageManager(dir), rung: 'local' }
+  if (hasPathInstall(env, bin)) return { runner: '', rung: 'path' }
   return { runner: 'npx', rung: 'none' }
 }
 
@@ -234,11 +242,14 @@ function distributionPackage() {
 // `Bash(skitterspec …)` rather than `Bash( skitterspec …)`.
 const EXEC_RE = /\{\{exec\}\}( ?)([A-Za-z0-9._-]*)/g
 
+// Each occurrence is detected for ITS bin: a provider skill's
+// `skitterspec-github` and a command's `skitterspec` come from two packages
+// that may be installed in two different places.
 function renderExec(content, dir, env = process.env) {
   if (!content.includes('{{exec}}')) return content
-  const { runner, rung } = detectRunner(dir, env)
   return content.replace(EXEC_RE, (_m, sp, bin) => {
-    if (rung === 'none') return bin ? `npx -p ${distributionPackage()} ${bin}` : 'npx'
+    const { runner, rung } = detectRunner(dir, env, bin || undefined)
+    if (rung === 'none') return bin ? `npx -p ${packageForBin(bin)} ${bin}` : 'npx'
     const prefix = runner === 'npx' ? 'npx --no-install' : runner
     if (!prefix) return bin
     return `${prefix}${sp}${bin}`
@@ -314,7 +325,7 @@ function launcherPrefix(dir) {
 }
 
 function launcherFor(bin, dir) {
-  const script = LAUNCHER.replace('{{pkg}}', distributionPackage())
+  const script = LAUNCHER.replace('{{pkg}}', packageForBin(bin))
     .replace('{{bin}}', bin)
     .replace('{{prefix}}', launcherPrefix(dir))
   return `node -e "${script}" --`
@@ -324,8 +335,10 @@ function launcherFor(bin, dir) {
 // install and the `npx -p` fallback resolve the same from any directory.
 function renderCommand(content, dir, env = process.env) {
   if (!content.includes('{{exec}}')) return content
-  if (detectRunner(dir, env).rung !== 'local') return renderExec(content, dir, env)
-  return content.replace(EXEC_RE, (_m, _sp, bin) => (bin ? launcherFor(bin, dir) : 'node'))
+  return content.replace(EXEC_RE, (match, _sp, bin) => {
+    if (bin && detectRunner(dir, env, bin).rung === 'local') return launcherFor(bin, dir)
+    return renderExec(match, dir, env)
+  })
 }
 
 // Which managed files carry the token: markdown only. Hooks and JSON templates
@@ -507,12 +520,16 @@ function readManifest(dir) {
         scope: parsed.scope === 'local' ? 'local' : 'team',
         // Absent means enabled: only `disable` writes the field.
         enabled: parsed.enabled !== false,
+        // The package that wrote it — what `update --all` runs here. Absent on
+        // manifests written before feat-global-install: cannot tell, and the
+        // caller infers it rather than this guessing.
+        distribution: typeof parsed.distribution === 'string' ? parsed.distribution : null,
       }
     }
   } catch {
     /* missing or malformed → empty baseline */
   }
-  return { version: MANIFEST_VERSION, files: {}, baselined: false, scope: 'team', enabled: true }
+  return { version: MANIFEST_VERSION, files: {}, baselined: false, scope: 'team', enabled: true, distribution: null }
 }
 
 function writeManifest(dir, files, { local = false, enabled = true } = {}) {
@@ -520,7 +537,7 @@ function writeManifest(dir, files, { local = false, enabled = true } = {}) {
   ensureDir(path.dirname(target))
   const sorted = {}
   for (const k of Object.keys(files).sort()) sorted[k] = files[k]
-  const body = local ? { version: MANIFEST_VERSION, scope: 'local', files: sorted } : { version: MANIFEST_VERSION, files: sorted }
+  const body = { version: MANIFEST_VERSION, distribution: distributionPackage(), ...(local ? { scope: 'local' } : {}), files: sorted }
   // Written only when false, so an enabled install's manifest reads exactly as
   // every manifest written before `disable` existed.
   if (!enabled) body.enabled = false
@@ -687,14 +704,80 @@ function installCommands(dir, opts) {
   // real work to do either way — skills, rules, folders — and none of it needs
   // the CLI reachable later. Silence here is what let a project install cleanly
   // and hand back four commands that 404 on first use.
-  if (COMMANDS.length && detectRunner(dir).rung === 'none') {
+  //
+  // It asks for `skitterspec` BY NAME: a provider no longer answers to it
+  // (feat-global-install), so a provider installed alone leaves every command
+  // and every skill's `skitterspec …` with nothing behind it — and the fix is
+  // the base installed alongside, which the warning names.
+  if (COMMANDS.length && detectRunner(dir, process.env, 'skitterspec').rung === 'none') {
+    const base = packageForBin('skitterspec')
+    const beside = distributionPackage() === base ? '' : ` alongside ${distributionPackage()}`
     report.warnings.push(
       `the skitterspec CLI could not be found here, so the ${COMMANDS.length} slash ` +
-        `command(s) were written to fetch it on every run (\`npx -p ${distributionPackage()}\`) — ` +
-        `install it (npm i -g ${distributionPackage()}, or add it as a dev ` +
+        `command(s) were written to fetch it on every run (\`npx -p ${base}\`) — ` +
+        `install ${base}${beside} (npm i -g, or as a dev ` +
         'dependency) and re-run `skitterspec update` to rewrite them',
     )
+  } else if (COMMANDS.length) {
+    const drift = baseVersionDrift(dir)
+    if (drift) report.warnings.push(drift)
   }
+}
+
+const SEMVER_RE = /^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/
+
+// This distribution's own version, or null when it cannot be read.
+function ownVersion() {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8')).version || null
+  } catch {
+    return null
+  }
+}
+
+// The version of the base that answers `skitterspec` here: a local install
+// first (walking up, as the ladder does), then the one on PATH. Null is
+// cannot-tell — an unreadable package, a bin that would not say — and never a
+// mismatch.
+function baseVersion(dir, env = process.env) {
+  let at = path.resolve(dir)
+  for (let i = 0; i < 6; i++) {
+    try {
+      const v = JSON.parse(fs.readFileSync(path.join(at, 'node_modules', '@skitterbyte', 'skitterspec', 'package.json'), 'utf8')).version
+      return SEMVER_RE.test(v) ? v : null
+    } catch {
+      /* not here — keep walking */
+    }
+    const up = path.dirname(at)
+    if (up === at) break
+    at = up
+  }
+  if (!hasPathInstall(env, 'skitterspec')) return null
+  const r = spawnSync('skitterspec', ['--version'], {
+    encoding: 'utf8',
+    env,
+    timeout: 5000,
+    shell: process.platform === 'win32',
+  })
+  const v = (r.stdout || '').trim()
+  return r.status === 0 && SEMVER_RE.test(v) ? v : null
+}
+
+/**
+ * One warning line when a provider and the base answering `skitterspec` are
+ * different versions, else null (feat-global-install, decision 3). They are
+ * released in lockstep, but two global installs updated at different times can
+ * drift, and then a command and a skill in one project run two engines.
+ *
+ * A warning, never a refusal, and silent on every cannot-tell: the base itself
+ * (nothing to compare), an unreadable own version, a base that would not say.
+ */
+function baseVersionDrift(dir, env = process.env, own = ownVersion(), dist = distributionPackage()) {
+  const base = packageForBin('skitterspec')
+  if (dist === base || !own) return null
+  const theirs = baseVersion(dir, env)
+  if (!theirs || theirs === own) return null
+  return `${base} is ${theirs} but ${dist} is ${own} — they release together; install the same version of both`
 }
 
 function installRule(dir, opts) {
@@ -2004,6 +2087,8 @@ module.exports = {
   detectPackageManager,
   detectRunner,
   renderCommand,
+  baseVersionDrift,
+  packageForBin,
   renderExec,
   distributionPackage,
   localExcludes,

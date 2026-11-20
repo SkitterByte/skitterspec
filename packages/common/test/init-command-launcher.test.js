@@ -21,7 +21,7 @@ const os = require('node:os')
 const path = require('node:path')
 const { spawnSync, execFileSync } = require('node:child_process')
 
-const { renderCommand, distributionPackage } = require('../src/init.js')
+const { renderCommand } = require('../src/init.js')
 
 const NO_PATH = { PATH: '' }
 const SRC = '!`{{exec}} skitterspec spec-env live $ARGUMENTS`\n'
@@ -31,11 +31,11 @@ const git = (cwd, ...args) => execFileSync('git', args, { cwd, encoding: 'utf8',
 // A local install of the distribution: its package with a bin that reports
 // where it ran, plus the `node_modules/.bin` entry the runners resolve through.
 function seedInstall(dir) {
-  const pkg = path.join(dir, 'node_modules', ...distributionPackage().split('/'))
+  const pkg = path.join(dir, 'node_modules', '@skitterbyte', 'skitterspec')
   fs.mkdirSync(path.join(pkg, 'bin'), { recursive: true })
   fs.writeFileSync(
     path.join(pkg, 'package.json'),
-    JSON.stringify({ name: distributionPackage(), version: '0.0.0', bin: { skitterspec: 'bin/fake.js' } }),
+    JSON.stringify({ name: '@skitterbyte/skitterspec', version: '0.0.0', bin: { skitterspec: 'bin/fake.js' } }),
   )
   const fake = path.join(pkg, 'bin', 'fake.js')
   fs.writeFileSync(fake, '#!/usr/bin/env node\nprocess.stdout.write(JSON.stringify({ cwd: process.cwd(), args: process.argv.slice(2) }))\n')
@@ -138,6 +138,30 @@ test('with no install anywhere, it refuses in one line naming the folder — nev
     const lines = res.stderr.trim().split(/\r?\n/)
     assert.strictEqual(lines.length, 1, res.stderr)
     assert.ok(lines[0].includes('FF.CSC.Solution'), lines[0])
+  } finally {
+    fs.rmSync(r.root, { recursive: true, force: true })
+  }
+})
+
+// A provider's own bin is looked for in the provider's package, and the base's
+// in the base's: a provider no longer carries `skitterspec` (feat-global-install).
+test('each bin runs from its own package, the provider beside the base', () => {
+  const r = repo()
+  try {
+    const pkg = path.join(r.sub, 'node_modules', '@skitterbyte', 'skitterspec-github')
+    fs.mkdirSync(path.join(pkg, 'bin'), { recursive: true })
+    fs.writeFileSync(
+      path.join(pkg, 'package.json'),
+      JSON.stringify({ name: '@skitterbyte/skitterspec-github', version: '0.0.0', bin: { 'skitterspec-github': 'bin/gh.js' } }),
+    )
+    fs.writeFileSync(path.join(pkg, 'bin', 'gh.js'), "process.stdout.write(JSON.stringify({ cwd: process.cwd(), args: ['github', ...process.argv.slice(2)] }))\n")
+    fs.writeFileSync(path.join(r.sub, 'node_modules', '.bin', process.platform === 'win32' ? 'skitterspec-github.cmd' : 'skitterspec-github'), '')
+    const src = '!`{{exec}} skitterspec spec-env live $ARGUMENTS`\n!`{{exec}} skitterspec-github spec-sync $ARGUMENTS`\n'
+    const lines = renderCommand(src, r.sub, NO_PATH).split('\n')
+    const base = run(lines[0], r.top)
+    const gh = run(lines[1], r.top)
+    assert.deepStrictEqual(base.out.args, ['spec-env', 'live', 'status'], base.stderr)
+    assert.deepStrictEqual(gh.out.args, ['github', 'spec-sync', 'status'], gh.stderr)
   } finally {
     fs.rmSync(r.root, { recursive: true, force: true })
   }

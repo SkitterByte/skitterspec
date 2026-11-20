@@ -15,8 +15,7 @@
   "author": "Reuben Greaves",
   "type": "commonjs",
   "bin": {
-    "skitterspec-jira": "bin/skitterspec-jira.js",
-    "skitterspec": "bin/skitterspec-jira.js"
+    "skitterspec-jira": "bin/skitterspec-jira.js"
   },
   "files": [
     "bin",

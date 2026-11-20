@@ -183,12 +183,21 @@ test('superset build fills the seams, ships sync, and runs the engine self-conta
   assert.match(sync.stdout, /Linear sync not enabled/)
 })
 
-test('the superset bin map aliases `skitterspec` so composed skills work', () => {
-  // Every shared skill invokes bare `skitterspec …`; the superset must provide
-  // that name (not only `skitterspec-linear`) or every superset install's first
-  // CLI call is "command not found".
-  const pkg = JSON.parse(fs.readFileSync(path.join(PKGS, 'skitterspec-linear', 'package.json'), 'utf8'))
-  assert.strictEqual(pkg.bin.skitterspec, pkg.bin['skitterspec-linear'], 'skitterspec aliases the superset bin')
+// The bin maps of the published distributions must not overlap
+// (feat-global-install). Each provider used to alias `skitterspec` to its own
+// bin, so a second provider installed globally was refused by npm with
+// `EEXIST … bin/skitterspec`. Now `skitterspec` is the base's alone, and the
+// composed skills reach it because the base is installed alongside.
+test('no two published distributions claim the same bin name', () => {
+  const seen = new Map()
+  for (const dir of ['skitterspec', 'skitterspec-linear', 'skitterspec-jira', 'skitterspec-github', 'skitterspec-azure-boards']) {
+    const pkg = JSON.parse(fs.readFileSync(path.join(PKGS, dir, 'package.json'), 'utf8'))
+    for (const bin of Object.keys(pkg.bin)) {
+      assert.ok(!seen.has(bin), `${bin} is claimed by both ${seen.get(bin)} and ${pkg.name}`)
+      seen.set(bin, pkg.name)
+    }
+  }
+  assert.strictEqual(seen.get('skitterspec'), '@skitterbyte/skitterspec', 'the base answers `skitterspec`')
 })
 
 // The v8 → v9 guide was thorough, correct, and NOT in the published tarball —

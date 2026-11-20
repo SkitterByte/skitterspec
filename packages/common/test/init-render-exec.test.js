@@ -17,7 +17,9 @@ function tmp(lockfiles = [], { localInstall = false } = {}) {
   for (const f of lockfiles) fs.writeFileSync(path.join(dir, f), '')
   if (localInstall) {
     fs.mkdirSync(path.join(dir, 'node_modules', '.bin'), { recursive: true })
-    fs.writeFileSync(path.join(dir, 'node_modules', '.bin', 'skitterspec'), '')
+    // The base and a provider, each under its own bin: a provider no longer
+    // answers to `skitterspec` (feat-global-install).
+    for (const bin of ['skitterspec', 'skitterspec-github']) fs.writeFileSync(path.join(dir, 'node_modules', '.bin', bin), '')
   }
   return dir
 }
@@ -50,7 +52,7 @@ test('renderExec per rung', () => {
   })
   withDir(tmp(), (dir) => {
     const binDir = tmp()
-    fs.writeFileSync(path.join(binDir, 'skitterspec'), '')
+    for (const bin of ['skitterspec', 'skitterspec-github']) fs.writeFileSync(path.join(binDir, bin), '')
     try {
       const out = renderExec(SRC, dir, { PATH: binDir })
       assert.match(out, /`skitterspec-github spec-sync ref`/)
@@ -59,11 +61,12 @@ test('renderExec per rung', () => {
       fs.rmSync(binDir, { recursive: true, force: true })
     }
   })
+  // The fallback names the package each bin comes from — the base for
+  // `skitterspec`, the provider for its own.
   withDir(tmp(), (dir) => {
-    const pkg = distributionPackage()
     const out = renderExec(SRC, dir, NO_PATH)
-    assert.ok(out.includes(`\`npx -p ${pkg} skitterspec-github spec-sync ref\``), out)
-    assert.ok(out.includes(`Bash(npx -p ${pkg} skitterspec spec-env:*)`), out)
+    assert.ok(out.includes('`npx -p @skitterbyte/skitterspec-github skitterspec-github spec-sync ref`'), out)
+    assert.ok(out.includes('Bash(npx -p @skitterbyte/skitterspec skitterspec spec-env:*)'), out)
   })
 })
 
@@ -96,5 +99,18 @@ test('managedTargets renders every markdown asset and leaves the rest alone', ()
     for (const t of managedTargets(dir)) {
       if (t.relPath.endsWith('.md')) assert.doesNotMatch(t.bundled, /\{\{exec\}\}/, t.relPath)
     }
+  })
+})
+
+// A provider installed WITHOUT the base: its own bin is found, and the
+// `skitterspec` a command runs is not — so that line takes the fallback, never a
+// runner that would resolve nothing (feat-global-install).
+test('each bin is detected on its own: a provider alone does not answer for skitterspec', () => {
+  withDir(tmp(['pnpm-lock.yaml']), (dir) => {
+    fs.mkdirSync(path.join(dir, 'node_modules', '.bin'), { recursive: true })
+    fs.writeFileSync(path.join(dir, 'node_modules', '.bin', 'skitterspec-github'), '')
+    const out = renderExec(SRC, dir, NO_PATH)
+    assert.ok(out.includes('`pnpm exec skitterspec-github spec-sync ref`'), out)
+    assert.ok(out.includes('Bash(npx -p @skitterbyte/skitterspec skitterspec spec-env:*)'), out)
   })
 })
