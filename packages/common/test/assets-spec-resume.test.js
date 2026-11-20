@@ -33,6 +33,32 @@ test('stays silent: /spec-resume moves no bucket, assigns nobody and pushes no s
   assert.doesNotMatch(BODY, /\/spec-push/)
 })
 
+// Re-open (feat-resume-reopen): the one path that moves a bucket, and it does
+// so only through the engine's plan and /spec-start's own tracker seams.
+const REOPEN = BODY.slice(BODY.indexOf('## 1b.'), BODY.indexOf('## 2.'))
+
+test('/spec-resume offers a re-open only where the engine declared one', () => {
+  assert.match(BODY, /\*\*Never offer a re-open the engine did not declare\*\*/)
+  assert.match(BODY, /`\.claude\/rules\/offered-unblocks\.md`/)
+  assert.match(REOPEN, /skitterspec spec-env resume <spec> --reopen --json/)
+})
+
+test('a re-open moves, records and mirrors through the same seams as /spec-start, then commits', () => {
+  const order = ['seam:spec-status-owner', 'seam:spec-tracker-assign', 'seam:spec-tracker-start', 'docs(spec): reopen <spec>']
+  const at = order.map((m) => REOPEN.indexOf(m))
+  assert.ok(at.every((i) => i > 0), `all present in 1b: ${at}`)
+  assert.deepStrictEqual([...at].sort((a, b) => a - b), at, 'in that order')
+  assert.match(REOPEN, /\*\*asked once\*\*/)
+  assert.doesNotMatch(REOPEN, /git mv/, 'the move is the engine\'s command, not one written here')
+})
+
+// STAYS SILENT: the seams appear in 1b and nowhere else, so resuming a spec in
+// flight still moves nothing.
+test('stays silent: no tracker seam outside the re-open step', () => {
+  const rest = BODY.replace(REOPEN, '')
+  assert.doesNotMatch(rest, /seam:/)
+})
+
 test('a blocker is cleared on the message or one question, never in silence', () => {
   assert.match(BODY, /\*\*ask once\*\*/)
   assert.match(BODY, /Never clear a blocker in silence/)

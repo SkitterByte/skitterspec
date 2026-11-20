@@ -31,12 +31,64 @@ each spec branch, local then remote-tracking, never fetched. That matters
 because the base branch reads `backlog` for the whole life of a spec, and under
 `land.specDocs: "branch"` an in-flight spec may exist only on its branch.
 
-- **`ok: false`.** Relay the `refused` text and stop with `⏸`. It covers a
-  name or ticket that matches nothing (it never guesses the nearest), a spec in
-  `backlog` (`Next` is `/spec-start <name>`), one already complete or
-  cancelled, and one with no branch anywhere to resume from.
+- **`ok: false` with an `offer`.** That is a completed spec, and the offer is
+  re-opening it. Relay the `refused` text, **then** put the offer's `label`
+  and Cancel to the operator as `.claude/rules/offered-unblocks.md`
+  describes: the label verbatim, nothing pre-selected, and no third option.
+  On the label, go to **1b**. On Cancel, stop with `⏸` and record nothing.
+- **`ok: false` and no `offer`.** Relay the `refused` text and stop with
+  `⏸`. It covers a name or ticket that matches nothing (it never guesses the
+  nearest), a spec in `backlog` (`Next` is `/spec-start <name>`), a cancelled
+  spec, a completed hotfix or epic, and one with no branch anywhere to resume
+  from. **Never offer a re-open the engine did not declare**, however
+  obviously one seems to fit.
 - **`ok: true`.** Carry on. `blockers`, `progress` and `identifier` are read
   in step 3.
+
+## 1b. Re-open a completed spec (only on the offer's pick)
+
+Sometimes a spec was completed to get its work onto the base branch, and more
+phases turn out to be needed. Its branch went at teardown, and its work is on
+the base, so re-opening is a fresh branch **at the base as it is now**. This
+step does what `/spec-start` does for that branch, and nothing more.
+
+1. **Ask for the plan.** Run
+   `skitterspec spec-env resume <spec> --reopen --json`. A refusal here
+   (a worktree still standing, or a leftover branch holding commits the base
+   does not have) is relayed and ends `⏸`. It never resets work, and neither
+   do you.
+2. **Provision.** Bring the review server up as step 2 says. Run the plan's
+   `commands` in order from the primary checkout. The first creates the
+   branch at the base, and the second is `spec-env up`, a planner: run the
+   commands it prints, then its `then` line with the `cd` in front, exactly
+   as `/spec-start` step 3 does. Confirm with `skitterspec spec-env resolve`
+   (no argument) as step 2 below does.
+3. **Move it back, and say why.** Run the plan's `move` command. Add a dated
+   Changelog line, `Re-opened from complete: <reason>`. The reason comes from
+   the message, or is **asked once** when there is none.
+
+<!-- seam:spec-status-owner -->
+
+   - Set the **Status** header: `> **Status:** In Progress — re-opened <YYYY-MM-DD>`.
+   - Append a **State log** row: `| <YYYY-MM-DD> | In Progress | in-progress | <git user.name> |`.
+
+4. **Put the ticket back in progress.** The bucket move is the same code fact
+   `/spec-start` reports, so it takes the same steps. On a re-open, the board
+   reporting the ticket Done or Cancelled is **expected rather than a warning**:
+   the push below is what moves it back. Do not relay it.
+
+<!-- seam:spec-tracker-assign -->
+
+<!-- seam:spec-tracker-start -->
+
+5. **Commit it** before anything is built: `skitterspec spec-env stage <spec>`
+   and its `owned` paths, pathspec-bounded on both the `add` and the
+   `commit`, as `docs(spec): reopen <spec>` with the `Refs:` trailer when
+   there is a ticket.
+
+Then carry on at **step 3**. Every phase reads `✅`, so step 4's rule for new
+work applies: the message becomes a new phase file plus an index row. With no
+message, **ask what the new phase is** rather than inventing one.
 
 ## 2. Get into its worktree
 
@@ -140,13 +192,15 @@ Otherwise, end with the block defined in `.claude/rules/spec-reports.md`.
   stands, or bootstrap failed a step that does not stop the reading.
 - `❌`: provisioning or the move failed part-way. Name what was left and
   where.
-- `⏸`: the engine refused. Nothing was provisioned and nothing moved.
+- `⏸`: the engine refused, or a re-open offer was answered Cancel. Nothing
+  was provisioned and nothing moved.
 
 **Fields:** `Tracker` · `Spec` · `Built` · `Notes` · `Worktree` ·
 `Follow-ups` · `Next`
 
-`Spec` is the bucket and progress (`2 of 4 done, phase 3 in progress`).
-`Worktree` is the path, and says **entered** or **provisioned**. `Built` lists
+`Spec` is the bucket and progress (`2 of 4 done, phase 3 in progress`), and
+says **re-opened from complete** after 1b. `Worktree` is the path, and says
+**entered**, **provisioned** or **re-opened**. `Built` lists
 what the message added to the spec (tasks, a cleared blocker), and is absent
 when nothing was written. `Notes` carries any blocker still standing, quoted.
 `Next` is `/spec-next` when the spec is ready to build, or the blocker when one

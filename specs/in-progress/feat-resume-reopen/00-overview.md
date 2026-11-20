@@ -129,7 +129,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Engine: offer on `complete`, `--reopen` plan | ✅ | [01-engine-reopen.md](01-engine-reopen.md) |
-| 2 | Skill: re-open flow in `/spec-resume`, docs | ⬜ | [02-skill-reopen.md](02-skill-reopen.md) |
+| 2 | Skill: re-open flow in `/spec-resume`, docs | ✅ | [02-skill-reopen.md](02-skill-reopen.md) |
 
 ## Open questions
 
