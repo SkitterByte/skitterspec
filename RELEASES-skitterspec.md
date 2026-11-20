@@ -5,6 +5,19 @@ What's new for users of skitterspec. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 23.21.0 — 20 Nov 2026
+
+### Install
+- **New** — skitterspec disable switches a local install off for Claude on your machine without removing anything, and skitterspec enable turns it back on, installing it first if it is not there.
+- **New** — skitterspec uninstall takes a local install back off your machine. Files you edited are set aside rather than deleted, and your specs are left as they are.
+- **Fixed** — Running update inside a worktree of a local install no longer writes skitterspec into the shared CLAUDE.md and .claude/settings.json; it stays local, as in the primary checkout.
+
+### Integrate
+- **Fixed** — After a pull request merges, spec-env integrate now runs the afterLand commands whose when globs match the merged files, instead of skipping every conditional entry.
+
+### Reports
+- **New** — When manual steps are still open, the end-of-run report now lists each one under Next on its own row, instead of saying how many there are, and steps Claude wrote for you are saved to the spec.
+
 ## 23.20.0 — 19 Nov 2026
 
 ### Install
