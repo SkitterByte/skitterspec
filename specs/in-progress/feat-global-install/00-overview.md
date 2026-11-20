@@ -198,3 +198,6 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   distribution, never both" wording in the READMEs, the SETUP files and the
   docs pages is replaced. Walking the guide needs the release to exist, so
   it waits as the phase's manual steps.
+- 2026-11-20 — Landed intermediate work onto main so it can be released:
+  phase 3's manual steps walk the guide against the published packages.
+  The spec stays in progress.
