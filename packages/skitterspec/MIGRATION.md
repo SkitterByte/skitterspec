@@ -1,5 +1,23 @@
 # Migration guide
 
+## A PR-mode finish runs the `afterLand` entries its land matched (nothing to edit)
+
+After the host merged a PR, `spec-env integrate` used to print `nothing to
+run` and list every conditional `afterLand` entry under `skipped (nothing in
+the land matched)`, whatever its `when` said. The range it read was the
+branch's own (`origin/main...branch`), and a merged branch is already inside
+`origin/main`, so that range was always empty.
+
+The finish now reads what the primary checkout's base gains by catching up
+(`main...origin/main`), so an entry whose glob matches a file in the land
+runs, with `# <path> changed`. Where base was already caught up by hand,
+nothing lies between the two refs. That range is treated as unknown, and the
+conditional entries run with `# range unknown`.
+
+Your globs were right: a leading `**/` already matched a top-level path. If
+a PR-mode land skipped an install or a generate, run it by hand in the
+primary checkout once. Later lands run it for you.
+
 ## A local install stays local in a worktree (check for stray team files)
 
 `update` run inside a worktree of a local install (`init --local`) used to run
@@ -31,6 +49,7 @@ skitterspec spec-env bootstrap <spec>         # re-seeds the primary's manifest
 ```
 
 Run these in the worktree. A worktree that never ran `update` needs nothing.
+
 
 ## The tailnet is `remote`; publishing the review is retired (nothing to edit)
 

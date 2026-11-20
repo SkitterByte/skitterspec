@@ -334,3 +334,16 @@ test('stays-silent: no remote configured holds quietly rather than refusing', ()
   assert.deepStrictEqual(plan.commands, [])
   assert.deepStrictEqual(plan.holdCommands, [])
 })
+
+// A leading `**/` matches zero directories as well as several, so a top-level
+// path is matched like a nested one. Pinned because it was suspected of
+// bug-pr-afterland-range; the empty range was the cause.
+test('conditional: a leading **/ matches a top-level path and a nested one', () => {
+  const config = { afterLand: [{ run: 'npm ci', when: ['**/FF.CSC.Solution/package-lock.json'] }] }
+  for (const file of ['FF.CSC.Solution/package-lock.json', 'src/app/FF.CSC.Solution/package-lock.json']) {
+    const p = planIntegrate(spec(), config, CTX({ changedFiles: [file] }))
+    assert.deepStrictEqual(decisions(p), [['npm ci', 'matched', file]])
+  }
+  const miss = planIntegrate(spec(), config, CTX({ changedFiles: ['FF.CSC.Solution.Tests/package-lock.json'] }))
+  assert.deepStrictEqual(decisions(miss), [['npm ci', 'skipped', null]])
+})

@@ -3482,7 +3482,9 @@ function specEnvIntegratePr(dir, config, spec, base, flags, retarget = null) {
     // branch's own range — remote image first, local base as the fallback
     // when the remote ref is not here.
     primaryPath: dir,
-    changedFiles: landRange(git, `${remote}/${base}`, spec.branch) || landRange(git, base, spec.branch),
+    changedFiles: aheadOfRemoteBase === false
+      ? catchUpRange(git, base, `${remote}/${base}`)
+      : landRange(git, `${remote}/${base}`, spec.branch) || landRange(git, base, spec.branch),
     worktreeState: { dirty },
     base,
     remote,
@@ -3731,6 +3733,21 @@ function landRange(git, base, branch) {
   const out = git(['diff', '--name-only', `${base}...${branch}`])
   if (out === null) return null
   return out.split('\n').map((l) => l.trim()).filter(Boolean)
+}
+
+// The range of a PR-mode finish: what local base gains by catching up with the
+// remote image the host merged into. The branch's own range cannot answer once
+// it has landed — it is inside `<remote>/<base>`, so `<remote>/<base>...branch`
+// is empty, and an empty known range skipped every conditional entry
+// (bug-pr-afterland-range).
+//
+// WHAT WOULD FOOL IT: a base already caught up by hand (`git pull`), which
+// leaves nothing between the two refs while the afterLand those files wanted
+// never ran. Empty therefore reads as unknown, which runs the conditional
+// entries (`.claude/rules/negative-checks.md` rule 4).
+function catchUpRange(git, base, remoteBase) {
+  const range = landRange(git, base, remoteBase)
+  return range && range.length ? range : null
 }
 
 // The `afterLand` commands, as a section printed after a land plan — or after

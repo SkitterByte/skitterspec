@@ -476,6 +476,65 @@ test('pr mode: a host-landed branch prints the finish — base catch-up + deferr
   }
 })
 
+// bug-pr-afterland-range: once the host has merged, the branch is inside
+// origin/main, so `origin/main...feat/x` is EMPTY — a known range that skipped
+// every conditional entry, whatever its glob. The finish's range is what the
+// primary checkout's base gains by catching up.
+for (const merge of ['--ff-only', '--no-ff']) {
+  test(`pr mode: a host-landed branch (${merge}) runs the conditional afterLand its files match`, async () => {
+    const { dir, worktree } = scaffoldRepoWithWorktree({
+      land: { strategy: 'pr' },
+      afterLand: [
+        { run: 'npm ci', when: ['**/FF.CSC.Solution/package-lock.json'] },
+        { run: 'tools/client-install.cmd', when: ['**/ClientApp/package-lock.json'] },
+      ],
+    })
+    const bare = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-bare-')))
+    execFileSync('git', ['init', '-q', '--bare', bare], { stdio: 'ignore' })
+    try {
+      commitIn(worktree, 'FF.CSC.Solution/package-lock.json')
+      git(dir, 'remote', 'add', 'origin', bare)
+      git(dir, 'merge', '-q', merge, '-m', 'Merge PR', 'feat/x')
+      git(dir, 'push', '-q', 'origin', 'main')
+      git(dir, 'reset', '-q', '--hard', 'HEAD@{1}')
+      git(dir, 'fetch', '-q', 'origin', 'main')
+
+      const out = await runQuiet(['spec-env', 'integrate', 'feat-x', '--dir', dir])
+      assert.match(out, /already landed on origin\/main/)
+      assert.match(out, /\n    npm ci +# FF\.CSC\.Solution\/package-lock\.json changed\n/)
+      assert.match(out, /skipped \(nothing in the land matched\):\n    tools\/client-install\.cmd +# when \*\*\/ClientApp\/package-lock\.json\n/)
+    } finally {
+      cleanup(dir)
+      fs.rmSync(bare, { recursive: true, force: true })
+    }
+  })
+}
+
+// Base already caught up by hand: nothing lies between main and origin/main,
+// yet the afterLand those files wanted never ran — unknown, so it runs.
+test('pr mode: a host-landed branch with base already caught up runs the conditional entries', async () => {
+  const { dir, worktree } = scaffoldRepoWithWorktree({
+    land: { strategy: 'pr' },
+    afterLand: [{ run: 'npm ci', when: ['**/FF.CSC.Solution/package-lock.json'] }],
+  })
+  const bare = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-bare-')))
+  execFileSync('git', ['init', '-q', '--bare', bare], { stdio: 'ignore' })
+  try {
+    commitIn(worktree, 'src/a.ts')
+    git(dir, 'remote', 'add', 'origin', bare)
+    git(dir, 'merge', '-q', '--ff-only', 'feat/x')
+    git(dir, 'push', '-q', 'origin', 'main')
+    git(dir, 'fetch', '-q', 'origin', 'main')
+
+    const out = await runQuiet(['spec-env', 'integrate', 'feat-x', '--dir', dir])
+    assert.match(out, /already landed on origin\/main/)
+    assert.match(out, /\n    npm ci +# range unknown\n/)
+  } finally {
+    cleanup(dir)
+    fs.rmSync(bare, { recursive: true, force: true })
+  }
+})
+
 test('disposition enumerates the worktree spec; --json carries the same answer', async () => {
   const { dir, worktree } = scaffoldRepoWithWorktree()
   try {

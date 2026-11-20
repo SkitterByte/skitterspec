@@ -202,10 +202,13 @@ through to a documented conservative default; see the field notes below.
   //   The changed files are what the land brings into the base branch:
   //   `base...branch` for `integrate` (read before the rebase, so it is the
   //   branch's own changes), and the carried fix commits — minus the release's
-  //   version commit — for `hotfix land`.
+  //   version commit — for `hotfix land`. A PR-mode finish (the host has
+  //   merged) reads `base...<remote>/<base>`: what the primary checkout's base
+  //   gains by catching up, since the landed branch's own range is empty.
   //   When that cannot be known, the conditional entries RUN. That is the
   //   "already landed" plan (the land happened elsewhere, so its range is not
-  //   here) and any diff git would not answer. A redundant generate costs
+  //   here), a PR-mode finish whose base was already caught up by hand, and
+  //   any diff git would not answer. A redundant generate costs
   //   seconds; a skipped one leaves the base red with nothing pointing at why.
   //   A land that changed no files is known, not unknown, and skips them.
   // The plan says why for every entry: a matched one ends in
