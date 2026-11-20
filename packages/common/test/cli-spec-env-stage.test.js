@@ -225,7 +225,15 @@ test('an unreadable git yields null, never an empty owned set', async () => {
     addSpec(dir, 'feat-alpha')
     // Break the repo *after* the spec is on disk, so resolution still works and
     // only the tree read fails.
-    fs.rmSync(path.join(repoFor(dir).root, '.git'), { recursive: true, force: true })
+    //
+    // WHAT WOULD FOOL THIS: deleting `.git` outright. git then walks up looking
+    // for a repo, and where the temp dir sits inside one (a CI runner did) it
+    // reads THAT repo — whose untracked files map back onto this project's
+    // paths — and the "unreadable" tree reads fine. A gitfile naming a missing
+    // gitdir is fatal where it stands, so discovery never leaves this folder.
+    const root = repoFor(dir).root
+    fs.rmSync(path.join(root, '.git'), { recursive: true, force: true })
+    fs.writeFileSync(path.join(root, '.git'), `gitdir: ${path.join(root, 'no-such-gitdir')}\n`)
 
     const r = await asJson(['spec-env', 'stage', 'feat-alpha', '--dir', dir])
     assert.strictEqual(r.owned, null, 'owned is null, not []')
