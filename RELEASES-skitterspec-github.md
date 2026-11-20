@@ -5,6 +5,18 @@ What's new for users of skitterspec-github. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 3.0.0 — 20 Nov 2026
+
+**Highlights:** Every skitterspec provider can now be installed globally on the same machine, side by side. Providers no longer answer to the skitterspec command: install @skitterbyte/skitterspec alongside your provider, at the same version, and run skitterspec update.
+
+### Install
+- **Action required** — Every skitterspec provider can now be installed globally on the same machine, side by side. Providers no longer answer to the skitterspec command: install @skitterbyte/skitterspec alongside your provider, at the same version, and run skitterspec update.
+- **New** — skitterspec update --all brings every local install on this machine up to date after a release, each with its own provider, and lists team installs and missing providers with what to run.
+
+### Resume
+- **New** — /spec-resume on a completed spec now offers to re-open it: a fresh worktree from main, the spec back in progress and its ticket moved back, ready for new phases.
+- **New** — /spec-resume on a completed spec now offers to re-open it on a fresh branch from main, so you can add phases after landing.
+
 ## 2.18.1 — 20 Nov 2026
 
 ### Install
