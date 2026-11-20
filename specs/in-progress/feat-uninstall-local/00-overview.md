@@ -143,7 +143,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Uninstall engine and CLI verb, with tests | ✅ | [01-engine.md](01-engine.md) |
-| 2 | Disable and enable, with tests | ⬜ | [02-disable-enable.md](02-disable-enable.md) |
+| 2 | Disable and enable, with tests | ✅ | [02-disable-enable.md](02-disable-enable.md) |
 | 3 | Docs | ⬜ | [03-docs.md](03-docs.md) |
 
 ## Open questions
@@ -171,3 +171,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   repo subfolder or a run from a worktree sees the same registry. The
   `uninstall` reference row landed early because `docs-claims.test.js`
   requires every top-level verb on the site.
+- 2026-11-20 — Phase 2: `enable` with nothing to switch on runs `init` in
+  `update` mode with `local`, so it installs without touching committed
+  config (isolation, gating). `init --local` on a disabled install switches
+  it on too. The `disable`/`enable` reference rows landed with it for the
+  same docs-claims reason. Unverified: Claude Code documents `skillOverrides`
+  for skills, and treats command files as skills, but does not say outright
+  that an override hides a `.claude/commands/` file — check by hand in a
+  session after `disable`.

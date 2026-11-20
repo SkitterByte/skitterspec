@@ -318,6 +318,7 @@ const report = { created: [], updated: [], skipped: [], refused: [], removed: []
 
 function resetReport() {
   scope = 'team'
+  enabledOnFlush = null
   for (const k of Object.keys(report)) report[k].length = 0
   for (const k of Object.keys(writtenHashes)) delete writtenHashes[k]
 }
@@ -424,20 +425,25 @@ function readManifest(dir) {
         // Absent means team: every manifest written before `--local` existed
         // reads exactly as it did.
         scope: parsed.scope === 'local' ? 'local' : 'team',
+        // Absent means enabled: only `disable` writes the field.
+        enabled: parsed.enabled !== false,
       }
     }
   } catch {
     /* missing or malformed → empty baseline */
   }
-  return { version: MANIFEST_VERSION, files: {}, baselined: false, scope: 'team' }
+  return { version: MANIFEST_VERSION, files: {}, baselined: false, scope: 'team', enabled: true }
 }
 
-function writeManifest(dir, files, { local = false } = {}) {
+function writeManifest(dir, files, { local = false, enabled = true } = {}) {
   const target = path.join(dir, MANIFEST_FILE)
   ensureDir(path.dirname(target))
   const sorted = {}
   for (const k of Object.keys(files).sort()) sorted[k] = files[k]
   const body = local ? { version: MANIFEST_VERSION, scope: 'local', files: sorted } : { version: MANIFEST_VERSION, files: sorted }
+  // Written only when false, so an enabled install's manifest reads exactly as
+  // every manifest written before `disable` existed.
+  if (!enabled) body.enabled = false
   fs.writeFileSync(target, JSON.stringify(body, null, 2) + '\n')
 }
 
@@ -499,7 +505,8 @@ function flushManifest(dir) {
   // env.config.json that installIsolation happens to write through writeFile).
   const managed = managedTargets(dir)
   const managedRel = new Set(managed.map((t) => t.relPath))
-  const merged = { ...readManifest(dir).files, ...writtenHashes }
+  const prior = readManifest(dir)
+  const merged = { ...prior.files, ...writtenHashes }
   const next = {}
   for (const [relPath, hash] of Object.entries(merged)) {
     if (managedRel.has(relPath)) next[relPath] = hash
@@ -510,8 +517,12 @@ function flushManifest(dir) {
   for (const relPath of Object.keys(next)) {
     if (!fs.existsSync(path.join(dir, relPath))) delete next[relPath] // prune gone
   }
-  writeManifest(dir, next, { local: scope === 'local' })
+  writeManifest(dir, next, { local: scope === 'local', enabled: enabledOnFlush === null ? prior.enabled : enabledOnFlush })
 }
+
+// Set by a run that decides the install's switch: `init` turns it on, and
+// `null` keeps whatever the manifest says (`update` on a disabled install).
+let enabledOnFlush = null
 
 function writeFile(dir, target, content, { force }) {
   // A dangling symlink (its target no longer exists) is invisible to existsSync,
@@ -1004,8 +1015,14 @@ function resync(dir, { force = false, claudeMd = true, diff = false, local = fal
   // `update` copied `.claude/hooks/` and registered nothing, for every upgrading
   // project, while reporting a file created. `init-review-gate-hook.test.js`
   // asserts over the entry points rather than over this call.
-  registerReviewGateHook(dir)
-  if (claudeMd) installClaudeMd(dir, { mode: 'update' })
+  // A disabled install stays disabled through an update: the files refresh,
+  // and the two things Claude reads from outside them are not written back.
+  const disabled = scope === 'local' && !manifest.enabled
+  if (disabled) report.skipped.push('hooks and CLAUDE.local.md block (disabled — skitterspec enable turns them on)')
+  else {
+    registerReviewGateHook(dir)
+    if (claudeMd) installClaudeMd(dir, { mode: 'update' })
+  }
   suggestReleaseWith(dir)
   flushManifest(dir)
   if (scope === 'local') writeLocalExcludes(dir)
@@ -1469,6 +1486,158 @@ function hooksAt(read, ref) {
     .filter((h) => h && typeof h.command === 'string' && GATE_HOOKS.some((k) => k.re.test(h.command))).length
 }
 
+// DISABLE / ENABLE — switch whether this machine's Claude uses a local install,
+// without touching its files (feat-uninstall-local). Claude Code has no single
+// switch covering skills, commands, rules and hooks, so the install is switched
+// through three settings in `.claude/settings.local.json`:
+//   - `skillOverrides: { <name>: "off" }` — every managed skill and command
+//     (command files are skills to Claude Code). Exact names: no wildcard.
+//   - `claudeMdExcludes: ["**/.claude/rules/<file>"]` — every managed rule, as
+//     a glob so the one entry matches in every worktree.
+//   - our hooks and the CLAUDE.local.md block are taken out, and written back
+//     from the shipped assets by `enable`, so nothing has to be saved.
+// Only entries naming OUR paths are written or removed: an override or exclude
+// the developer wrote is never taken.
+function switchNames() {
+  return [...SKILLS, ...COMMANDS.map((c) => c.replace(/\.md$/, ''))]
+}
+
+function ruleExcludes() {
+  return RULES.map((r) => `**/.claude/rules/${r}`)
+}
+
+// The local settings, parsed — `{}` when absent, null when not valid JSON.
+function readLocalSettings(dir) {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(path.join(dir, '.claude', 'settings.local.json'), 'utf8'))
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null
+  } catch (error) {
+    return error.code === 'ENOENT' ? {} : null
+  }
+}
+
+function writeLocalSettings(dir, settings) {
+  const file = path.join(dir, '.claude', 'settings.local.json')
+  if (!Object.keys(settings).length) {
+    if (fs.existsSync(file)) fs.unlinkSync(file)
+    return
+  }
+  ensureDir(path.dirname(file))
+  fs.writeFileSync(file, JSON.stringify(settings, null, 2) + '\n')
+}
+
+// Take our override and exclude entries out of the local settings. Returns
+// false when the file is not valid JSON (left untouched).
+function clearSwitches(dir) {
+  const settings = readLocalSettings(dir)
+  if (settings === null) return false
+  const names = new Set(switchNames())
+  const globs = new Set(ruleExcludes())
+  if (settings.skillOverrides && typeof settings.skillOverrides === 'object') {
+    for (const name of Object.keys(settings.skillOverrides)) {
+      if (names.has(name) && settings.skillOverrides[name] === 'off') delete settings.skillOverrides[name]
+    }
+    if (!Object.keys(settings.skillOverrides).length) delete settings.skillOverrides
+  }
+  if (Array.isArray(settings.claudeMdExcludes)) {
+    settings.claudeMdExcludes = settings.claudeMdExcludes.filter((g) => !globs.has(g))
+    if (!settings.claudeMdExcludes.length) delete settings.claudeMdExcludes
+  }
+  writeLocalSettings(dir, settings)
+  return true
+}
+
+function stripLocalClaudeBlock(dir) {
+  const file = path.join(dir, 'CLAUDE.local.md')
+  if (!fs.existsSync(file)) return false
+  const text = fs.readFileSync(file, 'utf8')
+  const re = new RegExp(`\\n*${SPEC_MARKER_START}[\\s\\S]*?${SPEC_MARKER_END}\\n?`)
+  if (!re.test(text)) return false
+  const next = text.replace(re, '\n')
+  if (next.trim()) fs.writeFileSync(file, next.replace(/^\n+/, ''))
+  else fs.unlinkSync(file)
+  return true
+}
+
+function rewriteManifestEnabled(dir, enabled) {
+  const manifest = readManifest(dir)
+  writeManifest(dir, manifest.files, { local: manifest.scope === 'local', enabled })
+}
+
+// Turn a local install off for this machine's Claude. Deletes nothing, so it
+// refuses nothing about work in flight; returns the exit code.
+function disable(dir, { log = (s) => process.stdout.write(s) } = {}) {
+  if (!fs.existsSync(path.join(dir, MANIFEST_FILE))) {
+    log('disable: no skitterspec install here (no manifest) — nothing to disable.\n')
+    return 0
+  }
+  const manifest = readManifest(dir)
+  if (manifest.scope !== 'local') {
+    log(
+      'disable: refused — this is a team install. Its hooks are in the committed settings,\n' +
+        '  so they cannot be switched off for one person. disable works on a local install (init --local).\n',
+    )
+    return 1
+  }
+  const settings = readLocalSettings(dir)
+  if (settings === null) {
+    log('disable: refused — .claude/settings.local.json is not valid JSON, and the switch is written there. Nothing changed.\n')
+    return 1
+  }
+  const overrides = settings.skillOverrides && typeof settings.skillOverrides === 'object' ? settings.skillOverrides : {}
+  for (const name of switchNames()) overrides[name] = 'off'
+  settings.skillOverrides = overrides
+  const excludes = Array.isArray(settings.claudeMdExcludes) ? settings.claudeMdExcludes : []
+  for (const glob of ruleExcludes()) if (!excludes.includes(glob)) excludes.push(glob)
+  settings.claudeMdExcludes = excludes
+  writeLocalSettings(dir, settings)
+  const hooks = removeHooks(dir, { local: true })
+  if (hooks.emptied) writeLocalSettings(dir, {})
+  const block = stripLocalClaudeBlock(dir)
+  rewriteManifestEnabled(dir, false)
+  log(
+    `disable: skitterspec is off for Claude on this machine (${dir})\n` +
+      `  ${switchNames().length} skills and commands switched off · ${RULES.length} rules excluded\n` +
+      `  ${hooks.removed} hook(s) removed${block ? ' · CLAUDE.local.md block removed' : ''}\n` +
+      '  the files stay on disk — skitterspec enable turns it back on. Restart Claude Code to pick it up.\n',
+  )
+  return 0
+}
+
+// Turn a local install back on — and install it when there is nothing here to
+// turn on, since asking to use it has one meaning then.
+async function enable(dir, { log = (s) => process.stdout.write(s) } = {}) {
+  const manifest = readManifest(dir)
+  const present = fs.existsSync(path.join(dir, MANIFEST_FILE))
+  const filesHere = managedTargets(dir).some((t) => !t.relPath.startsWith('specs') && fs.existsSync(t.abs))
+  if (!present || (manifest.scope === 'local' && !filesHere)) {
+    log('enable: no local install here — installing it (init --local).\n')
+    // `update` mode installs the files and switches them on, and leaves the
+    // project's committed config (isolation, gating) exactly as it is.
+    await init({ dir, force: false, claudeMd: true, mode: 'update', local: true })
+    return 0
+  }
+  if (manifest.scope !== 'local') {
+    log('enable: refused — this is a team install, which is always on. enable works on a local install (init --local).\n')
+    return 1
+  }
+  if (!clearSwitches(dir)) {
+    log('enable: refused — .claude/settings.local.json is not valid JSON, and the switch is written there. Nothing changed.\n')
+    return 1
+  }
+  resetReport()
+  scope = 'local'
+  registerReviewGateHook(dir)
+  installClaudeMd(dir, { mode: 'init' })
+  rewriteManifestEnabled(dir, true)
+  log(
+    `enable: skitterspec is on for Claude on this machine (${dir})\n` +
+      '  skills, commands and rules switched back on · hooks registered · CLAUDE.local.md block written\n' +
+      '  Restart Claude Code to pick it up.\n',
+  )
+  return 0
+}
+
 // UNINSTALL — take a local install (`init --local`) back off this machine,
 // exactly: the managed files, our hooks in settings.local.json, the block in
 // CLAUDE.local.md, the exclude block, `.spec-env/` and the manifest. Nothing
@@ -1538,6 +1707,11 @@ function uninstall(dir, { yes = false, inFlight = [], cannotTell = null, log = (
   }
 
   const hooks = removeHooks(dir, { local: true, dryRun: true })
+  const switches = readLocalSettings(dir)
+  const hasSwitches =
+    switches !== null &&
+    (Object.keys(switches.skillOverrides || {}).some((n) => switchNames().includes(n)) ||
+      (Array.isArray(switches.claudeMdExcludes) && switches.claudeMdExcludes.some((g) => ruleExcludes().includes(g))))
   const claudeLocal = path.join(dir, 'CLAUDE.local.md')
   const blockRe = new RegExp(`\\n*${SPEC_MARKER_START}[\\s\\S]*?${SPEC_MARKER_END}\\n?`)
   const claudeText = fs.existsSync(claudeLocal) ? fs.readFileSync(claudeLocal, 'utf8') : null
@@ -1554,6 +1728,7 @@ function uninstall(dir, { yes = false, inFlight = [], cannotTell = null, log = (
   say(yes ? 'removed' : 'would remove', [
     ...remove,
     ...(hooks.reason === 'removed' ? [`.claude/settings.local.json (${hooks.removed} skitterspec hook(s)${hooks.emptied ? ', then the emptied file' : ''})`] : []),
+    ...(hasSwitches ? ['.claude/settings.local.json (skitterspec disable switches)'] : []),
     ...(hasBlock ? ['CLAUDE.local.md (spec workflow block)'] : []),
     ...(hasExclude ? [`${path.relative(dir, exclude.file).split(path.sep).join('/')} (skitterspec block)`] : []),
     ...(fs.existsSync(specEnv) ? ['.spec-env/'] : []),
@@ -1605,6 +1780,8 @@ function uninstall(dir, { yes = false, inFlight = [], cannotTell = null, log = (
       }
     }
   }
+  // A disabled install's switches go too, or they would outlive what they name.
+  clearSwitches(dir)
   if (hooks.reason === 'removed') {
     const done = removeHooks(dir, { local: true })
     if (done.emptied) fs.unlinkSync(path.join(dir, '.claude', 'settings.local.json'))
@@ -1657,6 +1834,12 @@ async function init({ dir, force, claudeMd, mode, isolation, workspaceMode, gati
   resetReport()
   resolveScope(dir, local)
   if (scope === 'local') convertCommitted(dir)
+  // Installing is enabling: a disabled install comes back on.
+  if (scope === 'local' && !readManifest(dir).enabled) {
+    clearSwitches(dir)
+    report.updated.push('.claude/settings.local.json (skitterspec enabled)')
+  }
+  enabledOnFlush = true
 
   installSkills(dir, { force })
   installCommands(dir, { force })
@@ -1701,6 +1884,8 @@ module.exports = {
   resync,
   reset,
   uninstall,
+  disable,
+  enable,
   assertSafeToDelete,
   assertComposedAssets,
   detectPackageManager,

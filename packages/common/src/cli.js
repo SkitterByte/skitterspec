@@ -5,7 +5,7 @@ const path = require('path')
 const os = require('os')
 const { pathToFileURL } = require('url')
 const { execFileSync } = require('child_process')
-const { init, resync, reset, uninstall, checkSync, isExistingSetup, localSeedFiles } = require('./init.js')
+const { init, resync, reset, uninstall, disable, enable, checkSync, isExistingSetup, localSeedFiles } = require('./init.js')
 const {
   detectReleaseTooling,
   removeReleaseTooling,
@@ -292,6 +292,11 @@ Usage:
                               block, the git excludes. Prints the plan; --yes
                               acts. Edited files are kept; specs/ is untouched.
                               Refuses a team install, or while a spec is in flight.
+  skitterspec disable [dir]   Switch a local install off for this machine's
+                              Claude — skills, commands, rules, hooks, the
+                              CLAUDE.local.md block — leaving the files on disk.
+  skitterspec enable [dir]    Switch it back on; installs it (init --local) when
+                              there is nothing here to switch on.
   skitterspec spec-env <cmd>  Per-spec isolation engine (opt-in; needs
                               specs/.core/env.config.json). Subcommands:
                                 up <spec>         print the plan to provision a worktree +
@@ -8559,6 +8564,12 @@ async function run(argv) {
       process.exitCode = uninstall(dir, { yes: opts.yes, inFlight, cannotTell })
       break
     }
+    case 'disable':
+      process.exitCode = disable(dir)
+      break
+    case 'enable':
+      process.exitCode = await enable(dir)
+      break
     default:
       throw new Error(unknownCommand(cmd))
   }
