@@ -19,8 +19,8 @@ has no manifest of its own, so a worktree bootstrapped before this release is
 covered without re-bootstrapping. It reports
 `local install (recorded in .git/info/exclude) — kept local`.
 
-**If an earlier `update` already ran in such a worktree, revert what it wrote
-by hand.** Nothing removes it for you, because a `CLAUDE.md` edit or a
+**If an earlier `update` already ran in such a worktree, revert it by hand.**
+Nothing removes it for you, because a `CLAUDE.md` edit or a
 `.claude/settings.json` might be yours:
 
 ```
