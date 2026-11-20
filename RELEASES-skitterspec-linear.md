@@ -5,6 +5,11 @@ What's new for users of skitterspec-linear. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 19.18.1 — 20 Nov 2026
+
+### Install
+- **Fixed** — Slash commands like /spec-live no longer fail with an npm 404 when the session is standing at the git root or a worktree's root of a repo whose project lives in a subfolder. Run skitterspec update to rewrite existing command files.
+
 ## 19.18.0 — 20 Nov 2026
 
 ### Install
