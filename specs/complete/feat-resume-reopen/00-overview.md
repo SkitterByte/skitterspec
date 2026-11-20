@@ -143,3 +143,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   from a leftover remote branch, which is older than the base it landed on;
   with a local branch at the base, `up` takes its attach path. `up` itself
   needed no change and forks a spec found in `complete/` fine.
+- 2026-11-20 — Completed; all phases done, tests green.
