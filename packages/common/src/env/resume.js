@@ -177,8 +177,18 @@ function planResume(target, env) {
     const how =
       target.bucket === 'backlog'
         ? ' — it was never started; /spec-start puts it in flight'
-        : ' — there is nothing left to resume'
-    return { ok: false, ...base, refused: `${target.folder} is in ${target.bucket}${how}` }
+        : reopenable(target)
+          ? ' — re-opening it forks a fresh branch from the base branch as it is now'
+          : ' — there is nothing left to resume'
+    const r = { ok: false, ...base, refused: `${target.folder} is in ${target.bucket}${how}` }
+    if (reopenable(target)) {
+      r.offer = {
+        kind: 'satisfy',
+        label: `Re-open ${target.folder}`,
+        command: `skitterspec spec-env resume ${target.folder} --reopen`,
+      }
+    }
+    return r
   }
   if (env.worktreeExists) return { ok: true, ...base, commands: [], then: [] }
 
@@ -204,6 +214,95 @@ function planResume(target, env) {
   return { ok: true, ...base, commands, then: [`skitterspec spec-env bootstrap ${target.folder}`] }
 }
 
+/**
+ * Whether a finished spec may be re-opened (feat-resume-reopen): only from
+ * `complete`, and never a hotfix (it lands by tag and cherry-pick, so a
+ * re-opened one has no landing path) or an epic (it holds no phases). A
+ * cancelled spec's code never landed, so "from the current state" would be a
+ * rebuild from the text alone — that is a new spec.
+ *
+ * The kind is read off the `Type:` header, falling back to the folder prefix
+ * for a spec written without one.
+ */
+function reopenable(target) {
+  if (!target || target.bucket !== 'complete') return false
+  const type = (headerValue(target.overview, 'Type') || '').toLowerCase()
+  if (type === 'hotfix' || type === 'epic') return false
+  return !/^(hotfix|epic)-/.test(target.folder)
+}
+
+/**
+ * The plan for `spec-env resume <spec> --reopen`, or a refusal with no offer.
+ *
+ * The spec's branch was deleted when it completed, and its work is on the base
+ * branch, so re-opening is a fresh branch AT the base. The branch is created
+ * here (`git branch -f`) rather than left to `up`, so `up` takes its attach
+ * path: left alone, `up` would carry on from a leftover remote branch instead,
+ * which is an older state than the base it landed on.
+ *
+ * WHAT WOULD FOOL THIS: a leftover branch with commits the base does not hold
+ * — a teardown that was declined, or a squash merge, whose commits are never
+ * ancestors of the base. `-f` over that branch would destroy them, so an
+ * unmerged leftover, local or remote, refuses and names it. An answer the
+ * caller could not get (`null`) is read the same way: a branch nobody could
+ * prove safe is not reset (`.claude/rules/negative-checks.md` rule 4).
+ *
+ * @param {object} target  the copy `findTarget` chose
+ * @param {object} env  `{ branch, base, worktreePath, worktreeExists,
+ *   localBranch, localMerged, remoteBranch, remoteMerged, remote }`
+ */
+function planReopen(target, env) {
+  const spec = target.folder
+  const refuse = (refused) => ({ ok: false, spec, bucket: target.bucket, branch: env.branch, refused })
+  if (!reopenable(target)) {
+    if (target.bucket !== 'complete') return refuse(`${spec} is in ${target.bucket} — only a completed spec can be re-opened`)
+    const epic = /^epic-/.test(spec) || (headerValue(target.overview, 'Type') || '').toLowerCase() === 'epic'
+    return refuse(
+      epic
+        ? `${spec} is a completed epic, which holds no phases`
+        : `${spec} is a completed hotfix, which lands by tag and has no branch to re-open`,
+    )
+  }
+  if (!env.base) return refuse(`the base branch cannot be resolved, so there is nothing to fork ${spec} from`)
+  if (env.worktreeExists) {
+    return refuse(`a worktree for ${spec} still exists at ${env.worktreePath} — tear it down (spec-env down ${spec}) or work there`)
+  }
+  if (env.localBranch && env.localMerged !== true) {
+    return refuse(`${env.branch} still exists with commits not on ${env.base} — land or delete it before re-opening`)
+  }
+  if (env.remoteBranch && env.remoteMerged !== true) {
+    return refuse(
+      `${env.remote}/${env.branch} still exists with commits not on ${env.base} — ` +
+        `delete it (git push ${env.remote} --delete ${env.branch}) before re-opening`,
+    )
+  }
+  return {
+    ok: true,
+    spec,
+    bucket: target.bucket,
+    branch: env.branch,
+    base: env.base,
+    worktree: { path: env.worktreePath, present: false },
+    commands: [`git branch -f ${env.branch} ${env.base}`, `skitterspec spec-env up ${spec}`],
+    move: [`git -C ${shellPath(env.worktreePath)} mv specs/complete/${spec} specs/in-progress/${spec}`],
+  }
+}
+
+/** The text report for `--reopen`. */
+function reopenLines(r) {
+  if (!r.ok) return [`spec-env resume --reopen: refused — ${r.refused}`]
+  return [
+    `spec-env resume --reopen: ${r.spec} (complete → in-progress, on ${r.branch} from ${r.base})`,
+    `  worktree:  ${r.worktree.path}`,
+    '',
+    '  to provision, run (then run what `up` prints):',
+    ...r.commands.map((c) => `    ${c}`),
+    '',
+    '  then, move the spec:',
+    ...r.move.map((c) => `    ${c}`),
+  ]
+}
+
 function blockerLine(b) {
   const where = b.where === 'spec' ? 'spec' : `phase ${b.where}`
   return `${where} — ${b.text}${b.until ? ` (until ${b.until})` : ''}`
@@ -221,6 +320,7 @@ function resumeLines(r) {
   for (const b of r.blockers) lines.push(`  blocked:   ${blockerLine(b)}${r.blocking && b.where === r.blocking.where ? '  ← holds the next build' : ''}`)
   if (!r.ok) {
     lines.push(`  refused:   ${r.refused}`)
+    if (r.offer) lines.push(`  offer:     ${r.offer.label} — ${r.offer.command}`)
     return lines
   }
   lines.push(`  worktree:  ${r.worktree.path}${r.worktree.present ? '' : '  (missing — provision below)'}`)
@@ -231,4 +331,17 @@ function resumeLines(r) {
   return lines
 }
 
-module.exports = { blockers, blockingNext, parseBlockedOn, findTarget, planResume, resumeLines, blockerLine, frontmatterField, sameRef }
+module.exports = {
+  blockers,
+  blockingNext,
+  parseBlockedOn,
+  findTarget,
+  planResume,
+  planReopen,
+  reopenable,
+  resumeLines,
+  reopenLines,
+  blockerLine,
+  frontmatterField,
+  sameRef,
+}

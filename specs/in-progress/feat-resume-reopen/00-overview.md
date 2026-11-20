@@ -128,7 +128,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Engine: offer on `complete`, `--reopen` plan | ⬜ | [01-engine-reopen.md](01-engine-reopen.md) |
+| 1 | Engine: offer on `complete`, `--reopen` plan | ✅ | [01-engine-reopen.md](01-engine-reopen.md) |
 | 2 | Skill: re-open flow in `/spec-resume`, docs | ⬜ | [02-skill-reopen.md](02-skill-reopen.md) |
 
 ## Open questions
@@ -138,3 +138,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-11-20 — Spec created.
+- 2026-11-20 — Phase 1: `--reopen` always plans `git branch -f <branch> <base>`
+  before `up`, not only over a merged leftover. Otherwise `up` would carry on
+  from a leftover remote branch, which is older than the base it landed on;
+  with a local branch at the base, `up` takes its attach path. `up` itself
+  needed no change and forks a spec found in `complete/` fine.

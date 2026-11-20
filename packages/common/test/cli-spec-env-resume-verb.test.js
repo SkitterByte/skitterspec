@@ -138,3 +138,46 @@ test('an unknown ticket refuses and names nothing', async () => {
     cleanup(dir)
   }
 })
+
+// A completed spec, the way /spec-complete leaves it: landed on main, branch gone.
+function scaffoldComplete(dir) {
+  write(dir, 'specs/complete/feat-done/00-overview.md', '# Done\n\n> **Type:** Feature\n')
+  write(dir, 'specs/complete/feat-done/01-one.md', '# Phase 1 ✅\n')
+  git(dir, 'add', '-A')
+  git(dir, 'commit', '-q', '-m', 'complete feat-done')
+}
+
+test('a completed spec refuses with an offer, and --reopen plans a fork from main', async () => {
+  const { dir } = scaffold()
+  try {
+    scaffoldComplete(dir)
+    const refused = await runQuiet(['spec-env', 'resume', 'feat-done', '--dir', dir, '--json'])
+    assert.strictEqual(refused.exit, 1)
+    assert.strictEqual(JSON.parse(refused.out).offer.command, 'skitterspec spec-env resume feat-done --reopen')
+
+    const { out, exit } = await runQuiet(['spec-env', 'resume', 'feat-done', '--reopen', '--dir', dir, '--json'])
+    const r = JSON.parse(out)
+    assert.strictEqual(exit, undefined)
+    assert.strictEqual(r.base, 'main')
+    assert.deepStrictEqual(r.commands, ['git branch -f feat/done main', 'skitterspec spec-env up feat-done'])
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('--reopen resets a merged leftover branch and refuses an unmerged one', async () => {
+  const { dir } = scaffold()
+  try {
+    scaffoldComplete(dir)
+    git(dir, 'branch', 'feat/done', 'HEAD~1')
+    const merged = JSON.parse((await runQuiet(['spec-env', 'resume', 'feat-done', '--reopen', '--dir', dir, '--json'])).out)
+    assert.strictEqual(merged.ok, true)
+
+    git(dir, 'branch', '-f', 'feat/done', 'feat/x')
+    const { out, exit } = await runQuiet(['spec-env', 'resume', 'feat-done', '--reopen', '--dir', dir])
+    assert.strictEqual(exit, 1)
+    assert.match(out, /feat\/done still exists with commits not on main/)
+  } finally {
+    cleanup(dir)
+  }
+})

@@ -197,7 +197,7 @@ const {
 const { planPrune, liveSlugsForSpecs, reconcileRegistry } = require('./env/prune.js')
 const { planIntegrate, planIntegrateCheckout, planIntegratePr, planIntegrateDocs } = require('./env/integrate.js')
 const { specBranchDocs, preferBranches } = require('./env/specbranches.js')
-const { findTarget, planResume, resumeLines, blockingNext } = require('./env/resume.js')
+const { findTarget, planResume, planReopen, resumeLines, reopenLines, blockingNext } = require('./env/resume.js')
 const { parseRemote, prFor, prPlanCommand, prAbandonCommand, preferRemoteBase } = require('./env/host.js')
 const { collectDisposition } = require('./env/disposition.js')
 const { planHandoff } = require('./env/handoff.js')
@@ -353,6 +353,8 @@ Usage:
                                 resume [spec|#N]  an in-flight spec: its blockers, and the plan
                                                   to rebuild its worktree from its branch
                                                   (prints commands; creates nothing)
+                                                  --reopen: a completed spec, re-opened on a
+                                                  fresh branch from the base
                                 base              fetch, list baseBranchPattern matches
                                                   newest-first, mark the base, and name
                                                   specs forked from an older match
@@ -4613,12 +4615,14 @@ function specEnvResolve(dir, config, specArg, flags = {}) {
 }
 
 /**
- * `skitterspec spec-env resume <name|#N> [--json]` (feat-spec-resume)
+ * `skitterspec spec-env resume <name|#N> [--reopen] [--json]` (feat-spec-resume)
  *
  * Which in-flight spec the argument means, what it is blocked on, and — where
  * this machine has no worktree for it — the commands that rebuild one from its
  * branch. Plans and prints; creates nothing, moves nothing, asks no tracker.
- * A refusal exits 1.
+ * A refusal exits 1. A completed spec's refusal carries an `offer` of
+ * `--reopen` (feat-resume-reopen), which plans a fresh branch at the base and
+ * the move back to in-progress.
  *
  * Every copy of the spec this clone can see is read — the checkout it runs
  * from, each live worktree, and each spec branch (local, then remote-tracking,
@@ -4695,6 +4699,28 @@ function specEnvResume(dir, config, arg, flags = {}) {
     }
   }
   const worktreePath = ownTree(target.folder)
+  if (flags.reopen) {
+    // Merged means an ancestor of the base: `merge-base --is-ancestor` exits 0
+    // for yes and 1 for no, and the reader returns null for any non-zero exit,
+    // so a git error reads as NOT merged, the side that resets nothing.
+    const merged = (ref) => (base ? git(['merge-base', '--is-ancestor', ref, base]) !== null : null)
+    const localBranch = git(['show-ref', '--verify', '--quiet', `refs/heads/${branch}`]) !== null
+    const remoteBranch = git(['show-ref', '--verify', '--quiet', `refs/remotes/${remote}/${branch}`]) !== null
+    const rr = planReopen(target, {
+      branch,
+      base,
+      remote,
+      worktreePath,
+      worktreeExists: fs.existsSync(worktreePath),
+      localBranch,
+      localMerged: localBranch ? merged(`refs/heads/${branch}`) : null,
+      remoteBranch,
+      remoteMerged: remoteBranch ? merged(`refs/remotes/${remote}/${branch}`) : null,
+    })
+    if (!rr.ok) process.exitCode = 1
+    process.stdout.write(flags.json ? JSON.stringify(rr, null, 2) + '\n' : reopenLines(rr).join('\n') + '\n')
+    return
+  }
   const r = planResume(target, {
     branch,
     worktreePath,
@@ -8188,6 +8214,7 @@ async function specEnv(rest) {
     else if (args[i] === '--assert-primary-clean') flags.assertPrimaryClean = true
     else if (args[i] === '--use-fallback') flags.useFallback = true
     else if (args[i] === '--unpin') flags.unpin = true
+    else if (args[i] === '--reopen') flags.reopen = true
     else positional.push(args[i])
   }
   dir = path.resolve(dir)

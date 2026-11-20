@@ -3,7 +3,7 @@
 const { test } = require('node:test')
 const assert = require('node:assert')
 
-const { blockers, blockingNext, parseBlockedOn, findTarget, planResume, resumeLines } = require('../src/env/resume.js')
+const { blockers, blockingNext, parseBlockedOn, findTarget, planResume, planReopen, resumeLines } = require('../src/env/resume.js')
 
 // The engine behind `spec-env resume` (feat-spec-resume), pure half.
 
@@ -174,4 +174,75 @@ test('a Windows worktree path is written with the engine\'s shellPath', () => {
     localBranch: true,
   })
   assert.deepStrictEqual(r.commands, ['git worktree add C:/Users/me/repo-wt/x feat/x'])
+})
+
+// Re-opening a completed spec (feat-resume-reopen).
+
+const typed = (folder, bucket, type) => ({ ...copy(folder, bucket, 'here'), overview: `# X\n\n> **Type:** ${type}\n` })
+
+test('a completed spec\'s refusal declares a satisfy offer of --reopen', () => {
+  const r = planResume(copy('feat-x', 'complete', 'here'), { ...ENV, worktreeExists: false })
+  assert.strictEqual(r.ok, false)
+  assert.deepStrictEqual(r.offer, {
+    kind: 'satisfy',
+    label: 'Re-open feat-x',
+    command: 'skitterspec spec-env resume feat-x --reopen',
+  })
+  assert.match(resumeLines(r).join('\n'), /offer: {5}Re-open feat-x — skitterspec spec-env resume feat-x --reopen/)
+})
+
+// STAYS SILENT: every other refusal carries no offer — a cancelled spec's code
+// never landed, a hotfix lands by tag, an epic holds no phases.
+test('backlog, cancelled, a completed hotfix and a completed epic declare no offer', () => {
+  const cases = [
+    copy('feat-x', 'backlog', 'here'),
+    copy('feat-x', 'cancelled', 'here'),
+    typed('hotfix-x', 'complete', 'Hotfix'),
+    typed('epic-x', 'complete', 'Epic'),
+    // A header-less legacy spec is judged by its prefix.
+    { ...copy('hotfix-y', 'complete', 'here'), overview: '# Y\n' },
+  ]
+  for (const c of cases) {
+    const r = planResume(c, { ...ENV, worktreeExists: false })
+    assert.strictEqual(r.ok, false, c.folder)
+    assert.strictEqual(r.offer, undefined, `${c.folder} in ${c.bucket}`)
+    assert.strictEqual(planReopen(c, { ...ENV, base: 'main' }).ok, false, c.folder)
+  }
+})
+
+const REOPEN = { ...ENV, base: 'main', worktreeExists: false, localBranch: false, remoteBranch: false }
+
+test('--reopen plans a branch at the base, then up, then the move back to in-progress', () => {
+  const r = planReopen(copy('feat-x', 'complete', 'here'), REOPEN)
+  assert.strictEqual(r.ok, true)
+  assert.deepStrictEqual(r.commands, ['git branch -f feat/x main', 'skitterspec spec-env up feat-x'])
+  assert.deepStrictEqual(r.move, ['git -C /wt/x mv specs/complete/feat-x specs/in-progress/feat-x'])
+})
+
+test('a leftover branch already merged into the base is reset to it', () => {
+  const r = planReopen(copy('feat-x', 'complete', 'here'), {
+    ...REOPEN,
+    localBranch: true,
+    localMerged: true,
+    remoteBranch: true,
+    remoteMerged: true,
+  })
+  assert.strictEqual(r.ok, true)
+})
+
+test('a leftover branch with unmerged commits, local or remote, refuses and names it', () => {
+  const c = copy('feat-x', 'complete', 'here')
+  const local = planReopen(c, { ...REOPEN, localBranch: true, localMerged: false })
+  assert.strictEqual(local.ok, false)
+  assert.match(local.refused, /feat\/x still exists with commits not on main/)
+  const remote = planReopen(c, { ...REOPEN, remoteBranch: true, remoteMerged: false })
+  assert.match(remote.refused, /origin\/feat\/x .*git push origin --delete feat\/x/)
+  // Cannot tell is not merged: nothing is reset on an unanswered question.
+  assert.strictEqual(planReopen(c, { ...REOPEN, localBranch: true, localMerged: null }).ok, false)
+})
+
+test('a standing worktree or an unresolvable base refuses', () => {
+  const c = copy('feat-x', 'complete', 'here')
+  assert.match(planReopen(c, { ...REOPEN, worktreeExists: true }).refused, /still exists at \/wt\/x/)
+  assert.match(planReopen(c, { ...REOPEN, base: null }).refused, /base branch cannot be resolved/)
 })
