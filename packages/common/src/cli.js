@@ -5,7 +5,7 @@ const path = require('path')
 const os = require('os')
 const { pathToFileURL } = require('url')
 const { execFileSync } = require('child_process')
-const { init, resync, reset, checkSync, isExistingSetup, localSeedFiles } = require('./init.js')
+const { init, resync, reset, uninstall, checkSync, isExistingSetup, localSeedFiles } = require('./init.js')
 const {
   detectReleaseTooling,
   removeReleaseTooling,
@@ -287,6 +287,11 @@ Usage:
                               edits (--force to overwrite). Leaves specs/ + live
                               .core config alone. --check reports what it would
                               change and writes nothing.
+  skitterspec uninstall [dir] Take a local install (init --local) back off this
+                              machine: managed files, hooks, the CLAUDE.local.md
+                              block, the git excludes. Prints the plan; --yes
+                              acts. Edited files are kept; specs/ is untouched.
+                              Refuses a team install, or while a spec is in flight.
   skitterspec spec-env <cmd>  Per-spec isolation engine (opt-in; needs
                               specs/.core/env.config.json). Subcommands:
                                 up <spec>         print the plan to provision a worktree +
@@ -8530,6 +8535,30 @@ async function run(argv) {
       resync(dir, { claudeMd: opts.claudeMd, force: opts.force, diff: opts.diff, local: opts.local })
       await cleanupReleaseTooling(dir, opts)
       break
+    case 'uninstall': {
+      // What is in flight is read here, where the spec machinery lives, and
+      // handed to the engine: every provisioned worktree (specless ones too)
+      // and a live overlay holding the primary checkout. A read that throws is
+      // cannot-tell, and the engine refuses on it rather than deleting.
+      const inFlight = []
+      let cannotTell = null
+      try {
+        // Anchored as spec-env anchors, so a project in a subfolder of its
+        // repo, or a run from inside a worktree, reads the same registry.
+        const anchor = primaryAnchor(dir, gitReader(dir))
+        const { config } = loadEnvConfig(anchor.dir)
+        attachProject(config, anchor)
+        for (const w of provisionedSpecChoice(anchor.dir, config, anchor.dir, { lastLive: false }).worktrees) {
+          inFlight.push({ spec: w.spec, where: `(worktree ${w.worktree})` })
+        }
+        const receipt = readReceipt(anchor.dir, config)
+        if (receipt && receipt.spec) inFlight.push({ spec: String(receipt.spec), where: '(live in the primary checkout)' })
+      } catch (error) {
+        cannotTell = error.message
+      }
+      process.exitCode = uninstall(dir, { yes: opts.yes, inFlight, cannotTell })
+      break
+    }
     default:
       throw new Error(unknownCommand(cmd))
   }

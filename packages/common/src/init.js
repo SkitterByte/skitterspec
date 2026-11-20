@@ -1469,6 +1469,189 @@ function hooksAt(read, ref) {
     .filter((h) => h && typeof h.command === 'string' && GATE_HOOKS.some((k) => k.re.test(h.command))).length
 }
 
+// UNINSTALL — take a local install (`init --local`) back off this machine,
+// exactly: the managed files, our hooks in settings.local.json, the block in
+// CLAUDE.local.md, the exclude block, `.spec-env/` and the manifest. Nothing
+// under `specs/` is touched — it is committed and shared. Plans by default and
+// acts only with `yes`; returns the exit code.
+//
+// A file is deleted only when it is PRISTINE. An unrecognised hash is either
+// the developer's edit or a lost record, and only one of those is safe to
+// delete, so it is kept (`.claude/rules/negative-checks.md` rule 4) — but kept
+// under `.claude/` it would still be loaded, so it is PARKED in
+// `<git-common-dir>/skitterspec-kept/`: outside the tree, so git status is
+// unchanged, and never over an earlier parked copy.
+//
+// `inFlight` is the caller's list of provisioned specs and a held live overlay;
+// any entry refuses, because each worktree carries a seeded copy of the install
+// and a torn-down primary leaves nothing to finish them with. `cannotTell` is
+// the caller failing to read that list, which also refuses: deleting is the
+// destructive branch, so the unknown case does not get it.
+function uninstall(dir, { yes = false, inFlight = [], cannotTell = null, log = (s) => process.stdout.write(s) } = {}) {
+  const manifestAbs = path.join(dir, MANIFEST_FILE)
+  if (!fs.existsSync(manifestAbs)) {
+    log('uninstall: no skitterspec install here (no manifest) — nothing to do.\n')
+    return 0
+  }
+  const manifest = readManifest(dir)
+  if (manifest.scope !== 'local') {
+    log(
+      'uninstall: refused — this is a team install, committed for everyone.\n' +
+        '  Removing it is a commit for the team to make, not one machine\'s command.\n' +
+        '  uninstall only takes a local install (init --local) back off.\n',
+    )
+    return 1
+  }
+  if (cannotTell) {
+    log(`uninstall: refused — cannot tell whether a spec is in flight (${cannotTell}).\n  Nothing changed.\n`)
+    return 1
+  }
+  if (inFlight.length) {
+    log(
+      'uninstall: refused — work is still in flight here, and its worktrees carry a copy of the install:\n' +
+        inFlight.map((f) => `  ${f.spec}  ${f.where}\n`).join('') +
+        '  Finish each with /spec-complete, drop it with /spec-cancel (or spec-env down <name>),\n' +
+        '  and hand a live spec back with /spec-live main. Nothing changed.\n',
+    )
+    return 1
+  }
+
+  // The files: every managed target outside specs/, plus any manifest entry
+  // the package no longer ships (a retired skill is still a skill on disk).
+  const targets = new Map()
+  for (const t of managedTargets(dir)) targets.set(t.relPath.split(path.sep).join('/'), t.bundled)
+  for (const k of Object.keys(manifest.files)) if (!targets.has(k)) targets.set(k, undefined)
+  const remove = []
+  const keep = []
+  const exclude = localExcludeFile(dir)
+  const parkRoot = exclude && path.join(path.dirname(path.dirname(exclude.file)), 'skitterspec-kept')
+  const parkFor = (relPath) => {
+    let target = path.join(parkRoot, relPath)
+    for (let n = 2; fs.existsSync(target); n++) target = path.join(parkRoot, `${relPath}.${n}`)
+    return target
+  }
+  for (const [relPath, bundled] of [...targets].sort(([a], [b]) => a.localeCompare(b))) {
+    if (relPath.startsWith('specs/')) continue
+    const state = managedState(dir, relPath, manifest, bundled)
+    if (state === 'pristine') remove.push(relPath)
+    else if (state !== 'missing') keep.push({ relPath, parked: parkRoot ? parkFor(relPath) : null })
+  }
+
+  const hooks = removeHooks(dir, { local: true, dryRun: true })
+  const claudeLocal = path.join(dir, 'CLAUDE.local.md')
+  const blockRe = new RegExp(`\\n*${SPEC_MARKER_START}[\\s\\S]*?${SPEC_MARKER_END}\\n?`)
+  const claudeText = fs.existsSync(claudeLocal) ? fs.readFileSync(claudeLocal, 'utf8') : null
+  const hasBlock = claudeText !== null && blockRe.test(claudeText)
+  const hasExclude = exclude !== null && exclude.text.includes(EXCLUDE_START)
+  const specEnv = path.join(dir, '.spec-env')
+
+  const lines = []
+  const say = (label, items) => {
+    if (!items.length) return
+    lines.push(`\n${label}:\n`)
+    for (const it of items) lines.push(`  ${it}\n`)
+  }
+  say(yes ? 'removed' : 'would remove', [
+    ...remove,
+    ...(hooks.reason === 'removed' ? [`.claude/settings.local.json (${hooks.removed} skitterspec hook(s)${hooks.emptied ? ', then the emptied file' : ''})`] : []),
+    ...(hasBlock ? ['CLAUDE.local.md (spec workflow block)'] : []),
+    ...(hasExclude ? [`${path.relative(dir, exclude.file).split(path.sep).join('/')} (skitterspec block)`] : []),
+    ...(fs.existsSync(specEnv) ? ['.spec-env/'] : []),
+    MANIFEST_FILE.split(path.sep).join('/'),
+  ])
+  say(
+    yes ? 'parked — edited since install, moved out of Claude\'s reach' : 'would park — edited since install',
+    keep.map((k) => (k.parked ? `${k.relPath} → ${k.parked}` : `${k.relPath} (kept in place — no git dir to park it in)`)),
+  )
+  const warnings = []
+  if (hooks.reason === 'malformed') warnings.push('.claude/settings.local.json is not valid JSON — skitterspec hooks left in it; remove them by hand')
+  if (exclude === null) warnings.push('not a git repository — no exclude block to remove')
+  say('warnings', warnings)
+
+  if (!yes) {
+    log(`uninstall: plan — nothing changed (${dir})\n${lines.join('')}\n  re-run with --yes to remove the local install.\n`)
+    return 0
+  }
+
+  const managedSet = new Set(targets.keys())
+  const parents = new Set()
+  for (const relPath of remove) {
+    assertSafeToDelete(relPath, managedSet)
+    fs.unlinkSync(path.join(dir, relPath))
+    parents.add(path.dirname(path.join(dir, relPath)))
+  }
+  for (const k of keep) {
+    if (!k.parked) continue
+    fs.mkdirSync(path.dirname(k.parked), { recursive: true })
+    try {
+      fs.renameSync(path.join(dir, k.relPath), k.parked)
+    } catch (error) {
+      if (error.code !== 'EXDEV') throw error
+      fs.copyFileSync(path.join(dir, k.relPath), k.parked)
+      fs.unlinkSync(path.join(dir, k.relPath))
+    }
+    parents.add(path.dirname(path.join(dir, k.relPath)))
+  }
+  // Folders our files left empty — a skill's own, then .claude/<kind>/ — and
+  // never one that still holds something of the developer's.
+  const stop = path.join(dir, '.claude')
+  for (const start of parents) {
+    for (let at = start; at.startsWith(stop + path.sep); at = path.dirname(at)) {
+      try {
+        if (fs.readdirSync(at).length) break
+        fs.rmdirSync(at)
+      } catch {
+        break
+      }
+    }
+  }
+  if (hooks.reason === 'removed') {
+    const done = removeHooks(dir, { local: true })
+    if (done.emptied) fs.unlinkSync(path.join(dir, '.claude', 'settings.local.json'))
+  }
+  if (hasBlock) {
+    const next = claudeText.replace(blockRe, '\n')
+    if (next.trim()) fs.writeFileSync(claudeLocal, next.replace(/^\n+/, ''))
+    else fs.unlinkSync(claudeLocal)
+  }
+  if (hasExclude) {
+    const start = exclude.text.indexOf(EXCLUDE_START)
+    const end = exclude.text.indexOf(EXCLUDE_END, start)
+    if (end !== -1) {
+      fs.writeFileSync(exclude.file, exclude.text.slice(0, start) + exclude.text.slice(end + EXCLUDE_END.length).replace(/^\n/, ''))
+    }
+  }
+  fs.rmSync(specEnv, { recursive: true, force: true })
+  fs.unlinkSync(manifestAbs)
+
+  log(
+    `uninstall: done (${dir})\n${lines.join('')}\n` +
+      `  the CLI itself is still installed — npm uninstall -g ${distributionPackage()} removes it.\n`,
+  )
+  return 0
+}
+
+// The git common dir's info/exclude, read — null when this is not a git repo.
+function localExcludeFile(dir) {
+  let commonDir
+  try {
+    commonDir = path.resolve(
+      dir,
+      execFileSync('git', ['-C', dir, 'rev-parse', '--git-common-dir'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(),
+    )
+  } catch {
+    return null
+  }
+  const file = path.join(commonDir, 'info', 'exclude')
+  let text = ''
+  try {
+    text = fs.readFileSync(file, 'utf8')
+  } catch {
+    /* no exclude file */
+  }
+  return { file, text }
+}
+
 async function init({ dir, force, claudeMd, mode, isolation, workspaceMode, gating, project, local = false }) {
   if (!fs.existsSync(dir)) throw new Error(`target dir does not exist: ${dir}`)
   resetReport()
@@ -1517,6 +1700,7 @@ module.exports = {
   isExistingSetup,
   resync,
   reset,
+  uninstall,
   assertSafeToDelete,
   assertComposedAssets,
   detectPackageManager,

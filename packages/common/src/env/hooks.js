@@ -225,12 +225,15 @@ function ensureHooks(dir, { local = false } = {}) {
  * group left with no hooks is dropped, then an empty `PreToolUse`, then an empty
  * `hooks`. Every other key — and every other event — is untouched.
  *
+ * `local` reads `settings.local.json` instead, for `uninstall` taking a local
+ * install back off; `dryRun` counts what would go and writes nothing.
+ *
  * Returns `{ removed, emptied, reason }`. `emptied` is true when nothing is left
  * but `{}`: the caller deletes the file then, since a committed `{}` is noise.
  * A missing file is `absent`; an unparseable one is `malformed` and untouched.
  */
-function removeHooks(dir) {
-  const file = settingsPath(dir)
+function removeHooks(dir, { local = false, dryRun = false } = {}) {
+  const file = settingsPath(dir, { local })
   let parsed
   try {
     parsed = JSON.parse(fs.readFileSync(file, 'utf-8'))
@@ -259,7 +262,7 @@ function removeHooks(dir) {
   else delete parsed.hooks.PreToolUse
   if (!Object.keys(parsed.hooks).length) delete parsed.hooks
   const emptied = !Object.keys(parsed).length
-  if (!emptied) writeSettings(file, parsed)
+  if (!emptied && !dryRun) writeSettings(file, parsed)
   return { removed, emptied, reason: 'removed' }
 }
 
