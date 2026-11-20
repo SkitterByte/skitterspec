@@ -423,7 +423,8 @@ test('localSeedFiles lists skill folders and the per-machine files, and nothing 
     assert.ok(seeds.includes('.claude/settings.local.json'))
     assert.ok(seeds.includes('CLAUDE.local.md'))
     assert.ok(seeds.some((p) => p.startsWith('.claude/hooks/')))
-    assert.ok(!seeds.some((p) => p.startsWith('specs/')), 'specs are git-carried')
+    assert.ok(seeds.includes('specs/.core/.skitterspec-manifest.json'), 'the manifest, which records the scope')
+    assert.ok(!seeds.some((p) => p.startsWith('specs/') && !p.endsWith('.skitterspec-manifest.json')), 'specs are git-carried')
     await teamInit(team)
     assert.deepStrictEqual(localSeedFiles(team), [], 'stays silent for a team install')
   } finally {
@@ -473,3 +474,83 @@ for (const mode of ['symlink', 'copy']) {
     }
   })
 }
+
+// bug-local-scope-worktree: the manifest is what records the scope, and a local
+// install keeps it out of git — so a worktree it was not seeded into ran
+// `update` as a team install, writing the block into the tracked CLAUDE.md and
+// the hooks into a new .claude/settings.json.
+const assertStayedLocal = (wt) => {
+  assert.ok(!fs.existsSync(path.join(wt, 'CLAUDE.md')), 'no block in the tracked CLAUDE.md')
+  assert.ok(!fs.existsSync(path.join(wt, '.claude', 'settings.json')), 'no committed settings')
+  assert.strictEqual(readManifest(wt).scope, 'local', 'the manifest still says local')
+  assert.ok(lastReport().skipped.some((l) => /kept local/.test(l)), 'says it stayed local')
+}
+
+for (const mode of ['symlink', 'copy']) {
+  test(`update in a bootstrapped worktree of a local install stays local (${mode})`, async () => {
+    const dir = repo()
+    const wt = `${dir}-wt`
+    try {
+      await localInit(dir)
+      git(dir, 'add', 'specs')
+      git(dir, 'commit', '-q', '-m', 'specs')
+      git(dir, 'worktree', 'add', '-q', wt, '-b', 'feat/x')
+      const steps = localSeedFiles(dir).map((file) => ({ kind: 'seed', file, mode }))
+      assert.ok(runBootstrap(steps, { cwd: wt, mainRoot: dir }).ok)
+      await quiet(() => resync(wt, { claudeMd: true }))
+      assertStayedLocal(wt)
+      assert.ok(!lastReport().customized.length, `nothing reads as edited: ${lastReport().customized}`)
+      assert.deepStrictEqual(visible(wt), [], 'git still sees nothing')
+    } finally {
+      try {
+        git(dir, 'worktree', 'remove', '--force', wt)
+      } catch {
+        /* already gone */
+      }
+      cleanup(wt)
+      cleanup(dir)
+    }
+  })
+}
+
+// A worktree bootstrapped before the manifest was seeded has none, and a
+// re-bootstrap skips what exists. The shared exclude block still names this
+// project's manifest — in a subfolder project, under its prefix.
+test('update in a worktree with no manifest stays local while the exclude block names it', async () => {
+  const root = repo()
+  const wt = `${root}-wt`
+  const dir = path.join(root, 'app')
+  try {
+    fs.mkdirSync(dir)
+    await localInit(dir)
+    git(root, 'add', 'app/specs')
+    git(root, 'commit', '-q', '-m', 'specs')
+    git(root, 'worktree', 'add', '-q', wt, '-b', 'feat/x')
+    const seeds = localSeedFiles(dir).filter((f) => !f.endsWith('.skitterspec-manifest.json'))
+    const steps = seeds.map((file) => ({ kind: 'seed', file, mode: 'copy' }))
+    assert.ok(runBootstrap(steps, { cwd: path.join(wt, 'app'), mainRoot: dir }).ok)
+    await quiet(() => resync(path.join(wt, 'app'), { claudeMd: true }))
+    assertStayedLocal(path.join(wt, 'app'))
+    assert.deepStrictEqual(visible(wt), [], 'git still sees nothing')
+  } finally {
+    try {
+      git(root, 'worktree', 'remove', '--force', wt)
+    } catch {
+      /* already gone */
+    }
+    cleanup(wt)
+    cleanup(root)
+  }
+})
+
+test('an update of a team install never reads it as local', async () => {
+  const dir = repo()
+  try {
+    await teamInit(dir)
+    await quiet(() => resync(dir, { claudeMd: true }))
+    assert.strictEqual(readManifest(dir).scope, 'team')
+    assert.ok(!lastReport().skipped.some((l) => /kept local/.test(l)), 'stays silent for a team install')
+  } finally {
+    cleanup(dir)
+  }
+})

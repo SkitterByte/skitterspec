@@ -1222,8 +1222,10 @@ function suggestReleaseWith(dir) {
 // Switching a local install back to team is out of scope and says so.
 function resolveScope(dir, local) {
   const recorded = readManifest(dir).scope
-  scope = local || recorded === 'local' ? 'local' : 'team'
+  const excluded = !local && recorded !== 'local' && excludeNamesManifest(dir)
+  scope = local || recorded === 'local' || excluded ? 'local' : 'team'
   if (!local && recorded === 'local') report.skipped.push('local install (recorded in the manifest) — kept local')
+  if (excluded) report.skipped.push('local install (recorded in .git/info/exclude) — kept local')
   if (local && recorded !== 'local') {
     report.warnings.push(
       '--local keeps skitterspec on this machine: teammates get none of its skills, rules ' +
@@ -1260,11 +1262,16 @@ function localExcludes(dir) {
 }
 
 // What `spec-env bootstrap` seeds into a local install's worktrees: the managed
-// paths plus the two per-machine files. A worktree is a fresh checkout, and
-// git carries none of it there. Empty for a team install, which git carries.
+// paths, the two per-machine files and the manifest. A worktree is a fresh
+// checkout, and git carries none of it there. Empty for a team install, which
+// git carries.
+//
+// THE MANIFEST IS SEEDED because it is what records the scope: without it a
+// worktree's `update` read team and wrote the block into the tracked CLAUDE.md
+// and the hooks into a new .claude/settings.json (bug-local-scope-worktree).
 function localSeedFiles(dir) {
   if (readManifest(dir).scope !== 'local') return []
-  return [...localManagedPaths(dir), '.claude/settings.local.json', 'CLAUDE.local.md']
+  return [...localManagedPaths(dir), '.claude/settings.local.json', 'CLAUDE.local.md', MANIFEST_FILE.replace(/\\/g, '/')]
 }
 
 const EXCLUDE_START = '# >>> skitterspec (local install)'
@@ -1303,6 +1310,31 @@ function writeLocalExcludes(dir) {
   ensureDir(path.dirname(file))
   fs.writeFileSync(file, next)
   report.updated.push('.git/info/exclude (skitterspec block)')
+}
+
+// Whether the shared `.git/info/exclude` block names THIS project's manifest —
+// the positive signal that a worktree with no manifest of its own belongs to a
+// local install. The exclude lives in the common dir, so every worktree sees
+// the block the primary checkout's install wrote; matching the prefixed
+// manifest path, not the bare block, keeps a second project in the same repo
+// from being read as local by a neighbour's install.
+//
+// WHAT WOULD FOOL IT: a block hand-edited to drop the manifest line, or git
+// unreachable. Both answer false — the scope the manifest recorded, as before.
+function excludeNamesManifest(dir) {
+  try {
+    const git = (...args) => execFileSync('git', ['-C', dir, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim()
+    const commonDir = path.resolve(dir, git('rev-parse', '--git-common-dir'))
+    const prefix = git('rev-parse', '--show-prefix')
+    const text = fs.readFileSync(path.join(commonDir, 'info', 'exclude'), 'utf8')
+    const start = text.indexOf(EXCLUDE_START)
+    const end = text.indexOf(EXCLUDE_END, start)
+    if (start === -1 || end === -1) return false
+    const entry = `/${prefix}${MANIFEST_FILE.replace(/\\/g, '/')}`
+    return text.slice(start, end).split(/\r?\n/).some((l) => l.trim() === entry)
+  } catch {
+    return false
+  }
 }
 
 // Convert a COMMITTED (team) install into a local one, in place. Every step

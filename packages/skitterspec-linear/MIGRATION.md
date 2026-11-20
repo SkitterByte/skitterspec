@@ -1,5 +1,37 @@
 # Migration guide
 
+## A local install stays local in a worktree (check for stray team files)
+
+`update` run inside a worktree of a local install (`init --local`) used to run
+as a **team** install. The manifest that records `"scope": "local"` is kept out
+of git, and `spec-env bootstrap` did not seed it, so the worktree had none.
+That run then:
+
+- appended the `<!-- skitterspec:start -->` block to the **tracked**
+  `CLAUDE.md`,
+- created an untracked `.claude/settings.json` holding skitterspec's hooks,
+- listed unedited managed files as `customized (kept)`,
+- and wrote the worktree a manifest with no `scope`.
+
+Bootstrap now seeds the manifest with the other local-install files. `update`
+also reads a local scope from the `.git/info/exclude` block when a worktree
+has no manifest of its own, so a worktree bootstrapped before this release is
+covered without re-bootstrapping. It reports
+`local install (recorded in .git/info/exclude) — kept local`.
+
+**If an earlier `update` already ran in such a worktree, revert what it wrote
+by hand.** Nothing removes it for you, because a `CLAUDE.md` edit or a
+`.claude/settings.json` might be yours:
+
+```
+git checkout -- CLAUDE.md                     # drop the appended block
+rm .claude/settings.json                      # only if skitterspec created it
+rm specs/.core/.skitterspec-manifest.json     # the scopeless one it wrote
+skitterspec spec-env bootstrap <spec>         # re-seeds the primary's manifest
+```
+
+Run these in the worktree. A worktree that never ran `update` needs nothing.
+
 ## The tailnet is `remote`; publishing the review is retired (nothing to edit)
 
 The review stack's `remote:` line used to be a claude.ai page the review was
