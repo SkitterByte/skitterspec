@@ -148,7 +148,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Open questions
 
-- [ ] None
+- [x] None
 
 ## Changelog
 
@@ -179,3 +179,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   for skills, and treats command files as skills, but does not say outright
   that an override hides a `.claude/commands/` file — check by hand in a
   session after `disable`.
+- 2026-11-20 — Completed; all phases done, tests green.
