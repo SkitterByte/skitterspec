@@ -75,3 +75,4 @@ under `skipped`.
 - 2026-11-20 — Bug reproduced; failing test added (red). The suspected `**/`
   glob was ruled out; the range was empty.
 - 2026-11-20 — Fixed: the PR finish reads the catch-up range; test green.
+- 2026-11-20 — Completed; fix done, tests green.
