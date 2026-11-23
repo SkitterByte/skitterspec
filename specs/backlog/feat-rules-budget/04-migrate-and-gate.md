@@ -1,0 +1,37 @@
+---
+github_issue_id: "#286"
+---
+
+# Phase 4 — Migration, budget gate, docs, dogfood ⬜
+
+> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+
+**Goal:** existing hosts upgrade cleanly, the budget becomes a failing test,
+and this repo runs the new layout.
+
+## Tasks
+
+- [ ] Generate the list of section-stripped hashes: for each tagged release,
+      hash its `spec-planning.md` with the `## Project conventions` section
+      removed. Store the list as a checked-in asset, with a script to
+      regenerate it.
+- [ ] `update`: when `spec-planning.md` is customized and its stripped hash
+      is on the list, write the section's body to
+      `.claude/rules/project-conventions.md` (unless that file exists), then
+      install the new rule. Otherwise keep the file and warn with its size and
+      the `--force` step.
+- [ ] Tests for the migration: a conventions-only edit is extracted, and an
+      existing project-conventions.md is not overwritten. Stays-silent: an
+      edit outside the section is kept, not extracted, and a pristine file
+      takes the plain update path.
+- [ ] Budget test: for every distribution, install into a temp dir and
+      assert `alwaysLoaded(dir).total ≤ 30000`. On failure, print the per-file
+      rows. A comment explains why (Claude Code's 150k total, and the host
+      owns the rest).
+- [ ] Update `docs/index.html` and `docs/review.html` where they describe the
+      rules layout, then `node scripts/docs-freshness.js verify index review`.
+- [ ] Run `skitterspec update` on this repo. Fill in this repo's
+      project-conventions.md (pnpm typecheck / pnpm test) and confirm the
+      warning count in a fresh session.
+- [ ] Rebuild (`pnpm build`) and run `pnpm typecheck && pnpm test`, green
+      before the phase is done.
