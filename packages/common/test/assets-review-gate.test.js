@@ -20,6 +20,8 @@ const skill = (name) => fs.readFileSync(path.join(ASSETS, 'skills', name, 'SKILL
 const NEXT = skill('spec-next')
 const DIFF = skill('spec-diff')
 const PLANNING = fs.readFileSync(path.join(ASSETS, 'rules', 'spec-planning.md'), 'utf8')
+// The gate's detail lives in the skill file /spec-diff reads (feat-rules-budget).
+const PAGE = fs.readFileSync(path.join(ASSETS, 'skills', 'spec-diff', 'review-page.md'), 'utf8')
 
 // --- who arms it ------------------------------------------------------------
 
@@ -76,7 +78,7 @@ test('the refusal counts nothing, and says so where a later edit would look', ()
   assert.match(two, /counts nothing/i)
   assert.match(two, /not a\s*\n?\s*tally of ticked boxes/i)
   // The marks rule is unchanged, and stated in the canonical place.
-  assert.match(PLANNING, /\*\*the marks are information, never a gate\*\*/)
+  assert.match(PAGE, /\*\*The marks are information,\s+never a gate\*\*/)
 })
 
 // STAYS SILENT (`negative-checks.md` rule 3). Cannot-tell is the ordinary state
@@ -93,10 +95,10 @@ test('cannot-tell carries on, in silence', () => {
 // --- documented where the workflow is documented ----------------------------
 
 test('the canonical rules file describes the gate and its exits', () => {
-  assert.match(PLANNING, /\*\*The gate — a phase that ended owes an answer\.\*\*/)
+  assert.match(PLANNING, /A phase that ended owes a verdict/)
   assert.match(PLANNING, /spec-env review skip "<reason>"/)
-  assert.match(PLANNING, /review\.required: false/)
+  assert.match(PAGE, /review\.required: false/)
   // On by default is the whole design decision, so it is written down rather
   // than left to be inferred from a config default.
-  assert.match(PLANNING, /on by default wherever isolation is configured/i)
+  assert.match(PAGE, /on by default wherever\s+isolation is configured/i)
 })

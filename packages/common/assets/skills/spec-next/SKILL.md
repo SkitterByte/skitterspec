@@ -450,7 +450,7 @@ costs — roughly **700 output tokens**, because writing it means reading the di
 — and that spend is the operator's call, not a default.
 
 **Where you are going to wait, the offer is the banner after the block** —
-defined in `.claude/rules/spec-reports.md`, and **the `Review` row is dropped**
+defined in `.claude/skills/spec-diff/review-wait.md`, and **the `Review` row is dropped**
 so one subject lives in one place:
 
 ---
@@ -487,7 +487,7 @@ the command that turns them on: a reader who has left the house cannot ask for a
 remote door they were never shown.
 
 **Do not pick one for them.** The engine used to, and the guess failed three
-separate ways in one day. `.claude/rules/spec-reports.md` carries the shape and
+separate ways in one day. `.claude/skills/spec-diff/review-wait.md` carries the shape and
 why the *one link, never two* rule now reads
 **one link per door, each labelled, all into one store** —
 local, network and remote are three doors into one room, so the wait
@@ -543,7 +543,7 @@ reading — and that is the gap the whole gate exists to close.
    the whole scope of what you may claim.
 2. **Run the engine's wait, and end your turn** — under the harness's
    persistent watch primitive where one exists, else in the background
-   (`.claude/rules/spec-reports.md` carries the preference):
+   (`.claude/skills/spec-diff/review-wait.md` carries the preference):
 
    ```
    skitterspec spec-env review wait <spec> --since <the timestamp>
@@ -556,7 +556,7 @@ reading — and that is the gap the whole gate exists to close.
    of your own.
 
 **A watch that dies is re-armed on the same window**, silently and bounded by
-the age of that window — `.claude/rules/spec-reports.md` carries the contract,
+the age of that window — `.claude/skills/spec-diff/review-wait.md` carries the contract,
 including when to stop, what the banner says instead, and when the
 engine's `re-show:` brings the banner back. Do not restate it here.
 
@@ -634,7 +634,7 @@ underneath a reader when detection flipped mid-session.
 So: **relay all three tier lines, every time.** Any `also:` lines sit under
 their tier — the other addresses this machine has of that kind — so pass them
 on rather than editing them out: in the banner they are indented sub-bullets
-under that tier, labels included, exactly as `.claude/rules/spec-reports.md`
+under that tier, labels included, exactly as `.claude/skills/spec-diff/review-wait.md`
 shows.
 
 **Never read an environment variable to decide anything about the offer** — not

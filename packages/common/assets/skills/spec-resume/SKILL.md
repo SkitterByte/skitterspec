@@ -153,7 +153,7 @@ be several:
   dated Changelog line quoting the report.
 - **Work outside this spec.** For example: a different feature, or a defect in
   code the spec never touched. Propose the right door with a one-line reason,
-  confirm first, as `.claude/rules/spec-planning.md`'s kind routing does. A
+  confirm first, as `.claude/skills/spec/kind-routing.md` does. A
   defect goes to `/spec-bug`; new behaviour goes to `/spec`. On a no, carry
   on with whatever part of the message was this spec's.
 

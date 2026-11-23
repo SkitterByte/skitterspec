@@ -41,5 +41,5 @@ test('/spec-start on an epic carries the epic page as a row, never a banner', ()
 })
 
 test('the planning rule names /spec-epic among the commands', () => {
-  assert.match(PLANNING, /\*\*`\/spec-epic` is the fifth command\*\*/)
+  assert.match(PLANNING, /`\/spec-epic` pre-runs `skitterspec epic status`/)
 })

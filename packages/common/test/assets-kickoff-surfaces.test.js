@@ -24,26 +24,18 @@ const MIGRATION = read(path.join(ROOT, 'MIGRATION.md'))
 // the docs-site restructure — the landing page carries the workflow only.
 const DOCS = read(path.join(ROOT, 'docs', 'reference.html'))
 
-test('the rules file describes a start that asks, and moves you', () => {
-  assert.match(PLANNING, /build phase 1 now\?/i)
-  assert.match(PLANNING, /\*\*moves your session into it\*\*/i)
-  assert.match(PLANNING, /plain `cd`/)
+// The workspace detail moved into the skill file /spec-start reads
+// (feat-rules-budget); the rule keeps the one-line summary.
+const ISOLATION = read(path.join(ASSETS, 'skills', 'spec-start', 'isolation.md'))
+
+test('the rules describe a start that asks, and moves you', () => {
+  assert.match(PLANNING, /`\/spec-start` moves the session into the\nworktree with a plain `cd`/)
+  assert.match(ISOLATION, /moves the session in with a plain `cd`, and asks whether to build phase 1/)
 })
 
-test('the rules file keeps declining as a real answer', () => {
-  // Documenting only the new path is how the other one quietly stops working.
-  // The decline costs nothing now — you are already where the work is — and
-  // saying so is what stops it reading as the discouraged answer.
-  assert.match(PLANNING, /say no and\s*\n?you are already standing in the worktree/i)
-  assert.match(PLANNING, /typed later does the\s*\n?same thing/i)
-})
-
-test('the rules file says the primary checkout is left alone', () => {
-  // The move is the change an upgrader worries about, and this is the sentence
-  // that answers the worry: your session followed the spec, your checkout did
-  // not. Without it "moves your session" reads as a branch swap.
-  assert.match(PLANNING, /The primary checkout stays on the base branch/)
-  assert.match(PLANNING, /nothing was checked out anywhere/)
+test('the rules say the primary checkout is left alone', () => {
+  // Your session followed the spec, your checkout did not.
+  assert.match(ISOLATION, /The\s+primary checkout stays on the base branch/)
 })
 
 test('the README describes the same two endings', () => {

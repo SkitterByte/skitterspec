@@ -23,7 +23,10 @@ const path = require('node:path')
 const ASSETS = path.join(__dirname, '..', 'assets')
 const read = (...p) => fs.readFileSync(path.join(ASSETS, ...p), 'utf8')
 
-const RULE = read('rules', 'spec-reports.md')
+// The contract moved out of the always-loaded rules into the one skill file
+// every waiting skill reads (feat-rules-budget). Its reasoning and the
+// incidents behind it are kept in docs/rationale/spec-reports.md.
+const RULE = read('skills', 'spec-diff', 'review-wait.md')
 const WAITERS = ['spec', 'spec-next', 'spec-bug', 'no-spec']
 
 /* ==========================================================================
@@ -33,36 +36,23 @@ const WAITERS = ['spec', 'spec-next', 'spec-bug', 'no-spec']
 test('it re-arms on the SAME window, never a fresh one', () => {
   // A pass that arrived during the gap is still inside the original window;
   // re-arming on a new timestamp would strand exactly that pass.
-  assert.match(RULE, /re-armed, silently, on the same window/)
-  assert.match(RULE, /started\nagain on the \*\*same\*\* `--since`/)
-  assert.match(RULE, /would strand exactly that pass/)
+  assert.match(RULE, /re-arm it on the \*\*same\*\* `--since`/)
+  assert.match(RULE, /A pass that arrived during the gap is still\nin the window/)
 })
 
 test('it re-arms as quietly as the harness allows', () => {
-  assert.match(RULE, /Say as little as the harness allows when you do it/)
-  assert.match(RULE, /stream of non-events/)
-  assert.match(RULE, /the\ntool call is the whole turn/)
+  assert.match(RULE, /Say as little as possible/)
   // Where text is forced, it is one fixed line — never a status that grows.
-  assert.match(RULE, /`Still waiting for the verdict\.`, and nothing else/)
-  assert.match(RULE, /not the spec, not the age,\nnot the links/)
+  assert.match(RULE, /write\n  only `Still waiting for the verdict\.`/)
 })
 
 test('every fifth re-arm brings the banner back, from the engine\'s stack', () => {
-  assert.match(RULE, /Every fifth re-arm, show the banner again/)
+  assert.match(RULE, /Every fifth re-arm/)
   assert.match(RULE, /`re-show: banner \(re-arm N\)`/)
-  assert.match(RULE, /stack copied from the `re-show:`\nlines/)
+  assert.match(RULE, /stack from the\n  `re-show:` lines/)
   // The verdict line, never reconstructed; never the table.
-  assert.match(RULE, /dropped rather than reconstructed/)
-  assert.match(RULE, /Not the table: that would be a second block/)
-})
-
-test('the re-show is a count, and the age bound is untouched by it', () => {
-  assert.match(RULE, /A count here, not an age/)
-  assert.match(RULE, /The age of\nthe window still decides when to stop/)
-})
-
-test('the re-show is the existing banner, not a third control', () => {
-  assert.match(RULE, /it is not a third control after the block/)
+  assert.match(RULE, /dropped if\n  not/)
+  assert.match(RULE, /Do not repeat the table/)
 })
 
 test('STAYS SILENT: the bare "say nothing" wording is gone', () => {
@@ -70,21 +60,12 @@ test('STAYS SILENT: the bare "say nothing" wording is gone', () => {
   assert.doesNotMatch(RULE, /Say nothing when you do it/)
 })
 
-test('a deliberate stop is not a death', () => {
-  // Re-arming over one makes the wait unstoppable, which is worse than a wait
-  // that stops.
-  assert.match(RULE, /not a death/)
-  assert.match(RULE, /unstoppable/)
-})
-
 test('a deliberate stop needs positive evidence; a bare kill is a death', () => {
   // The old default read the ambiguous kill as deliberate, which disabled the
-  // re-arm in the one case it was shipped for — every observed kill was the
-  // harness, none was a person.
-  assert.match(RULE, /explicit act with positive evidence/)
-  assert.match(RULE, /called TaskStop, or the operator said to stop waiting/)
-  assert.match(RULE, /is read as a \*\*death\*\*/)
-  assert.match(RULE, /negative-checks\.md` rule 1/)
+  // re-arm in the one case it was shipped for.
+  assert.match(RULE, /A deliberate stop has positive evidence/)
+  assert.match(RULE, /called\nTaskStop, or the operator said to stop/)
+  assert.match(RULE, /A bare killed-task notification is a\ndeath, not a stop/)
 })
 
 test('STAYS SILENT: the old ambiguity default is gone, not merely contradicted', () => {
@@ -93,32 +74,18 @@ test('STAYS SILENT: the old ambiguity default is gone, not merely contradicted',
 
 test('the wait prefers a persistent watch primitive where the harness has one', () => {
   assert.match(RULE, /persistent watch primitive/)
-  // Capability first, one named example — portable to any harness, still
-  // concrete enough to act on in the one we ship into.
-  assert.match(RULE, /`Monitor` tool with `persistent: true`/)
-  assert.match(RULE, /Where the harness has none, background the command/)
-  // Why stdout is monitor-ready: the heartbeat is on stderr, so each stdout
-  // line is a real event. Pinned so the next editor does not move it back.
-  assert.match(RULE, /heartbeat goes\nto stderr/)
+  // Capability first, one named example.
+  assert.match(RULE, /`Monitor` with `persistent: true`/)
+  assert.match(RULE, /otherwise in the\n   background/)
 })
 
 test('the bound is the age of the window, not a count of retries', () => {
-  assert.match(RULE, /bounded by the age of the window, not by a count of retries/)
-  assert.match(RULE, /\*\*12 hours\*\*/)
-  // The trade is named rather than left as an accident.
-  assert.match(RULE, /deliberately does not cover an overnight gap/)
+  assert.match(RULE, /Stop re-arming once the window is 12 hours old/)
 })
 
 test('past the bound the banner degrades to a sentence this file already defines', () => {
   assert.match(RULE, /press a verdict, then type `\/spec-reviewed`/)
-  assert.match(RULE, /new \*\*state\*\* for an existing sentence, not a new sentence/)
-  // The rule it is an instance of, unchanged.
-  assert.match(RULE, /only promise a wait the transport can\ndeliver/)
-})
-
-test('it cites the evidence rather than asserting the behaviour', () => {
-  assert.match(RULE, /three sessions lost theirs over one\nlunch break/)
-  assert.match(RULE, /43 and 30 minutes/)
+  assert.match(RULE, /Only promise a wait the transport can deliver/)
 })
 
 /* ==========================================================================
@@ -129,7 +96,7 @@ test('every skill that waits points at the rule', () => {
   for (const skill of WAITERS) {
     const text = read('skills', skill, 'SKILL.md')
     assert.match(text, /re-armed on the same window/, `${skill} names the behaviour`)
-    assert.match(text, /spec-reports\.md` carries the contract/, `${skill} points at the rule`)
+    assert.match(text, /review-wait\.md` carries the contract/, `${skill} points at the rule`)
     assert.match(text, /`re-show:` brings the banner back/, `${skill} names the re-show`)
   }
 })
@@ -169,7 +136,7 @@ test('STAYS SILENT: no skill restates the bound', () => {
 test('STAYS SILENT: the no-timeout rule is untouched', () => {
   // Re-arming is not a timeout by another name — each individual wait still has
   // none, and the skills still say so.
-  assert.match(RULE, /Give the wait no timeout/)
+  assert.match(RULE, /\*\*Pass no timeout\.\*\*/)
   for (const skill of WAITERS) {
     assert.match(read('skills', skill, 'SKILL.md'), /timeout/, `${skill} still discusses the timeout`)
   }

@@ -14,7 +14,7 @@ This is the **bug** counterpart to `/spec` (which is for **features**, plan-only
 Unlike `/spec`, this skill is hands-on and test-first: it reproduces the bug as a
 **failing test (RED)**, captures a lean Bug spec, then works the test to **GREEN**.
 
-Spec type convention (see `.claude/rules/spec-planning.md`):
+Spec type convention (see `.claude/rules/spec-format.md`):
 - Bug specs are named `bug-<kebab-name>`; feature specs `feat-<kebab-name>`.
 - Every spec header carries `> **Type:** Bug` (or `Feature`).
 
@@ -36,7 +36,7 @@ Bugs are concrete — confirm, don't over-grill. Establish:
 The investigation above is where mis-entry shows, so watch it for the signals
 that mark the other kinds and raise the hand-off the moment one appears —
 before the failing test is written, while nothing is on disk
-(`.claude/rules/spec-planning.md` carries the full routing matrix):
+(`.claude/skills/spec/kind-routing.md` carries the full routing matrix):
 
 - **On a released version** — the defect is on what is deployed ("in prod",
   "since v2.1") → propose **`/spec-hotfix`**. This is the escalation that must
@@ -317,7 +317,7 @@ The banner it describes is what this skill emits in place of a `Review` row,
 and the routing on the verdict is `/spec-diff` §2 and §4, as it is everywhere.
 
 **A watch that dies is re-armed on the same window**, silently and bounded by
-the age of that window — `.claude/rules/spec-reports.md` carries the contract,
+the age of that window — `.claude/skills/spec-diff/review-wait.md` carries the contract,
 including when to stop, what the banner says instead, and when the
 engine's `re-show:` brings the banner back. Do not restate it here.
 
@@ -344,7 +344,7 @@ Relay the engine's **stack** — the `local:`, `network:` and `remote:` lines, a
 three — rather than the bare `page:` path: a path is not clickable in any
 terminal, and a page nobody can open is a page nobody reads. Relay the `live:`
 line with it where the engine printed one, and nothing where it did not.
-`.claude/rules/spec-reports.md` carries the shape, including why a rigid
+`.claude/skills/spec-diff/review-wait.md` carries the shape, including why a rigid
 contract took that line.
 
 - **Never write the review unasked**, and **never publish** — there is no
@@ -361,7 +361,7 @@ underneath a reader when detection flipped mid-session.
 So: **relay all three tier lines, every time.** Any `also:` lines sit under
 their tier — the other addresses this machine has of that kind — so pass them
 on rather than editing them out: in the banner they are indented sub-bullets
-under that tier, labels included, exactly as `.claude/rules/spec-reports.md`
+under that tier, labels included, exactly as `.claude/skills/spec-diff/review-wait.md`
 shows.
 
 **Never read an environment variable to decide anything about the offer** — not
@@ -404,7 +404,7 @@ the shape; this section carries only what is specific here.
 
 **`Review` is emitted only where step 5b did not run** — a project with no
 isolation, or a render that failed. Where the run is waiting, the banner carries
-the whole subject and the row is dropped, per `.claude/rules/spec-reports.md`.
+the whole subject and the row is dropped, per `.claude/skills/spec-diff/review-wait.md`.
 
 `Cause` is the root cause in one clause and `Built` is the fix — the
 failing→passing test belongs in `Tests`, named, so the evidence is a test name

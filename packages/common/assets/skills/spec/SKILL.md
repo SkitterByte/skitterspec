@@ -140,7 +140,7 @@ far — so it grills only what it still needs ("seed, don't skip, the grill",
 exactly as issue adoption does). Do not stop and tell the user to retype: that
 shape belongs to Phase 0's label routing, which fires before any grilling has
 happened and so has nothing to lose. The full routing matrix lives in
-`.claude/rules/spec-planning.md`.
+`.claude/skills/spec/kind-routing.md`.
 
 ### Propose the kind — feature, chore or issue (or an epic of them)
 
@@ -161,7 +161,7 @@ The kind is recorded twice, and both follow from the answer: the folder prefix
 also defaults its `Gating:` to `none: not user-facing` (only when gating is
 configured — offer the default, let the user override it like any other
 answer), and its commits default to `chore`/`refactor`/`ci` types with no
-`Release-Note:` (see `.claude/rules/spec-planning.md`). An issue defaults its
+`Release-Note:` (see `.claude/rules/spec-format.md`). An issue defaults its
 `Gating:` to `none: no code`, and its commits to `docs` with no
 `Release-Note:` — its phases are manual steps, not code, though `/spec-start`
 still gives it a worktree, because the document needs one and the history is
@@ -593,7 +593,7 @@ the verdict — and the reader's conclusion is about what the page showed them.
    the whole scope of what you may claim.
 2. **Run the engine's wait, and end your turn** — under the harness's
    persistent watch primitive where one exists, else in the background
-   (`.claude/rules/spec-reports.md` carries the preference):
+   (`.claude/skills/spec-diff/review-wait.md` carries the preference):
 
    ```
    skitterspec spec-env review wait <spec> --since <the timestamp>
@@ -605,7 +605,7 @@ the verdict — and the reader's conclusion is about what the page showed them.
 3. **On waking, let the engine pick:**
 
 **A watch that dies is re-armed on the same window**, silently and bounded by
-the age of that window — `.claude/rules/spec-reports.md` carries the contract,
+the age of that window — `.claude/skills/spec-diff/review-wait.md` carries the contract,
 including when to stop, what the banner says instead, and when the
 engine's `re-show:` brings the banner back. Do not restate it here.
 
@@ -621,11 +621,11 @@ engine's `re-show:` brings the banner back. Do not restate it here.
 to POST to, so the pass is copied and pasted and the reader's next message is
 what carries it. **Do not start a watch that cannot fire**: a wait on the pending
 store would spin forever while the report underneath it claimed to be holding,
-which is the exact failure `.claude/rules/spec-reports.md` records. The wait is
+which is the exact failure `.claude/skills/spec-diff/review-wait.md` guards against. The wait is
 the turn ending, and the banner says so.
 
 Relay the engine's **stack** — the `local:`, `network:` and `remote:` lines, all
-three, in that order — never the bare `page:` path. `.claude/rules/spec-reports.md`
+three, in that order — never the bare `page:` path. `.claude/skills/spec-diff/review-wait.md`
 carries the shape and why every tier is named rather than one being chosen.
 
 ## Phase D — record the isolation stack (only if configured)
@@ -693,7 +693,7 @@ appears where isolation is off: nothing was provisioned and nothing was landed.
 
 **`Next` depends on whether Phase C2 rendered a page.** Where it did, the run is
 waiting on a verdict, so the block **omits the `Review` row** and ends on the
-banner defined in `.claude/rules/spec-reports.md` — counts, the tier stack, and
+banner defined in `.claude/skills/spec-diff/review-wait.md` — counts, the tier stack, and
 this page's two exits:
 
 ---

@@ -29,8 +29,8 @@ test('/spec proposes feature-or-chore and never ships a /spec-chore door', () =>
   assert.doesNotMatch(skill, /\/spec-chore\b.*\n.*run/i, 'no chore entry skill is pointed at')
 })
 
-test('spec-planning names all four kinds, prefixes and header values', () => {
-  const rule = asset('rules', 'spec-planning.md')
+test('spec-format names all four kinds, prefixes and header values', () => {
+  const rule = asset('rules', 'spec-format.md')
   for (const prefix of ['feat-<name>', 'chore-<name>', 'bug-<name>', 'hotfix-<name>']) {
     assert.ok(rule.includes(prefix), `${prefix} is listed`)
   }

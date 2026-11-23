@@ -212,10 +212,12 @@ test('/spec-complete refuses an epic with open members and offers completion', (
   assert.match(text, /complete anyway with them listed as outstanding/)
 })
 
-test('spec-planning names the Epic kind, its headers and the migration', () => {
-  const rule = asset('rules', 'spec-planning.md')
+test('the spec format names the Epic kind, its headers and the migration', () => {
+  // The kind and headers are in the scoped spec-format rule; the epic detail
+  // and migration in the epic skill's own file (feat-rules-budget).
+  const rule = asset('rules', 'spec-format.md') + asset('skills', 'spec-epic-next', 'epics.md')
   assert.ok(rule.includes('epic-<name>'), 'the prefix is listed')
   assert.match(rule, /> \*\*Type:\*\* Epic/)
   for (const h of ['Epic:', 'Waits on:', 'Lanes:']) assert.ok(rule.includes(`> **${h}**`), h)
-  assert.match(rule, /\*\*Migrating an `issue-` plan spec to an epic\.\*\*/)
+  assert.match(rule, /## Migrating an `issue-` plan spec to an epic/)
 })

@@ -32,6 +32,9 @@ const SPEC = skillText('spec')
 const SPEC_START = skillText('spec-start')
 const PLANNING = ruleText('common', 'spec-planning.md')
 const REPORTS = ruleText('common', 'spec-reports.md')
+// Authoring in a worktree, landing and staging are detailed in the skill file
+// /spec-start reads, since feat-rules-budget took them out of the rule.
+const ISOLATION = fs.readFileSync(path.join(ASSETS, 'skills', 'spec-start', 'isolation.md'), 'utf8')
 const TRAILERS = ruleText('linear', 'commit-trailers.md')
 
 // --- it provisions, and provisions at the right moment ----------------------
@@ -145,31 +148,25 @@ test('/spec gains a ❌ verdict for a land that failed part-way', () => {
 // --- the rules follow the skill ---------------------------------------------
 
 test('spec-planning.md carries the landing-zone rule for authoring', () => {
-  assert.match(PLANNING, /`main` is where work \*\*lands\*\*, not where it happens/)
-  assert.match(PLANNING, /spec-env up <name> --docs/)
-  assert.match(PLANNING, /\*\*The committing verdict is what puts it on the base branch\.\*\*/)
+  assert.match(PLANNING, /`main` is where work lands,\s+not where it happens/)
+  assert.match(ISOLATION, /spec-env up <name> --docs/)
+  assert.match(ISOLATION, /the base gains the spec as one commit/)
 })
 
-test('spec-planning.md keeps arm-nothing, with the better reason', () => {
-  assert.match(PLANNING, /Phase C2 still \*\*arms nothing\*\*/)
-  assert.match(PLANNING, /a backlog spec owes no phase/)
-  assert.match(PLANNING, /costs nobody anything rather than leaving a mess/)
+test('isolation.md keeps arm-nothing for the authoring page', () => {
+  assert.match(ISOLATION, /The authoring page arms\nnothing, because a backlog spec owes no phase/)
 })
 
 test("spec-planning.md's skill table row says where the spec lands", () => {
   assert.match(PLANNING, /\| `\/spec` \|.*in its own worktree.*\|/)
-  // Both lanes, since land.specDocs: the fast-forward default and the
-  // ride-the-branch exception.
-  assert.match(PLANNING, /on the base branch by a fast-forward/)
-  assert.match(PLANNING, /riding the feature branch under `land\.specDocs: "branch"`/)
+  // Both lanes: the fast-forward default and the ride-the-branch exception.
+  assert.match(PLANNING, /its committing verdict lands it on the base branch/)
+  assert.match(PLANNING, /`land\.specDocs: "branch"` it rides the feature branch instead/)
 })
 
-test('spec-env stage keeps its justification, replaced rather than dropped', () => {
-  // Its original reason — several specs sharing one `specs/` folder — is gone.
-  // Something smaller and just as real has to stand in its place, or the next
-  // reader deletes the call as obsolete.
-  assert.match(PLANNING, /stays load-bearing now that `\/spec` authors in its own worktree/)
-  assert.match(PLANNING, /companionPaths/)
+test('spec-env stage keeps its scope: the spec documents, never its code', () => {
+  assert.match(ISOLATION, /each `spec\.companionPaths` entry/)
+  assert.match(ISOLATION, /Code is\nalways \*\*foreign\*\*/)
 })
 
 test('commit-trailers.md says the bare ref is now correct for a new spec', () => {
@@ -184,9 +181,9 @@ test('commit-trailers.md says the bare ref is now correct for a new spec', () =>
   )
 })
 
-test('spec-reports.md drops the where-to-write caveat from the follow-up offer', () => {
-  assert.match(REPORTS, /The offer needs no caveat about where/)
-  assert.match(REPORTS, /Take the offer and\s*\nlet `\/spec` handle it/)
+test('spec-reports.md offers the follow-up with no caveat about where', () => {
+  assert.match(REPORTS, /offer to `\/spec` it on the spot/)
+  assert.doesNotMatch(REPORTS, /primary checkout/)
 })
 
 // ---------------------------------------------------------------------------
@@ -209,10 +206,9 @@ test('STAYS SILENT: the report omits Landed and Worktree where nothing was provi
 })
 
 test('STAYS SILENT: the rules say the old behaviour is unchanged without isolation', () => {
-  assert.match(PLANNING, /With isolation \*\*absent\*\* none of this applies/)
-  assert.match(PLANNING, /exactly as it always did/)
+  assert.match(PLANNING, /Without\n`env\.config\.json`, none of this applies/)
+  assert.match(ISOLATION, /Without it, every skill\nworks in the checkout it is standing in/)
   assert.match(TRAILERS, /Without isolation the split is still real/)
-  assert.match(REPORTS, /Where isolation is absent there is no worktree to move to/)
 })
 
 test('STAYS SILENT: the spec-in-another-worktree warning survives', () => {

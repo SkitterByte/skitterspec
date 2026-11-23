@@ -44,7 +44,7 @@ straight into `specs/in-progress/` — so the grill's own answers are also its
 exit. When items 1 and 2 establish there is **no outage to record** — nothing
 is down or degraded, it never was live, or it is a risk rather than an event —
 propose the right door instead of writing an incident
-(`.claude/rules/spec-planning.md` carries the full routing matrix):
+(`.claude/skills/spec/kind-routing.md` carries the full routing matrix):
 
 - a **defect** → **`/spec-bug`**, or **`/spec-hotfix`** when it is on a
   released version;

@@ -39,46 +39,42 @@ test('nothing may claim a pass without a pick, and the trade is explained', () =
   assert.match(NEXT, /routing around the \*\*mechanism\*\*/)
 })
 
+// The banner's shape and the wait moved into the skill file every rendering
+// skill reads (feat-rules-budget); the rule keeps what may follow the block.
+const WAIT = read('skills', 'spec-diff', 'review-wait.md')
+
 test('the rule permits two controls after the block, and still bans prose', () => {
-  assert.match(RULE, /\*\*Two controls may follow the block, and nothing else ever\.\*\*/)
-  assert.match(RULE, /\*\*The first is a picker\.\*\*/)
-  assert.match(RULE, /\*\*The second is the review call-to-action\*\*/)
-  // The reasoning, so the next reader does not delete either as a violation of
-  // the sentence three paragraphs above it.
-  assert.match(RULE, /A control does not compete/i)
-  assert.match(RULE, /Prose after either of them is the\s*\n?\s*same violation/i)
+  assert.match(RULE, /\*\*Only two controls may follow it\*\*: a picker/)
+  assert.match(RULE, /the \*\*review banner\*\*, only when the run is actually\n  waiting on a verdict/)
+  assert.match(RULE, /Do not add prose after the block/)
 })
 
-// THE BANNER IS EARNED BY WAITING, not by having rendered a page. A render
-// nobody is held for stays a row — giving every page a banner is how a reader
-// learns to scroll past banners.
+// THE BANNER IS EARNED BY WAITING, not by having rendered a page.
 test('the banner is reserved for a run that is actually waiting', () => {
-  assert.match(RULE, /only where the run is actually\s*\n?\s*\*\*waiting\*\* on a verdict/i)
-  // The shapes are now derived from one rule rather than listed as two
-  // situations, so what is pinned is the rule and both of its branches.
-  assert.match(RULE, /\*\*ASKING IMPLIES WAITING/)
-  assert.match(RULE, /\*\*Not asking\*\* → the `Review` row/)
-  assert.match(RULE, /A render nobody is being held for is still worth reporting/)
+  assert.match(RULE, /\*\*Asking implies waiting\.\*\*/)
+  assert.match(RULE, /A run that is not going to wait does not\nask/)
   // And the two must not both appear: one subject, one place.
-  assert.match(RULE, /\*\*Omitted entirely when the run is waiting on a verdict\*\*/)
+  assert.match(RULE, /\*\*Omitted when the run is waiting\*\*/)
+  assert.match(WAIT, /Use it only where the run is \*\*waiting\*\* on a verdict/)
+  assert.match(WAIT, /Never use both the row and the banner/)
 })
 
 // It is a SHAPE, not a sentence — a rule, a heading, the link, the exits.
 test('the banner has a defined shape rather than being left to taste', () => {
-  assert.match(RULE, /## ⏸ Review ready/)
-  assert.match(RULE, /I'm holding here until you send a verdict/)
-  assert.match(RULE, /`\/spec-reviewed` picks it up/)
-  assert.match(RULE, /never a\s*\n?\s*paragraph explaining it/i)
+  assert.match(WAIT, /## ⏸ Review ready/)
+  assert.match(WAIT, /I'm holding here until you send a verdict/)
+  assert.match(WAIT, /`\/spec-reviewed` picks it up/)
+  assert.match(WAIT, /no\nexplanatory paragraph/)
 })
 
 // The rule was stated and broken repeatedly, which makes it a missing
 // DESTINATION rather than a missing prohibition.
 test('the rule names where that content goes, not only that it may not follow', () => {
-  assert.match(RULE, /\*\*if it is worth telling the reader, it is a row\.\*\*/)
-  assert.match(RULE, /\*\*If it is not a row, it is not worth telling them\.\*\*/)
+  assert.match(RULE, /If something is worth telling\n  the reader, it is a row/)
+  assert.match(RULE, /If it is not a row, leave it out/)
   assert.match(RULE, /^\| `Notes` \|/m, 'and the row exists')
   // Distinguished from the two fields it would otherwise be confused with.
-  assert.match(RULE, /Not a caveat on the outcome/)
+  assert.match(RULE, /This is not a\s+caveat on the outcome/)
   assert.match(RULE, /not future work/)
 })
 

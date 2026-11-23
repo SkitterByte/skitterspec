@@ -192,7 +192,7 @@ API that moved, a task the code already does. `Spec` carries the status the
 review leaves it in, which is the answer to "can I start this?".
 
 **Where step 4b rendered a page the run is waiting**, so the block omits the
-`Review` row and ends on the banner from `.claude/rules/spec-reports.md` — the
+`Review` row and ends on the banner from `.claude/skills/spec-diff/review-wait.md` — the
 tier stack copied from the engine's own lines, never one link chosen for the
 reader:
 

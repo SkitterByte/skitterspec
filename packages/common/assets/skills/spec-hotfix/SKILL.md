@@ -16,7 +16,7 @@ a **release tag**, not `main`: prod is running a tagged version, so the fix must
 be built on **that** commit line, shipped as a **new patch tag** (your CI/CD
 deploys tags), and only then cherry-picked onto `main` for the next release.
 
-Spec type convention (see `.claude/rules/spec-planning.md`):
+Spec type convention (see `.claude/rules/spec-format.md`):
 - Hotfix specs are named `hotfix-<kebab-name>`; every header carries
   `> **Type:** Hotfix` and `> **Base version:** <tag>`.
 - Branch is `hotfix/<slug>`, forked from the base tag.
@@ -71,7 +71,7 @@ Hotfixes are concrete — confirm, don't over-grill. Establish:
 ### Watch for the other doors — incident, bug, or not a defect
 
 This is the most specific defect door, so most mis-entries route *down*
-(`.claude/rules/spec-planning.md` carries the full routing matrix):
+(`.claude/skills/spec/kind-routing.md` carries the full routing matrix):
 
 - **Live outage** — the released version is not just wrong but down or
   degraded **right now** → propose **`/spec-incident`**; the record comes
@@ -358,7 +358,7 @@ Relay the engine's **stack** — the `local:`, `network:` and `remote:` lines, a
 three — rather than the bare `page:` path: a path is not clickable in any
 terminal, and a page nobody can open is a page nobody reads. Relay the `live:`
 line with it where the engine printed one, and nothing where it did not.
-`.claude/rules/spec-reports.md` carries the shape, including why a rigid
+`.claude/skills/spec-diff/review-wait.md` carries the shape, including why a rigid
 contract took that line.
 
 - **Never write the review unasked**, and **never publish** — there is no
@@ -375,7 +375,7 @@ underneath a reader when detection flipped mid-session.
 So: **relay all three tier lines, every time.** Any `also:` lines sit under
 their tier — the other addresses this machine has of that kind — so pass them
 on rather than editing them out: in the banner they are indented sub-bullets
-under that tier, labels included, exactly as `.claude/rules/spec-reports.md`
+under that tier, labels included, exactly as `.claude/skills/spec-diff/review-wait.md`
 shows.
 
 **Never read an environment variable to decide anything about the offer** — not
@@ -428,7 +428,7 @@ the shape; this section carries only what is specific here.
 
 **`Review` is emitted only where step 6b did not run** — a project with no
 isolation, or a render that failed. Where the run is waiting, the banner carries
-the whole subject and the row is dropped, per `.claude/rules/spec-reports.md`.
+the whole subject and the row is dropped, per `.claude/skills/spec-diff/review-wait.md`.
 
 **The base tag goes in the verdict clause** — `✅ /spec-hotfix · hotfix-foo ·
 green on v2.3.1`. Which released version this was fixed against is the first

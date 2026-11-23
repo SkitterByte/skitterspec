@@ -167,9 +167,9 @@ test('the follow-up offer needs no caveat about where the spec is written', () =
 
 test('spec-planning.md carries the row and the reasoning', () => {
   assert.match(PLANNING, /\| `\/no-spec` \|.*no spec.*\|/)
-  assert.match(PLANNING, /\*\*`\/no-spec` is the one row that writes no spec\*\*/)
-  assert.match(PLANNING, /skitterspec spec-env nospec <name>/)
-  assert.match(PLANNING, /It is model-invocable, which\s*\nmatters/)
+  // It is not among the user-only skills, which is what lets Claude be sent
+  // there when it would otherwise write on the base branch.
+  assert.match(PLANNING, /`\/no-spec <name>`, which Claude may take on its own/)
 })
 
 // ---------------------------------------------------------------------------

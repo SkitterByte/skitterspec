@@ -48,7 +48,7 @@ test('the rung is the same resolution the rest of the workflow already uses', ()
   assert.match(NEXT, /sole provisioned spec/i)
   // The rule file claims this resolution has no exceptions left. /spec-next was
   // one, silently, which is the bug.
-  assert.match(PLANNING, /else the sole provisioned spec/)
+  assert.match(PLANNING, /or else the only provisioned spec/)
 })
 
 test('several worktrees stay a refusal, not a pick', () => {

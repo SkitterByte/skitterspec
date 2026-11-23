@@ -103,23 +103,19 @@ test('the hook guards the first write, and says why not the commit', () => {
 // --- the rule ---------------------------------------------------------------
 
 test('spec-planning.md carries the guard, its signal and its exits', () => {
-  assert.match(PLANNING, /\*\*`\/allow-main` is the third command\.\*\*/)
   assert.match(PLANNING, /main-guard\.cjs/)
-  assert.match(PLANNING, /positive signal/)
-  assert.match(PLANNING, /every cannot-tell allows the write in silence/)
-  assert.match(PLANNING, /skitterspec spec-env main\n<check\|allow\|status>/)
+  assert.match(PLANNING, /\*\*primary checkout on the base branch\*\*/)
+  assert.match(PLANNING, /Every guard fails \*\*open\*\* on a cannot-tell/)
+  assert.match(PLANNING, /skitterspec spec-env main <check\|allow\|status>/)
   assert.match(PLANNING, /guards\.mainIsLandingZone/)
 })
 
-test('spec-planning.md says the allowlist is empty by construction', () => {
+test('spec-planning.md says there is no allowlist', () => {
   assert.match(PLANNING, /There is \*\*no allowlist\*\*/)
-  assert.match(PLANNING, /empty by construction rather than by\nomission/)
-  // The apparent exception, named and dismissed.
-  assert.match(PLANNING, /`\/spec-init` looks\nlike the exception and is not one/)
 })
 
 test('spec-planning.md states the two exits and that they are not equal', () => {
-  assert.match(PLANNING, /\*\*Two exits, and they are not equal\.\*\*/)
-  assert.match(PLANNING, /Claude takes those on its own/)
-  assert.match(PLANNING, /only a person can type it/)
+  assert.match(PLANNING, /which Claude may take on its own/)
+  assert.match(PLANNING, /Only a person can type `\/allow-main`/)
+  assert.match(PLANNING, /Claude must never be able to lift a guard aimed at Claude/)
 })

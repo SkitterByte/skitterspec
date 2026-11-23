@@ -94,13 +94,10 @@ test('nothing is left claiming to follow the block', () => {
   assert.doesNotMatch(NEXT, /as the final thing on screen/)
 })
 
-test('the banner is justified, not merely permitted', () => {
-  // Without the reasoning, the next reader deletes it as a violation of the
-  // no-prose-after-the-block rule sitting three paragraphs above it.
+test('the banner is permitted only where the run is waiting', () => {
   const rule = fs.readFileSync(path.join(ASSETS, 'rules', 'spec-reports.md'), 'utf8')
-  assert.match(rule, /\*\*This is not the old failure returning\*\*/)
-  assert.match(rule, /the run now \*waits\*/)
-  assert.match(rule, /A row cannot carry that/)
+  assert.match(rule, /only when the run is actually\n  waiting on a verdict/)
+  assert.match(rule, /\*\*Asking implies waiting\.\*\*/)
 })
 
 // The phase now WAITS for the verdict rather than asking a question a chained
@@ -123,8 +120,8 @@ test('the contract confines the block to the run that produced it', () => {
     path.join(ASSETS, 'rules', 'spec-reports.md'),
     'utf8',
   )
-  assert.match(rule, /It reports this run and nothing else/)
-  assert.match(rule, /`Next` is the single next action \*\*for this work\*\*/)
+  assert.match(rule, /\*\*Report this run only\.\*\*/)
+  assert.match(rule, /\*\*`Next` is the single next action for this work\*\*/)
   const complete = skillText('spec-complete')
   assert.match(complete, /Report this spec and no other/)
 })
@@ -195,14 +192,12 @@ test('the banner only promises a wait the transport can deliver', () => {
   assert.doesNotMatch(NEXT, /a verdict here needs `\/spec-reviewed`/)
   assert.doesNotMatch(NEXT, /the artifact store/i)
 
-  const rule = fs.readFileSync(path.join(ASSETS, 'rules', 'spec-reports.md'), 'utf8')
-  assert.match(rule, /\*\*Only promise a wait the transport can deliver\.\*\*/)
-  assert.match(rule, /I cannot see it until you\s*\n?\s*do/)
+  const rule = fs.readFileSync(path.join(ASSETS, 'skills', 'spec-diff', 'review-wait.md'), 'utf8')
+  assert.match(rule, /\*\*Only promise a wait the transport can deliver:\*\*/)
+  assert.match(rule, /I cannot see it\n  until you do/)
   // The wait is real on every transport — only what carries it back varies.
-  // "No file-watch" was once an exemption from waiting at all, and that is the
-  // hatch a whole class of unanswerable questions came through.
-  assert.match(rule, /The wait itself is real in\s*\n?every case/)
-  assert.match(rule, /does not get an exemption/)
+  // "No file-watch" was once an exemption from waiting at all.
+  assert.match(rule, /the turn ending is the wait\. You still\n  wait/)
 })
 
 // ONE LINK PER REACHABLE STORE. The rule used to read "exactly one link, never
@@ -222,13 +217,9 @@ test('every tier is offered, labelled, and the wait says which it covers', () =>
   // STAYS SILENT: there is no publishing left to permit or refuse.
   assert.doesNotMatch(NEXT, /Publishing is still never yours to do/)
 
-  const rule = fs.readFileSync(path.join(ASSETS, 'rules', 'spec-reports.md'), 'utf8')
-  assert.match(rule, /\*\*One link per door, each labelled, all into one store\.\*\*/)
-  // The original evidence, carried into the amendment rather than dropped with
-  // the wording it justified.
-  assert.match(rule, /the caveat existing was the bug/)
-  assert.match(rule, /three times while each one sat unread/)
-  assert.match(rule, /Local, network and remote are three doors into one room/)
+  const rule = fs.readFileSync(path.join(ASSETS, 'skills', 'spec-diff', 'review-wait.md'), 'utf8')
+  assert.match(rule, /\*\*One link per door, each labelled, all into one store\*\*/)
+  assert.match(rule, /every tier reaches the same server and the\nsame pending store/)
 })
 
 // STAYS SILENT (`.claude/rules/negative-checks.md` rule 3): the SUBSTANCE of the
@@ -237,17 +228,9 @@ test('every tier is offered, labelled, and the wait says which it covers', () =>
 // into DIFFERENT stores and let the reader work out which one the wait watches —
 // that is the exact failure, and it is still forbidden in as many words.
 test('the amended rule still forbids what the original one was written against', () => {
-  const rule = fs.readFileSync(path.join(ASSETS, 'rules', 'spec-reports.md'), 'utf8')
-  assert.match(
-    rule,
-    /\*\*Still forbidden\*\*, in the words of the rule this amends: offering two links\s*\n?into \*\*different\*\* stores without saying which one the wait is watching/,
-    'the prohibition survives the widening, stated as a prohibition',
-  )
-  // And the two halves that make a labelled stack different from two bare links.
-  assert.match(rule, /Two \*unlabelled\* links stay forbidden exactly as before/)
-  assert.match(rule, /one line says\s*\n?\*\*which tiers the wait covers\*\*/)
-  // The second store is gone rather than folded in: the rule says it was retired.
-  assert.match(rule, /which is why the second store was retired rather\s*\n?than caveated/)
+  const rule = fs.readFileSync(path.join(ASSETS, 'skills', 'spec-diff', 'review-wait.md'), 'utf8')
+  assert.match(rule, /\*\*Still forbidden\*\*: links into \*\*different\*\* stores\nwithout saying which one the wait is watching, and two unlabelled links/)
+  assert.match(rule, /The holding line\*\* names the tiers the engine's `covers` lists/)
 })
 
 test('/spec-diff says which store the wait actually watches', () => {

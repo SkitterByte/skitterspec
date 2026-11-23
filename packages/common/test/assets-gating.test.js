@@ -71,7 +71,7 @@ test('the rules file documents the header and the check that never blocks', () =
     .replace(/\s+/g, ' ')
   assert.match(flat, /> \*\*Gating:\*\*/)
   assert.match(flat, /always exits 0/i)
-  assert.match(flat, /the offer, never the mechanism/i)
+  assert.match(flat, /never reads flag code/i)
 })
 
 // --- the reporting half ------------------------------------------------------

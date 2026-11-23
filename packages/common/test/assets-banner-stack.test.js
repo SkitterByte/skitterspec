@@ -30,7 +30,9 @@ const fs = require('node:fs')
 const path = require('node:path')
 
 const ASSETS = path.join(__dirname, '..', 'assets')
-const RULE = fs.readFileSync(path.join(ASSETS, 'rules', 'spec-reports.md'), 'utf8')
+// The banner and its stack moved out of the always-loaded rules into the skill
+// file every rendering skill reads (feat-rules-budget).
+const RULE = fs.readFileSync(path.join(ASSETS, 'skills', 'spec-diff', 'review-wait.md'), 'utf8')
 const skillText = (name) => fs.readFileSync(path.join(ASSETS, 'skills', name, 'SKILL.md'), 'utf8')
 
 // Every skill that puts a review page in front of a reader. The first three
@@ -47,38 +49,31 @@ test('the rule names all three tiers, in the order the engine prints them', () =
   }
   assert.ok(at('local') < at('network'), 'local before network')
   assert.ok(at('network') < at('remote'), 'network before remote')
-  assert.match(RULE, /\*\*Three tiers, always all three, in this order\.\*\*/)
+  assert.match(RULE, /\*\*Three tiers, always all three, in this order\*\*/)
 })
 
 test('a tier that is off keeps its line and names what turns it on', () => {
   assert.match(RULE, /A tier that is off \*\*keeps its line\*\*/)
-  assert.match(RULE, /names the one command that turns it\s*\n?on/)
-  // The failure that earned it: a reader off the network with nothing on screen
-  // to tell them the remote surface existed, so they could not ask for it.
-  assert.match(RULE, /could not\s*\n?ask for what they could not see/)
+  assert.match(RULE, /naming the one command that turns it on/)
 })
 
 // THE LOAD-BEARING REASON. Without it the amendment reads as "more links are
 // fine", which is the failure it was careful not to be.
 test('the rule records why local, network and remote are one store', () => {
-  assert.match(RULE, /\*\*Local, network and remote are three doors into one room\.\*\*/)
-  assert.match(RULE, /fetch\(location\.pathname/)
-  assert.match(RULE, /the same\s*\n?pending store/)
-  assert.match(RULE, /One wait covers all three/)
+  assert.match(RULE, /every tier reaches the same server and the\nsame pending store/)
+  assert.match(RULE, /one wait covers them all/)
 })
 
 test('the rule makes remote the tailnet, and keeps no second-store caveat', () => {
   assert.match(RULE, /\| `remote` \| the tailnet URL/)
-  assert.match(RULE, /fourth amendment/)
   // STAYS SILENT: the published tier and its caveat are gone, not reworded.
   assert.doesNotMatch(RULE, /`remote` keeps the caveat it always had/)
   assert.doesNotMatch(RULE, /a verdict here needs `\/spec-reviewed`/)
   assert.doesNotMatch(RULE, /spec-remote-review/)
 })
 
-test('the stack is written out once, and said to be written out once', () => {
-  assert.match(RULE, /The stack is written out once, above, and referred to everywhere else/)
-  // One `- **local** —` example line in the whole rule: the banner's. A second
+test('the stack is written out once', () => {
+  // One `- **local** —` example line in the whole file: the banner's. A second
   // copy is how the two come to disagree about which tiers exist.
   const copies = [...RULE.matchAll(/^- \*\*local\*\* —/gm)]
   assert.equal(copies.length, 1, 'exactly one worked example of the stack')
@@ -88,7 +83,7 @@ test('the stack is written out once, and said to be written out once', () => {
 
 test('the absolute one-link wording is gone from the rule and the skills', () => {
   assert.doesNotMatch(RULE, /\*\*Exactly one link, never two\.\*\*/)
-  assert.match(RULE, /\*\*One link per door, each labelled, all into one store\.\*\*/)
+  assert.match(RULE, /\*\*One link per door, each labelled, all into one store\*\*/)
   for (const name of RENDERS) {
     const text = skillText(name)
     assert.doesNotMatch(text, /\*\*Never offer both\.\*\*/, `${name} no longer picks one link`)
@@ -174,19 +169,16 @@ test('STAYS SILENT: the skills that land branches gain no stack at all', () => {
 // decided it would be the guess one layer up that the stack exists to remove.
 
 test('the rule names the hidden-local exception, its signal and its fallback', () => {
-  assert.match(RULE, /\*\*One exception: a reader on another machine sees no `local` line\.\*\*/)
-  assert.match(RULE, /third amendment/)
+  assert.match(RULE, /\*\*The one exception is the engine's, not yours\.\*\*/)
   assert.match(RULE, /SKITTERSPEC_READER=remote/)
-  assert.match(RULE, /only\s+when `network` has a URL/)
-  assert.match(RULE, /marked `hidden` in `--json` is absent from the printed stack/)
-  assert.match(RULE, /names the\s+engine's\s+`covers`/)
-  // The one detection admitted, and the argument that admits it.
-  assert.match(RULE, /a Windows session with no\s+desktop \(no `SESSIONNAME`/)
-  assert.match(RULE, /what a wrong guess costs/)
+  assert.match(RULE, /only when `network` has a\nURL/)
+  assert.match(RULE, /marked `hidden` in `--json` is absent from the\nprinted stack/)
+  assert.match(RULE, /names the tiers the engine's `covers` lists/)
+  assert.match(RULE, /a Windows session with no `SESSIONNAME`/)
 })
 
 test('STAYS SILENT: the off-tier rule itself is unchanged', () => {
   // The exception is for a door that cannot open, not for one that is off.
   assert.match(RULE, /A tier that is off \*\*keeps its line\*\*/)
-  assert.match(RULE, /\*\*Three tiers, always all three, in this order\.\*\*/)
+  assert.match(RULE, /\*\*Three tiers, always all three, in this order\*\*/)
 })

@@ -23,15 +23,15 @@ const path = require('node:path')
 
 const ASSETS = path.join(__dirname, '..', 'assets')
 const skill = (name) => fs.readFileSync(path.join(ASSETS, 'skills', name, 'SKILL.md'), 'utf8')
-const rule = (name) => fs.readFileSync(path.join(ASSETS, 'rules', name), 'utf8')
 
 // The four documents that stand behind a wait: the three skills that ask for a
-// verdict, and the contract that defines the sentence they print while waiting.
+// verdict, and the file that defines the sentence they print while waiting.
 const DOCS = {
   'spec-next/SKILL.md': skill('spec-next'),
   'spec-bug/SKILL.md': skill('spec-bug'),
   'spec-diff/SKILL.md': skill('spec-diff'),
-  'rules/spec-reports.md': rule('spec-reports.md'),
+  // The contract moved out of the rule into the file the waiting skills read.
+  'spec-diff/review-wait.md': fs.readFileSync(path.join(ASSETS, 'skills', 'spec-diff', 'review-wait.md'), 'utf8'),
 }
 
 for (const [name, text] of Object.entries(DOCS)) {
@@ -67,7 +67,7 @@ test('the reasoning names the silence, not just the bug', () => {
 })
 
 test('the report contract ties the banner to the wait actually running', () => {
-  const reports = DOCS['rules/spec-reports.md']
+  const reports = fs.readFileSync(path.join(__dirname, '..', 'assets', 'skills', 'spec-diff', 'review-wait.md'), 'utf8')
   assert.match(reports, /I'm holding here until you send a verdict/, 'the promise is still there')
   assert.match(
     reports,

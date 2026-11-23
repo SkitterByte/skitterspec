@@ -120,7 +120,7 @@ skitterspec spec-env review arm <name>
 ```
 
 **This skill arms, and `/spec` does not.** That asymmetry is the rule in
-`.claude/rules/spec-reports.md` rather than a choice made here: the gate asserts
+`.claude/skills/spec-diff/review-page.md` rather than a choice made here: the gate asserts
 that *finished work* owes an answer, and this is finished work. A written spec
 owes no phase, so authoring arms nothing.
 
@@ -135,7 +135,7 @@ because writing it means reading the diff, and that spend is the user's call.
    the whole scope of what you may claim.
 2. **Run the engine's wait, and end your turn** — under the harness's
    persistent watch primitive where one exists, else in the background
-   (`.claude/rules/spec-reports.md` carries the preference):
+   (`.claude/skills/spec-diff/review-wait.md` carries the preference):
 
    ```
    skitterspec spec-env review wait <name> --since <the timestamp>
@@ -146,7 +146,7 @@ because writing it means reading the diff, and that spend is the user's call.
 3. **On waking, let the engine pick:**
 
 **A watch that dies is re-armed on the same window**, silently and bounded by
-the age of that window — `.claude/rules/spec-reports.md` carries the contract,
+the age of that window — `.claude/skills/spec-diff/review-wait.md` carries the contract,
 including when to stop, what the banner says instead, and when the
 engine's `re-show:` brings the banner back. Do not restate it here.
 
@@ -159,7 +159,7 @@ engine's `re-show:` brings the banner back. Do not restate it here.
 
 Relay the engine's **stack** — the `local:`, `network:` and `remote:` lines, all
 three, in that order — never the bare `page:` path.
-`.claude/rules/spec-reports.md` carries the shape and why every tier is named.
+`.claude/skills/spec-diff/review-wait.md` carries the shape and why every tier is named.
 
 ### Route on the verdict
 

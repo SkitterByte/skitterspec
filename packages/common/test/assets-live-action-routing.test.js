@@ -22,7 +22,9 @@ const path = require('node:path')
 
 const ASSETS = path.join(__dirname, '..', 'assets')
 const skillText = (name) => fs.readFileSync(path.join(ASSETS, 'skills', name, 'SKILL.md'), 'utf8')
-const RULE = fs.readFileSync(path.join(ASSETS, 'rules', 'spec-reports.md'), 'utf8')
+// The banner moved into the skill file every rendering skill reads
+// (feat-rules-budget); its amendment history is in docs/rationale.
+const RULE = fs.readFileSync(path.join(ASSETS, 'skills', 'spec-diff', 'review-wait.md'), 'utf8')
 const DIFF = skillText('spec-diff')
 const NEXT = skillText('spec-next')
 
@@ -136,24 +138,14 @@ test('the rule puts the live line in the banner, with the stack', () => {
 })
 
 test('the rule says the live line is the engine\'s, from one function', () => {
-  assert.match(RULE, /It is the engine's line, copied like the stack/)
-  assert.match(RULE, /`--json` carries the same answer as `live`, from one function/)
+  assert.match(RULE, /\*\*`live:`\*\* is the engine's line, copied as printed/)
 })
 
 // STAYS SILENT (`.claude/rules/negative-checks.md` rule 3). `unavailable` is
 // cannot-tell — no isolation, no worktree — and both are healthy. A line about
 // a surface that does not exist is an accusation.
 test('STAYS SILENT: the rule requires no line for an unavailable state', () => {
-  assert.match(RULE, /The fourth, `unavailable`,\s*\n?\*\*prints nothing at all\*\*/)
-  assert.match(RULE, /an accusation against a\s*\n?healthy repo/)
-})
-
-// A RIGID CONTRACT TOOK TWO AMENDMENTS IN TWO SPECS, and that is worth being
-// unable to forget. The contract earns its rigidity from real failures; two in a
-// row is how it becomes negotiable.
-test('the rule names its own second amendment and raises the bar', () => {
-  assert.match(RULE, /This is the second amendment to this section in two specs/)
-  assert.match(RULE, /\*\*A third should have to argue harder than either did\.\*\*/)
+  assert.match(RULE, /When the engine prints none,\nleave it out/)
 })
 
 // --- the skills point at the rule, and inline no second shape -------------
@@ -194,20 +186,11 @@ test('/spec-next says an action never clears the gate it armed', () => {
   assert.match(NEXT, /`\/spec-diff` §2b's routing and not this skill's/)
 })
 
-// WHY A COMMAND AND NOT A LINK, recorded in the rule so the next reader does not
-// re-propose it. A clickable banner means a URL that acts when FETCHED, and a
-// link previewer or a browser prefetcher fetches URLs with nobody involved.
-test('the rule records why the lines are commands rather than links', () => {
-  assert.match(RULE, /\*\*Each line names a command a person types\*\*/)
-  assert.match(RULE, /a URL that acts when it is \*\*fetched\*\*/)
-  assert.match(RULE, /a link previewer or a prefetcher/)
-})
-
 // `/spec-remote-review` was retired with the published tier, and the canonical
 // list every spec skill points at says so rather than going quiet about it.
-test('/spec-remote-review is recorded as retired, not listed as a command', () => {
+test('/spec-remote-review is not listed as a command, and does not ship', () => {
   const planning = fs.readFileSync(path.join(ASSETS, 'rules', 'spec-planning.md'), 'utf8')
-  assert.match(planning, /`\/spec-connect` and `\/spec-live` are\s*\n?instead \*\*slash commands\*\*/)
-  assert.match(planning, /\*\*The `spec-remote-review` command was retired\*\*/)
+  assert.match(planning, /`\/spec-connect` and `\/spec-live` each pre-run one `spec-env` verb/)
+  assert.doesNotMatch(planning, /spec-remote-review/)
   assert.ok(!fs.existsSync(path.join(ASSETS, 'commands', 'spec-remote-review.md')), 'the command no longer ships')
 })

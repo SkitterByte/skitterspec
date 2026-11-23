@@ -137,13 +137,13 @@ test('the intake is priced like everything else the skill offers', () => {
 
 test('the rule adopters read describes the round-trip, not just the page', () => {
   const rule = fs.readFileSync(
-    path.join(__dirname, '..', 'assets', 'rules', 'spec-planning.md'),
+    path.join(__dirname, '..', 'assets', 'skills', 'spec-diff', 'review-page.md'),
     'utf8',
   )
-  assert.match(rule, /takes a review pass back/i)
+  assert.match(rule, /Taking a pass back/i)
   assert.match(rule, /--notes/, 'names the store verb')
   assert.match(rule, /--resolve/, 'and the write-back verb')
-  assert.match(rule, /the marks are information, never a gate/i)
+  assert.match(rule, /the marks are information,\s+never a gate/i)
 })
 
 test('every distribution ships the skill', () => {

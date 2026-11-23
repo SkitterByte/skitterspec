@@ -192,7 +192,7 @@ test('the rules file describes the move as a cd, not as machinery', () => {
   // The session moves again, so "never moves" is no longer the thing to pin.
   // What still has to be pinned is the MECHANISM — one `cd`, nothing spawned.
   assert.doesNotMatch(PLANNING, /moves\s*\n?the session you typed into/)
-  assert.match(PLANNING, /moves your session into it/)
+  assert.match(PLANNING, /moves the session into the\s+worktree with a plain `cd`/)
   assert.match(PLANNING, /plain `cd`/)
 })
 

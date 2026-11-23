@@ -22,6 +22,10 @@ and a 289KB page costs the same to serve as a 5KB one. Do not "simplify" this
 by reading the diff and emitting HTML — that is the one change that would undo
 the whole design.
 
+The page's verdicts, claiming, the gate and reviewers are in `review-page.md`
+beside this file; the banner and the wait are in `review-wait.md`. Read them
+when a step below relies on them.
+
 ## 1. Resolve the spec — three rules, in order
 
 1. **The name argument**, when given. An unknown name **refuses** and says so:
@@ -491,7 +495,7 @@ could not run is that strip's business rather than yours.
 one line per tier, `local`, `network`, `remote`, each either a URL or the one
 command that turns it on. All of it is free, and all of it is one server.
 You are not choosing between them; you are relaying every line it printed.
-`.claude/rules/spec-reports.md` carries the shape and why.
+`.claude/skills/spec-diff/review-wait.md` carries the shape and why.
 
 The operator who does not want a LAN listener sets `review.allowNetwork: false`
 in `env.config.json` — `network` then reads `off` with the command that turns it
@@ -625,7 +629,7 @@ already arrived. Those get the `Review` row, no question, and nothing is owed.
    the entire scope of what may be claimed without a person naming it.
 2. **Run the engine's wait, and end your turn** — under the harness's
    persistent watch primitive where one exists, else in the background
-   (`.claude/rules/spec-reports.md` carries the preference):
+   (`.claude/skills/spec-diff/review-wait.md` carries the preference):
 
    ```
    skitterspec spec-env review wait <spec> --since <timestamp>

@@ -122,15 +122,15 @@ test('spec overview templates carry the Impact map section', () => {
   }
 })
 
-test('spec-planning rule documents the Impact map in the overview contents', () => {
+test('spec-format rule documents the Impact map in the overview contents', () => {
   const text = fs.readFileSync(
-    path.join(ASSETS, 'rules', 'spec-planning.md'),
+    path.join(ASSETS, 'rules', 'spec-format.md'),
     'utf8',
   )
   assert.match(
     text,
-    /entry point \/ dashboard[\s\S]*?Impact map/,
-    'spec-planning lists the Impact map in the 00-overview.md contents',
+    /`00-overview\.md` is the dashboard[\s\S]*?Impact map/,
+    'spec-format lists the Impact map in the 00-overview.md contents',
   )
 })
 

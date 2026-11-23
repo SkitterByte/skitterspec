@@ -137,7 +137,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Installer: skill folders, project-conventions.md, budget measure | ✅ | [01-installer.md](01-installer.md) |
-| 2 | Split spec-reports.md and spec-planning.md | ⬜ | [02-split-core-rules.md](02-split-core-rules.md) |
+| 2 | Split spec-reports.md and spec-planning.md | ✅ | [02-split-core-rules.md](02-split-core-rules.md) |
 | 3 | Trim the small rules and the CLAUDE.md section | ⬜ | [03-trim-the-rest.md](03-trim-the-rest.md) |
 | 4 | Migration, budget gate, docs, dogfood | ⬜ | [04-migrate-and-gate.md](04-migrate-and-gate.md) |
 
@@ -152,3 +152,13 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-11-23 — Phase 1: `update` also writes project-conventions.md when it is
   missing, so upgrading hosts get it. A local uninstall removes the untouched
   template and parks a filled-in copy, like any edited file.
+- 2026-11-23 — Phase 2: the live overlay, workspace modes, authoring landing
+  and staging went to one file, `spec-start/isolation.md`, not to separate
+  skills. The tracker contract stays as one short paragraph in
+  `spec-planning.md`, not in the provider's `spec-push`, because base skills
+  read it too. The review page's mechanics (verdicts, claiming, gate,
+  reviewers) got their own `spec-diff/review-page.md`. `docs/rationale/` holds
+  each original rule verbatim. Asset tests that pinned rationale wording now
+  pin the instruction in its new home, and assertions that only quoted history
+  were dropped. Always-loaded total: 31.9k (base), 38.1k (github), down from
+  about 126k.

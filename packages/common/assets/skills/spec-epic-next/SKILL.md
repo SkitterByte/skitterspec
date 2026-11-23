@@ -14,7 +14,8 @@ An epic's members are built in tabs of their own, and the tab this runs in
 stays whatever it was — the epic's coordinator, or a member that just finished.
 So this skill **picks and prints**: its answer is `/spec-start <member>` to
 type **in a new tab**. It writes nothing, provisions nothing, and moves no
-session. Starting the member is `/spec-start`'s job, in that tab.
+session. Starting the member is `/spec-start`'s job, in that tab. How epics,
+`Waits on:` and lanes work is in `epics.md` beside this file.
 
 ## 1. Ask the engine
 

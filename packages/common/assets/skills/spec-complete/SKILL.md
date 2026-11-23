@@ -177,7 +177,7 @@ session is part-way through writing lands in this commit under this spec's
 ticket. The `--` on the **commit** is the other half: a checkout has one
 `.git/index`, shared by every session standing in it, so a bare `git commit`
 takes whatever else is staged there however carefully you staged your own.
-`.claude/rules/spec-planning.md` carries the full account.
+`.claude/skills/spec-start/isolation.md` carries the full account.
 
 So this commits exactly the status flip and the move, and nothing of yours — or
 of anyone else's — rides along.

@@ -14,8 +14,10 @@ const path = require('node:path')
 const ASSETS = path.join(__dirname, '..', 'assets')
 const skill = (name) =>
   fs.readFileSync(path.join(ASSETS, 'skills', name, 'SKILL.md'), 'utf8')
+// The matrix moved from spec-planning.md into the /spec skill's own file
+// (feat-rules-budget); the other entry skills point at it.
 const planning = () =>
-  fs.readFileSync(path.join(ASSETS, 'rules', 'spec-planning.md'), 'utf8')
+  fs.readFileSync(path.join(ASSETS, 'skills', 'spec', 'kind-routing.md'), 'utf8')
 
 test('/spec watches for the other doors, mid-grill', () => {
   const text = skill('spec')
@@ -80,9 +82,9 @@ test('a past outage someone wants recorded stays an incident', () => {
   assert.match(text, /no outage to record.*not.*no outage\s+now/is)
 })
 
-test('the routing matrix lives once, in spec-planning.md', () => {
+test('the routing matrix lives once, in the /spec skill\'s kind-routing.md', () => {
   const text = planning()
-  assert.match(text, /### Kind routing/, 'the canonical section exists')
+  assert.match(text, /^# Kind routing/m, 'the canonical section exists')
   assert.match(text, /\| `\/spec` \| defect · defect on a released version · live outage \|/, "/spec's row")
   assert.match(text, /\| `\/spec-bug` \| on a released version · live outage · not a defect \|/, "/spec-bug's row")
   assert.match(text, /\| `\/spec-hotfix` \| live outage · not on a released version · not a defect \|/, "/spec-hotfix's row")
@@ -96,5 +98,5 @@ test('the routing matrix lives once, in spec-planning.md', () => {
 test('the watch gates nothing and reads no labels', () => {
   const text = planning()
   assert.match(text, /judgment, not configuration/i, 'no signal lists, no config keys')
-  assert.match(text, /separate, earlier check and is unchanged/i, 'label routing is untouched')
+  assert.match(text, /separate, earlier check/i, 'label routing is untouched')
 })

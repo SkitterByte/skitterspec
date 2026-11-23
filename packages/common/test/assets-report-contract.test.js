@@ -395,7 +395,7 @@ test('the rule itself says a dirty tree changes what Next may say', () => {
   // could not be run. Fixing only the instances leaves the next one free to
   // repeat it.
   const rule = fs.readFileSync(RULE, 'utf8')
-  assert.match(rule, /runnable from the state the run actually leaves behind/i)
+  assert.match(rule, /runnable\s+from the state the run leaves behind/i)
 })
 
 // STAYS SILENT (`negative-checks.md` rule 3). A skill that commits its own work
@@ -445,11 +445,8 @@ test('no skill asks a question in a Review row', () => {
 
 test('the rule says why the row carries no question', () => {
   const rule = fs.readFileSync(RULE, 'utf8')
-  assert.match(rule, /\*\*ASKING IMPLIES WAITING/)
-  assert.match(rule, /loses the question/)
-  assert.match(rule, /a reader taught that the button is decorative/)
-  // The rejected alternative, kept where the next editor will meet it.
-  assert.match(rule, /a truthful caveat does not make an unanswerable question worth\s*\n?asking/i)
+  assert.match(rule, /\*\*Asking implies waiting\.\*\*/)
+  assert.match(rule, /with the counts and the link, and no\s+question/)
 })
 
 // The detector has to be able to fire, or the test above passes for the wrong
