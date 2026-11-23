@@ -71,3 +71,4 @@ expected: 'newer',
   from a current tree replaces the old server upward and keeps the token.
 - 2026-11-23 — Fixed: a newer running server is adopted, never downgraded;
   test green.
+- 2026-11-23 — Completed; all tasks done, tests green.
