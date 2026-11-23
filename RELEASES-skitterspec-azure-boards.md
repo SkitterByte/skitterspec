@@ -5,6 +5,18 @@ What's new for users of skitterspec-azure-boards. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 3.1.0 — 23 Nov 2026
+
+**Highlights:** skitterspec's always-loaded instructions are about a quarter of their old size. Detail a skill needs now loads only when that skill runs, and spec formatting loads only when you work in specs/.
+
+### Install
+- **New** — Upgrading moves the typecheck and test commands you filled into spec-planning.md into project-conventions.md, so the slimmer rules install cleanly instead of keeping the old 66k file.
+- **New** — Your project's typecheck and test commands now live in .claude/rules/project-conventions.md, which skitterspec writes once and never overwrites, so filling them in no longer marks a managed file as edited.
+
+### Rules
+- **New** — The CLAUDE.md section and the remaining skitterspec rules are shorter, which brings everything skitterspec loads into every session under 25k characters.
+- **New** — skitterspec's always-loaded instructions are about a quarter of their old size. Detail a skill needs now loads only when that skill runs, and spec formatting loads only when you work in specs/.
+
 ## 3.0.0 — 20 Nov 2026
 
 **Highlights:** Every skitterspec provider can now be installed globally on the same machine, side by side. Providers no longer answer to the skitterspec command: install @skitterbyte/skitterspec alongside your provider, at the same version, and run skitterspec update.
