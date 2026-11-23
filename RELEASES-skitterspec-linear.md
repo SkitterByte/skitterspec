@@ -5,6 +5,11 @@ What's new for users of skitterspec-linear. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 20.1.1 — 23 Nov 2026
+
+### Hotfix
+- **Fixed** — Two hotfixes forked from the same release can now ship
+
 ## 20.1.0 — 23 Nov 2026
 
 **Highlights:** skitterspec's always-loaded instructions are about a quarter of their old size. Detail a skill needs now loads only when that skill runs, and spec formatting loads only when you work in specs/.
