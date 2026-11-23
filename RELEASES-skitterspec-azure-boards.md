@@ -5,6 +5,11 @@ What's new for users of skitterspec-azure-boards. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 3.1.2 — 23 Nov 2026
+
+### Review
+- **Fixed** — Rendering a review from a worktree on an older release no longer swaps the shared review server for that older engine, and the link open on your phone keeps working.
+
 ## 3.1.1 — 23 Nov 2026
 
 ### Hotfix
