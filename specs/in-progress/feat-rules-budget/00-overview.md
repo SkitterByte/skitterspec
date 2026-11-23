@@ -139,7 +139,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | Installer: skill folders, project-conventions.md, budget measure | ✅ | [01-installer.md](01-installer.md) |
 | 2 | Split spec-reports.md and spec-planning.md | ✅ | [02-split-core-rules.md](02-split-core-rules.md) |
 | 3 | Trim the small rules and the CLAUDE.md section | ✅ | [03-trim-the-rest.md](03-trim-the-rest.md) |
-| 4 | Migration, budget gate, docs, dogfood | ⬜ | [04-migrate-and-gate.md](04-migrate-and-gate.md) |
+| 4 | Migration, budget gate, docs, dogfood | ✅ | [04-migrate-and-gate.md](04-migrate-and-gate.md) |
 
 ## Open questions
 
@@ -168,3 +168,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   `docs/rationale/`. offered-unblocks stays a rule, because six skills relay
   offers. This repo's commit-trailers copy was re-rendered, spec-format.md was
   linked (`pnpm relink`), and the CLAUDE.md block was synced to the template.
+- 2026-11-23 — Phase 4: the stripped-hash list covers every commit of
+  `spec-planning.md` (99 versions), not only tagged releases, and is generated
+  by `scripts/conventions-hashes.js`. The migration also runs under `--force`, so
+  a forced update keeps the conventions it would otherwise overwrite. This
+  repo dogfoods with `pnpm relink`, not `skitterspec update`, because `update`
+  would write through its symlinked rules. Confirmed: a fresh session shows no
+  instruction-size warning.

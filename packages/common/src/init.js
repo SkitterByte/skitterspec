@@ -10,6 +10,7 @@ const { ensureHooks, removeHooks, HOOKS: GATE_HOOKS } = require('./env/hooks.js'
 const { repoInfo, expandTokens, describeBaseBranch, baseRemote } = require('./env/resolve.js')
 const { primaryAnchor } = require('./env/project.js')
 const { setProjectKeys } = require('./env/projectedit.js')
+const { split, strippedHash, KNOWN } = require('./conventions.js')
 
 const ASSETS = path.join(__dirname, '..', 'assets')
 
@@ -766,6 +767,44 @@ function installConventions(dir) {
   report.created.push(rel(dir, target))
 }
 
+// A customized `spec-planning.md` from before feat-rules-budget, whose only
+// edits are in its old "Project conventions" section: carry the section into
+// `project-conventions.md` and take the new rule, so the host stops loading
+// 66k of the old one. Runs before the managed loop, which then finds the rule
+// pristine and records it. Under `--force` it still runs first, so a
+// forced update keeps the conventions the force would otherwise overwrite.
+//
+// WHAT WOULD FOOL THIS: an edit that exactly restores some other shipped
+// version's text outside the section. That is still unedited text we shipped,
+// so replacing it loses nothing. Everything else is cannot-tell: the file is
+// kept and a warning says how to finish by hand (negative-checks.md rule 4).
+function migrateConventions(dir, manifest, force) {
+  const relPath = '.claude/rules/spec-planning.md'
+  const target = managedTargets(dir).find((t) => t.relPath === relPath)
+  if (!target) return
+  const state = managedState(dir, relPath, manifest, target.bundled)
+  if (state !== 'customized' && state !== 'adopted') return
+  const onDisk = fs.readFileSync(target.abs, 'utf8')
+  const conventions = path.join(dir, CONVENTIONS_FILE)
+  const template = fs.readFileSync(path.join(ASSETS, 'project-conventions.md'), 'utf8')
+  const parts = split(onDisk)
+  const known = parts && KNOWN().has(strippedHash(onDisk))
+  const free = !fs.existsSync(conventions) || sameContent(fs.readFileSync(conventions, 'utf8'), template)
+  if (!known || !free) {
+    if (force) return // --force replaces the file anyway; nothing to advise
+    report.warnings.push(
+      `${relPath} kept (${Math.round(onDisk.length / 1000)}k chars, edited) — it loads in every session. ` +
+        `Move your edits into ${CONVENTIONS_FILE.split(path.sep).join('/')}, then run \`skitterspec update --force\``,
+    )
+    return
+  }
+  ensureDir(path.dirname(conventions))
+  fs.writeFileSync(conventions, `# Project conventions\n\n${parts.body}\n`)
+  report.created.push(`${CONVENTIONS_FILE.split(path.sep).join('/')} (moved from ${relPath})`)
+  fs.writeFileSync(target.abs, target.bundled)
+  writtenHashes[relPath] = sha1(target.bundled)
+}
+
 // What Claude Code loads into EVERY session from this install: each rule under
 // `.claude/rules/` that skitterspec wrote (managed, or the conventions file)
 // and that carries no `paths:` front-matter, plus the managed CLAUDE.md block.
@@ -1181,6 +1220,7 @@ function resync(dir, { force = false, claudeMd = true, diff = false, local = fal
   resolveScope(dir, local)
   if (scope === 'local') convertCommitted(dir)
   const manifest = readManifest(dir)
+  migrateConventions(dir, manifest, force)
   for (const t of managedTargets(dir)) resyncManagedFile(dir, t, manifest, force)
   installConventions(dir)
   installFolders(dir)

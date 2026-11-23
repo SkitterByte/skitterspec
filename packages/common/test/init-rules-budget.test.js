@@ -135,3 +135,74 @@ test('a local install keeps the conventions file out of git', () => {
   const dir = tmpProject()
   assert.ok(localExcludes(dir).includes('.claude/rules/project-conventions.md'))
 })
+
+// --- migrating a conventions section out of the old spec-planning.md --------
+
+// The last pre-split rule, verbatim below the rationale doc's preamble. Read
+// from the repo rather than from git history, which a shallow CI clone lacks.
+const OLD_PLANNING = fs
+  .readFileSync(path.join(__dirname, '..', '..', '..', 'docs', 'rationale', 'spec-planning.md'), 'utf8')
+  .split('\n---\n\n')
+  .slice(1)
+  .join('\n---\n\n')
+const RULE = '.claude/rules/spec-planning.md'
+
+// An install whose manifest recorded the old rule as what it last wrote.
+async function oldInstall(text) {
+  const lib = require('../src/init.js')
+  const dir = tmpProject()
+  await quietly(() => lib.init({ dir, force: false, claudeMd: false, mode: 'init' }))
+  const manifest = lib.readManifest(dir)
+  lib.writeManifest(dir, { ...manifest.files, [RULE]: lib.sha1(OLD_PLANNING) })
+  fs.writeFileSync(path.join(dir, RULE), text)
+  return { lib, dir }
+}
+
+const filled = OLD_PLANNING.replace(
+  '- **Typecheck command:** `<e.g. npm run typecheck · dotnet build · mypy . · go vet ./...>`',
+  '- **Typecheck command:** `pnpm typecheck`',
+)
+
+test('the old rule text is in the shipped-version list', () => {
+  const { strippedHash, KNOWN } = require('../src/conventions.js')
+  assert.ok(filled !== OLD_PLANNING, 'the fixture edit applied')
+  assert.ok(KNOWN().has(strippedHash(OLD_PLANNING)))
+})
+
+test('update carries a conventions-only edit into project-conventions.md', async () => {
+  const { lib, dir } = await oldInstall(filled)
+  quietly(() => lib.resync(dir, { claudeMd: false }))
+  assert.match(fs.readFileSync(path.join(dir, lib.CONVENTIONS_FILE), 'utf8'), /`pnpm typecheck`/)
+  const bundled = lib.managedTargets(dir).find((t) => t.relPath === RULE).bundled
+  assert.strictEqual(fs.readFileSync(path.join(dir, RULE), 'utf8'), bundled, 'the new rule is installed')
+  assert.strictEqual(lib.readManifest(dir).files[RULE], lib.sha1(bundled))
+})
+
+test('an existing filled-in project-conventions.md is not overwritten', async () => {
+  const { lib, dir } = await oldInstall(filled)
+  fs.writeFileSync(path.join(dir, lib.CONVENTIONS_FILE), '# Ours\n')
+  quietly(() => lib.resync(dir, { claudeMd: false }))
+  assert.strictEqual(fs.readFileSync(path.join(dir, lib.CONVENTIONS_FILE), 'utf8'), '# Ours\n')
+  assert.strictEqual(fs.readFileSync(path.join(dir, RULE), 'utf8'), filled, 'the rule is kept')
+  assert.ok(lib.lastReport().warnings.some((w) => w.includes(`${RULE} kept`)))
+})
+
+// Stays silent (negative-checks.md rule 3): an edit outside the section is
+// cannot-tell. The file is kept and nothing is extracted.
+test('an edit outside the conventions section is kept, not extracted', async () => {
+  const edited = filled.replace('# Spec Planning', '# Spec Planning (ours)')
+  const { lib, dir } = await oldInstall(edited)
+  quietly(() => lib.resync(dir, { claudeMd: false }))
+  assert.strictEqual(fs.readFileSync(path.join(dir, RULE), 'utf8'), edited)
+  assert.doesNotMatch(fs.readFileSync(path.join(dir, lib.CONVENTIONS_FILE), 'utf8'), /pnpm typecheck/)
+  assert.ok(lib.lastReport().warnings.some((w) => w.includes('update --force')))
+})
+
+test('an unedited old rule takes the plain update, with no warning', async () => {
+  const { lib, dir } = await oldInstall(OLD_PLANNING)
+  quietly(() => lib.resync(dir, { claudeMd: false }))
+  const report = lib.lastReport()
+  assert.ok(report.updated.includes(RULE))
+  assert.ok(!report.warnings.some((w) => w.includes(RULE)))
+  assert.ok(!report.created.some((c) => String(c).includes('moved from')))
+})

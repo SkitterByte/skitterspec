@@ -68,8 +68,13 @@ never clobbers customised files. It writes:
 
 ```
 .claude/skills/spec*/SKILL.md   # the 8 spec-lifecycle skills
-.claude/rules/spec-planning.md  # governing rule (the single source of truth)
+.claude/skills/spec*/*.md       # supporting files a skill reads when it needs them
+.claude/rules/spec-planning.md  # governing rule: lifecycle, guards, isolation in brief
+.claude/rules/spec-reports.md   # the report block every skill ends with
+.claude/rules/spec-format.md    # spec layout — loads only under specs/ (paths:)
 .claude/rules/negative-checks.md # writing checks that accuse safely
+.claude/rules/offered-unblocks.md # relaying an offered fix after a refusal
+.claude/rules/project-conventions.md # YOURS — written once, never overwritten
 specs/{.core,backlog,in-progress,complete,cancelled}/
 CLAUDE.md                       # adds a "## Spec workflow" section (created if absent)
 ```
@@ -199,7 +204,7 @@ knowing before touching one:
 
 | Surface | Owns |
 |---------|------|
-| `.claude/rules/` | **the mechanism** — the report contract, the negative-check discipline, why `/spec-reviewed` is user-only. Installed into a project, not published as marketing |
+| `.claude/rules/` | **the mechanism** — the report contract, the negative-check discipline, why `/spec-reviewed` is user-only. Installed into a project, kept to instructions; the reasoning is in `docs/rationale/` |
 | `assets/skills/` | **the judgment** — when to render, when to arm, how to route a verdict. `/spec-diff` §2 owns the routing and every other skill points at it |
 | `src/env/review.js` | **the page and the pass** — the payload, the verdict and action vocabularies, the sidecars |
 | `src/env/serve.js` | **the wait** — one server, one token, one write path |
@@ -392,10 +397,18 @@ on a linked spec just builds (the repo is already canonical).
 
 The shipped skills are **stack-agnostic**. They say things like "run the
 project's typecheck and test commands" and "honour the project's conventions".
-Make those concrete once, in **`.claude/rules/spec-planning.md`** (the
-*Project conventions* section): set your real typecheck/test/lint commands and
-link your other `.claude/rules/*.md`. The skills point at that file, so you don't
-edit seven files per project.
+Make those concrete once, in **`.claude/rules/project-conventions.md`**: set
+your real typecheck/test/lint commands and link your other `.claude/rules/*.md`.
+skitterspec writes that file once and never manages it, so filling it in leaves
+every managed file pristine and `update` keeps refreshing them. (An older
+install that filled in the *Project conventions* section of `spec-planning.md`
+has it moved there on the next `update`.)
+
+Everything skitterspec loads into every session is held under a 30,000-character
+budget by a test, so it fits beside your own CLAUDE.md and rules within Claude
+Code's instruction limit. Detail a skill needs lives beside that skill and loads
+only when it runs; the reasoning behind the rules lives in the repo's
+`docs/rationale/`, not in your project.
 
 ## How it's distributed
 
