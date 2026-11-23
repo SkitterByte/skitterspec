@@ -110,6 +110,30 @@ function nextHotfixTag(baseTag, existingTags) {
   return `${base.root}-hotfix.${n + 1}`
 }
 
+/**
+ * The releases a hotfix forked from `baseRef` could already have shipped in:
+ * the later releases on the base's own line — `<root>-hotfix.N` and the
+ * patch-bumped `X.Y.(Z+n)` — oldest first, so the first that holds the fix is
+ * the one that shipped it. Pre-releases and other minor lines never count.
+ *
+ * Empty for a base or tag list that cannot be read, which leaves the land to
+ * cut a release as it always has (`.claude/rules/negative-checks.md` rule 4).
+ */
+function shippedCandidates(baseRef, tags) {
+  const base = parseTag(baseRef)
+  if (!base || base.suffix || !Array.isArray(tags)) return []
+  return tags
+    .filter((t) => {
+      const p = parseTag(t)
+      return (
+        p && !p.suffix && p.prefix === base.prefix &&
+        p.core[0] === base.core[0] && p.core[1] === base.core[1] &&
+        compareTags(t, baseRef) > 0
+      )
+    })
+    .sort(compareTags)
+}
+
 const BUMPS = ['patch', 'hotfix-suffix']
 
 // The tag `hotfix.bump` asks for. An unknown strategy throws rather than
@@ -159,7 +183,8 @@ function tagSlug(tag) {
  * @param {object} config normalised env config (reads `config.hotfix`).
  * @param {object} ctx   { worktreeState:{dirty}, aheadOfBase, fixRange, mainRepoPath,
  *                          base, extraTargets: string[], existingTags: string[],
- *                          released?, push?: boolean, pushed?: boolean, remote?,
+ *                          released?, shipped?: { tag }, push?: boolean,
+ *                          pushed?: boolean, remote?,
  *                          fixCommits?: string[],
  *                          carry?: { strategy: 'inplace'|'worktree'|'dirty', path,
  *                                    tmpPath?, commits: string[] } }
@@ -224,6 +249,17 @@ function planHotfixLand(spec, config, ctx) {
     prodTag = c.released.tag
     taken.add(prodTag)
     steps.push({ kind: 'release', via: 'recorded', tag: prodTag, release: c.released })
+  } else if (c.shipped && c.shipped.tag) {
+    // Another hotfix's land already released this one's fix — two hotfixes
+    // from one tag, one rebased onto the other and landed on top. Cutting
+    // again would deploy a release holding only this fix.
+    prodTag = c.shipped.tag
+    steps.push({
+      kind: 'release',
+      via: 'shipped',
+      tag: prodTag,
+      release: { tag: prodTag, version: prodTag.replace(/^\D*/, ''), baseTag: baseRef, branch, versionCommit: null, pushed: false },
+    })
   } else if (releaseWith) {
     // The tag is the command's to choose and is unknown until it has run, so
     // there is nothing to check a collision against here — the command refuses
@@ -587,8 +623,13 @@ function planBranchHotfixFinish(spec, state) {
  * And DELIBERATELY NO `--force` — the guards are the point of the verb, and
  * `spec-env down --force` already exists for anyone who means to override them.
  *
+ * ONE OTHER WAY PAST the last two: no tag at HEAD, but the fix
+ * shipped in another hotfix's release (`shipped`) — that tag on the remote, and
+ * every commit of the branch on the base.
+ *
  * state: { dirty, tagsAtHead: string[], head, remoteHead: string|null|undefined,
- *          remote, mainRepoPath, hasSlot }
+ *          remote, mainRepoPath, hasSlot,
+ *          shipped?: { tag, onRemote: true|false|undefined, base, carried } }
  *   remoteHead: the branch's sha on the remote; null = not there;
  *               undefined = the remote could not be asked.
  */
@@ -597,15 +638,25 @@ function planHotfixFinish(spec, state) {
   const remote = s.remote || 'origin'
   const reasons = []
   if (s.dirty) reasons.push('the worktree has uncommitted changes')
-  const releaseTag = (s.tagsAtHead || []).find((t) => parseTag(t) !== null) || null
-  if (!releaseTag) {
+  const atHead = (s.tagsAtHead || []).find((t) => parseTag(t) !== null) || null
+  // Shipped in another hotfix's release: its tag on the remote and the whole
+  // branch carried to the base are the copies that outlive `branch -D`, so
+  // they stand in for both the tag at HEAD and the branch on the remote.
+  const shipped = !atHead && s.shipped ? s.shipped : null
+  const releaseTag = atHead || (shipped && shipped.tag) || null
+  if (shipped) {
+    if (shipped.onRemote === undefined) reasons.push(`cannot tell whether ${shipped.tag} is on ${remote} — the remote did not answer`)
+    else if (!shipped.onRemote) reasons.push(`${shipped.tag} holds this fix but is not on ${remote} — push it first`)
+    if (!shipped.carried) reasons.push(`${shipped.base} does not have every commit of ${spec.branch} — run \`spec-env hotfix land\` to carry them`)
+  } else if (!releaseTag) {
     reasons.push('no release tag at HEAD — run `spec-env hotfix land` first')
   }
-  if (s.remoteHead === undefined) {
+  // Shipped: the branch itself need not be on the remote — see above.
+  if (!shipped && s.remoteHead === undefined) {
     reasons.push(`cannot tell whether ${spec.branch} is on ${remote} — the remote did not answer`)
-  } else if (s.remoteHead === null) {
+  } else if (!shipped && s.remoteHead === null) {
     reasons.push(`${spec.branch} is not on ${remote} — push it (\`hotfix land --push\`)`)
-  } else if (s.head && s.remoteHead !== s.head) {
+  } else if (!shipped && s.head && s.remoteHead !== s.head) {
     reasons.push(`${remote}/${spec.branch} is not at HEAD — push the branch first`)
   }
   // A Docker stack has volumes and a slot that only `down` knows how to free.
@@ -618,6 +669,7 @@ function planHotfixFinish(spec, state) {
     blocked: false,
     reasons: [],
     releaseTag,
+    shipped: Boolean(shipped),
     argvs: [
       ['-C', root, 'worktree', 'remove', spec.worktreePath],
       // -D, not -d: the branch is never merged into main (see above), and its
@@ -632,6 +684,7 @@ module.exports = {
   compareTags,
   nextHotfixTag,
   nextTag,
+  shippedCandidates,
   BUMPS,
   tagSlug,
   planHotfixLand,

@@ -297,6 +297,12 @@ config is absent.
 - Commit the fix to the `hotfix/<slug>` branch (this commit is what gets tagged
   and cherry-picked). Tick the Fix tasks; add a Changelog line.
 
+**Shipping two hotfixes in one release.** When two hotfixes forked from the
+same tag need to deploy together, rebase one onto the other and land the top
+one: its release holds both fixes. Then `/spec-complete` the other. Its land
+sees its fix already in that release (`release: already shipped in <tag>`),
+cuts nothing, and carries only its completion to `main`.
+
 **Then refresh the mirror (only if a provider is installed).** The Fix tasks are
 ticked, so the repo is now the truth about this fix — and this skill can take a
 bug all the way to green without `/spec-next` ever running. Without a provider this

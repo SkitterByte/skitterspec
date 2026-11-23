@@ -296,6 +296,14 @@ in that order, and stops at the first step that fails:
    **Then stop: the worktree is kept** (step 7). The branch is what the next
    `-hotfix.N` is cut from if this deploy fails, so it waits for the deploy.
 
+**Two hotfixes shipped in one release.** Two hotfixes forked from the same tag
+ship together by rebasing one onto the other and completing the **top** one
+first: its land cuts the release holding both fixes. Then complete the other as
+usual. Its land finds every fix commit already in that release, prints
+`release: already shipped in <tag>`, cuts nothing, and carries only its
+completion. `hotfix finish` takes that release, once it is on `origin`, in
+place of a tag at HEAD.
+
 **A branch-based hotfix** (`> **Base version:** <branch>@<sha>`, from
 `hotfix.releaseBranch`) runs the same command and the same consent ask — the
 engine picks the path from the header. What differs is what it does:
@@ -474,6 +482,8 @@ skitterspec spec-env hotfix finish <name>
 
 It tears down only when the tree is clean, a release tag is at HEAD and the branch
 is on `origin` at HEAD, naming every check that fails; there is no `--force`.
+A hotfix whose fix shipped in another hotfix's release passes instead when that
+release is on `origin` and the base has every commit of its branch.
 Relay a refusal and stop. Report what it removed in `Worktree`.
 
 

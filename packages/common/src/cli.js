@@ -94,6 +94,7 @@ const {
   prefixOf,
   toRepoPath,
   projectRelative,
+  fromRepoPath,
   projectIn,
   projectLine,
   shellPath,
@@ -214,7 +215,7 @@ const {
 } = require('./env/epic.js')
 const { nextAction, readNextInputs, actionText } = require('./env/nextaction.js')
 const { epicTree, workingTree, worktreeOverview, epicsInFlight, memberReaders, epicAnswer } = require('./env/epicread.js')
-const { planHotfixLand, planBranchHotfixLand, planBranchHotfixFinish, planHotfixFinish } = require('./env/hotfix.js')
+const { planHotfixLand, planBranchHotfixLand, planBranchHotfixFinish, planHotfixFinish, shippedCandidates } = require('./env/hotfix.js')
 const { runHotfixLand, describeStep: describeHotfixStep } = require('./env/hotfixland.js')
 const { planDev } = require('./env/dev.js')
 const { windowFor, windowLabel, humanLabel, localDay } = require('./tada/window.js')
@@ -3906,6 +3907,47 @@ function hotfixCarry(dir, spec, base, wtGit, released) {
   return { fixCommits, carry }
 }
 
+/**
+ * The release that already holds this hotfix's fix, when another hotfix's land
+ * cut it: two hotfixes from one tag, one rebased onto the other, and the top
+ * one landed. `{ tag, fixCommits }`, or null.
+ *
+ * The fix commits are `baseRef..branch` minus the commits that touch only spec
+ * documents — the completion committed after the other land is exactly such a
+ * commit. Shipped means EVERY fix commit is in one release on the base's own
+ * line (`shippedCandidates`), by ancestry or by patch (`missingOn`). No fix
+ * commits at all is not "shipped": an empty set is contained in anything.
+ *
+ * WHAT WOULD FOOL IT: a tag on the line that holds the fix but never reached
+ * prod — cut and abandoned, or a deploy that failed with nothing re-cut. The
+ * land still asks the remote for the tag before carrying, and a fix added
+ * after a failed deploy is a commit no tag holds, so it cuts again. A tag list,
+ * prefix or commit git will not read routes to null, which cuts a release as
+ * before (`.claude/rules/negative-checks.md` rule 4).
+ */
+function hotfixShipped(spec, wtGit, existingTags) {
+  const candidates = shippedCandidates(spec.baseRef, existingTags)
+  if (!candidates.length) return null
+  const listed = wtGit(['rev-list', '--reverse', `${spec.baseRef}..${spec.branch}`])
+  if (!listed) return null
+  const shown = gitReader(spec.projectPath || spec.worktreePath)(['rev-parse', '--show-prefix'])
+  if (shown === null) return null
+  const prefix = shown.replace(/\/$/, '')
+  const fixCommits = listed
+    .split('\n')
+    .map((x) => x.trim())
+    .filter(Boolean)
+    .filter((sha) => {
+      const out = wtGit(['diff-tree', '--no-commit-id', '--name-only', '-r', sha])
+      const files = out ? out.split('\n').map((f) => f.trim()).filter(Boolean) : []
+      // Unreadable or empty (a merge) counts as a fix: it must be contained.
+      return !files.length || !files.every((f) => (fromRepoPath(f, prefix) || '').startsWith('specs/'))
+    })
+  if (!fixCommits.length) return null
+  const tag = candidates.find((t) => missingOn(wtGit, t, fixCommits).length === 0)
+  return tag ? { tag, fixCommits } : null
+}
+
 function carryFiles(git, commits) {
   const files = new Set()
   for (const sha of commits) {
@@ -3970,9 +4012,32 @@ function hotfixFinish(dir, config, specArg, flags) {
   const lsRemote = wtGit(['ls-remote', '--heads', remote, `refs/heads/${spec.branch}`])
   const remoteHead = lsRemote === null ? undefined : lsRemote ? lsRemote.split(/\s+/)[0] : null
   const registry = readRegistry(dir, config)
+  const tagsAtHead = (wtGit(['tag', '--points-at', 'HEAD']) || '').split('\n').filter(Boolean)
+  // No release at HEAD: the fix may have shipped in another hotfix's release.
+  // That stands in for the tag only once the release is on the remote and the
+  // base has every commit of the branch, so deleting it loses nothing.
+  let shipped = null
+  if (!tagsAtHead.length && config.hotfix.cherryPickMain !== false) {
+    const tagList = wtGit(['tag', '--list'])
+    const found = hotfixShipped(spec, wtGit, tagList === null ? null : tagList.split('\n').map((t) => t.trim()).filter(Boolean))
+    if (found) {
+      const onRemote = wtGit(['ls-remote', '--tags', remote, `refs/tags/${found.tag}`])
+      const git = gitReader(dir)
+      const base = resolveBaseBranch(config, git)
+      const all = (wtGit(['rev-list', `${spec.baseRef}..HEAD`]) || '').split('\n').map((x) => x.trim()).filter(Boolean)
+      const refs = [base, `${remote}/${base}`].filter((r) => git(['rev-parse', '--verify', '--quiet', r]) !== null)
+      shipped = {
+        tag: found.tag,
+        onRemote: onRemote === null ? undefined : Boolean(onRemote),
+        base,
+        carried: all.length > 0 && refs.some((r) => missingOn(git, r, all).length === 0),
+      }
+    }
+  }
   const plan = planHotfixFinish(spec, {
     dirty: status === null || status.length > 0,
-    tagsAtHead: (wtGit(['tag', '--points-at', 'HEAD']) || '').split('\n').filter(Boolean),
+    tagsAtHead,
+    shipped,
     head,
     remoteHead,
     remote,
@@ -3997,7 +4062,7 @@ function hotfixFinish(dir, config, specArg, flags) {
   }
   say(`spec-env hotfix finish: ${spec.folder}`)
   say('')
-  say(`  release:   ${plan.releaseTag} (on ${remote} with ${spec.branch})`)
+  say(`  release:   ${plan.releaseTag} (on ${remote}${plan.shipped ? `; ${spec.branch} carried to ${shipped.base}` : ` with ${spec.branch}`})`)
   say(`  removed:   ${spec.worktreePath}`)
   say(`  deleted:   ${spec.branch} (local; ${remote} keeps it)`)
 }
@@ -4133,14 +4198,17 @@ function specEnvHotfix(dir, config, positional, flags) {
   const record = readHotfixRecord(dir, config, spec.folder)
   const atHead = (wtGit(['tag', '--points-at', 'HEAD']) || '').split('\n').map((s) => s.trim())
   const released = record && record.tag && atHead.includes(record.tag) ? record : null
+  // No release of its own, but its fix may have shipped in another hotfix's.
+  const shipped = released ? null : hotfixShipped(spec, wtGit, tagList === null ? null : existingTags)
   // Already published? Asked of the remote itself, for the one tag that could
   // be there. Only a non-empty answer counts: an unreachable remote is "cannot
   // tell", and cannot-tell holds rather than carrying a fix whose deploy tag
   // may not be public (`.claude/rules/negative-checks.md` rule 4).
   const remote = 'origin'
+  const publishing = released || shipped
   const pushed =
-    released !== null &&
-    Boolean(wtGit(['ls-remote', '--tags', remote, `refs/tags/${released.tag}`]))
+    publishing !== null &&
+    Boolean(wtGit(['ls-remote', '--tags', remote, `refs/tags/${publishing.tag}`]))
 
   const carry = hotfixCarry(dir, spec, base, wtGit, released)
 
@@ -4166,6 +4234,7 @@ function specEnvHotfix(dir, config, positional, flags) {
       extraTargets,
       existingTags,
       released,
+      shipped,
       push: flags.push === true,
       pushed,
       remote,

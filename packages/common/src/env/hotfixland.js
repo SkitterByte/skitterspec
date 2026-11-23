@@ -71,6 +71,7 @@ function describeStep(step) {
     case 'release':
       if (step.via === 'command') return `release: ${step.command}`
       if (step.via === 'recorded') return `release: ${step.tag} (cut earlier — not re-run)`
+      if (step.via === 'shipped') return `release: already shipped in ${step.tag}`
       return `release: git tag ${step.tag}${step.at ? ` ${step.at}` : ''}`
     case 'push': {
       if (step.via === 'remote') {
@@ -133,7 +134,7 @@ function why(res) {
 }
 
 function runRelease(step, ctx) {
-  if (step.via === 'recorded') {
+  if (step.via === 'recorded' || step.via === 'shipped') {
     return { outcome: 'skipped', line: describeStep(step), release: step.release }
   }
   if (step.via === 'tag') {
