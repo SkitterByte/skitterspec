@@ -27,6 +27,25 @@ function listSkills() {
     .sort()
 }
 
+// Every file a skill ships, relative to its folder, `SKILL.md` first. A skill's
+// supporting files (`<topic>.md` beside `SKILL.md`) load only when the skill
+// reads them, which is what lets content one skill needs leave the
+// always-loaded rules (feat-rules-budget). Dotfiles are not shipped.
+function listSkillFiles(name) {
+  const root = path.join(ASSETS, 'skills', name)
+  const out = []
+  const walk = (d) => {
+    for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+      if (e.name.startsWith('.')) continue
+      const p = path.join(d, e.name)
+      if (e.isDirectory()) walk(p)
+      else out.push(path.relative(root, p))
+    }
+  }
+  walk(root)
+  return out.sort((a, b) => (a === 'SKILL.md' ? -1 : b === 'SKILL.md' ? 1 : a.localeCompare(b)))
+}
+
 // Slash commands shipped as `assets/commands/*.md`, installed to
 // `.claude/commands/`. Discovered from the bundled tree exactly like skills, so
 // each distribution installs precisely what it ships.
@@ -478,7 +497,9 @@ function managedTargets(dir) {
       abs: targetAbs,
       bundled: render(fs.readFileSync(path.join(ASSETS, assetRel), 'utf8'), dir),
     })
-  for (const name of SKILLS) add(path.join('skills', name, 'SKILL.md'), path.join(dir, '.claude', 'skills', name, 'SKILL.md'))
+  for (const name of SKILLS) {
+    for (const file of listSkillFiles(name)) add(path.join('skills', name, file), path.join(dir, '.claude', 'skills', name, file))
+  }
   for (const name of COMMANDS)
     add(path.join('commands', name), path.join(dir, '.claude', 'commands', name), renderCommand)
   for (const name of RULES) add(path.join('rules', name), path.join(dir, '.claude', 'rules', name))
@@ -686,12 +707,9 @@ function copyAsset(dir, assetRelPath, targetAbs, opts) {
 
 function installSkills(dir, opts) {
   for (const name of SKILLS) {
-    copyAsset(
-      dir,
-      path.join('skills', name, 'SKILL.md'),
-      path.join(dir, '.claude', 'skills', name, 'SKILL.md'),
-      opts,
-    )
+    for (const file of listSkillFiles(name)) {
+      copyAsset(dir, path.join('skills', name, file), path.join(dir, '.claude', 'skills', name, file), opts)
+    }
   }
 }
 
@@ -730,6 +748,61 @@ function installRule(dir, opts) {
       opts,
     )
   }
+}
+
+// The project's own conventions — its typecheck and test commands — written
+// once from a template and then the project's to edit. It is deliberately NOT
+// a managed file: no manifest entry, never overwritten (not even by
+// `--force`), never pruned, so filling it in trips no hash guard. That is the
+// point of it: the conventions used to live inside the managed
+// `spec-planning.md`, where tailoring them made the whole file "customized".
+const CONVENTIONS_FILE = path.join('.claude', 'rules', 'project-conventions.md')
+
+function installConventions(dir) {
+  const target = path.join(dir, CONVENTIONS_FILE)
+  if (fs.existsSync(target)) return // the project's, whatever it holds
+  ensureDir(path.dirname(target))
+  fs.writeFileSync(target, fs.readFileSync(path.join(ASSETS, 'project-conventions.md'), 'utf8'))
+  report.created.push(rel(dir, target))
+}
+
+// What Claude Code loads into EVERY session from this install: each rule under
+// `.claude/rules/` that skitterspec wrote (managed, or the conventions file)
+// and that carries no `paths:` front-matter, plus the managed CLAUDE.md block.
+// The budget test hangs on this (feat-rules-budget).
+//
+// WHAT WOULD FOOL THIS: front-matter it cannot parse. Anything other than a
+// leading `---` block holding a `paths:` key counts as always-loaded, so a
+// cannot-tell over-counts — the direction that fails the budget loudly rather
+// than passing it quietly.
+function hasPathsFrontMatter(text) {
+  const m = /^---\r?\n([\s\S]*?)\r?\n---\r?\n/.exec(text)
+  return Boolean(m && /^paths:/m.test(m[1]))
+}
+
+function alwaysLoaded(dir) {
+  const rows = []
+  const rules = [
+    ...managedTargets(dir)
+      .filter((t) => t.relPath.startsWith('.claude/rules/'))
+      .map((t) => t.abs),
+    path.join(dir, CONVENTIONS_FILE),
+  ]
+  for (const abs of [...new Set(rules)]) {
+    if (!fs.existsSync(abs)) continue
+    const text = fs.readFileSync(abs, 'utf8')
+    if (!hasPathsFrontMatter(text)) rows.push({ path: rel(dir, abs), chars: text.length })
+  }
+  for (const name of ['CLAUDE.md', 'CLAUDE.local.md']) {
+    const file = path.join(dir, name)
+    if (!fs.existsSync(file)) continue
+    const text = fs.readFileSync(file, 'utf8')
+    const start = text.indexOf(SPEC_MARKER_START)
+    const end = text.indexOf(SPEC_MARKER_END, start)
+    if (start === -1 || end === -1) continue
+    rows.push({ path: `${name} (skitterspec section)`, chars: end + SPEC_MARKER_END.length - start })
+  }
+  return { rows, total: rows.reduce((n, r) => n + r.chars, 0) }
 }
 
 // Register the review-gate hook in the project's committed settings, so a
@@ -1109,6 +1182,7 @@ function resync(dir, { force = false, claudeMd = true, diff = false, local = fal
   if (scope === 'local') convertCommitted(dir)
   const manifest = readManifest(dir)
   for (const t of managedTargets(dir)) resyncManagedFile(dir, t, manifest, force)
+  installConventions(dir)
   installFolders(dir)
   removeRetiredFiles(dir)
   pruneRetiredManaged(dir, manifest)
@@ -1359,6 +1433,7 @@ function localManagedPaths(dir) {
 function localExcludes(dir) {
   return [
     ...localManagedPaths(dir),
+    CONVENTIONS_FILE.replace(/\\/g, '/'),
     'CLAUDE.local.md',
     '.claude/settings.local.json',
     MANIFEST_FILE.replace(/\\/g, '/'),
@@ -1376,7 +1451,7 @@ function localExcludes(dir) {
 // and the hooks into a new .claude/settings.json (bug-local-scope-worktree).
 function localSeedFiles(dir) {
   if (readManifest(dir).scope !== 'local') return []
-  return [...localManagedPaths(dir), '.claude/settings.local.json', 'CLAUDE.local.md', MANIFEST_FILE.replace(/\\/g, '/')]
+  return [...localManagedPaths(dir), CONVENTIONS_FILE.replace(/\\/g, '/'), '.claude/settings.local.json', 'CLAUDE.local.md', MANIFEST_FILE.replace(/\\/g, '/')]
 }
 
 const EXCLUDE_START = '# >>> skitterspec (local install)'
@@ -1639,8 +1714,10 @@ function switchNames() {
   return [...SKILLS, ...COMMANDS.map((c) => c.replace(/\.md$/, ''))]
 }
 
+// The conventions file is switched with the rules: it is not managed, but a
+// disabled install should not go on loading half of itself.
 function ruleExcludes() {
-  return RULES.map((r) => `**/.claude/rules/${r}`)
+  return [...RULES, path.basename(CONVENTIONS_FILE)].map((r) => `**/.claude/rules/${r}`)
 }
 
 // The local settings, parsed — `{}` when absent, null when not valid JSON.
@@ -1827,6 +1904,9 @@ function uninstall(dir, { yes = false, inFlight = [], cannotTell = null, log = (
   const targets = new Map()
   for (const t of managedTargets(dir)) targets.set(t.relPath.split(path.sep).join('/'), t.bundled)
   for (const k of Object.keys(manifest.files)) if (!targets.has(k)) targets.set(k, undefined)
+  // The conventions file is not managed, but a local install wrote it: the
+  // untouched template goes, and a filled-in one is parked like an edit.
+  targets.set(CONVENTIONS_FILE.split(path.sep).join('/'), fs.readFileSync(path.join(ASSETS, 'project-conventions.md'), 'utf8'))
   const remove = []
   const keep = []
   const exclude = localExcludeFile(dir)
@@ -1981,6 +2061,7 @@ async function init({ dir, force, claudeMd, mode, isolation, workspaceMode, gati
   installSkills(dir, { force })
   installCommands(dir, { force })
   installRule(dir, { force })
+  installConventions(dir)
   installHooks(dir, { force })
   installFolders(dir)
   removeRetiredFiles(dir)
@@ -2015,6 +2096,9 @@ module.exports = {
   writeManifest,
   managedTargets,
   managedState,
+  alwaysLoaded,
+  CONVENTIONS_FILE,
+  listSkillFiles,
   claudeMdSectionState,
   checkSync,
   isExistingSetup,

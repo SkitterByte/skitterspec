@@ -136,7 +136,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Installer: skill folders, project-conventions.md, budget measure | ⬜ | [01-installer.md](01-installer.md) |
+| 1 | Installer: skill folders, project-conventions.md, budget measure | ✅ | [01-installer.md](01-installer.md) |
 | 2 | Split spec-reports.md and spec-planning.md | ⬜ | [02-split-core-rules.md](02-split-core-rules.md) |
 | 3 | Trim the small rules and the CLAUDE.md section | ⬜ | [03-trim-the-rest.md](03-trim-the-rest.md) |
 | 4 | Migration, budget gate, docs, dogfood | ⬜ | [04-migrate-and-gate.md](04-migrate-and-gate.md) |
@@ -149,3 +149,6 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 - 2026-11-23 — Spec created from the ereqs handoff (215.4k of 150k chars;
   skitterspec rules 118k).
+- 2026-11-23 — Phase 1: `update` also writes project-conventions.md when it is
+  missing, so upgrading hosts get it. A local uninstall removes the untouched
+  template and parks a filled-in copy, like any edited file.
