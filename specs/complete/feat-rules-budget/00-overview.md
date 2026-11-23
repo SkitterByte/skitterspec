@@ -175,3 +175,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   repo dogfoods with `pnpm relink`, not `skitterspec update`, because `update`
   would write through its symlinked rules. Confirmed: a fresh session shows no
   instruction-size warning.
+- 2026-11-23 — Completed; all phases done, tests green.
