@@ -98,3 +98,4 @@ expected: /release: already shipped in v1\.0\.0-hotfix\.1/,
 - 2026-11-23 — Follow-up surfaced: rendering a review from a worktree pinned
   at an old release tag restarted the shared review server on that tag's older
   engine (2.19.0 → 2.5.0). Not in scope here.
+- 2026-11-23 — Completed; all tasks done, tests green.
