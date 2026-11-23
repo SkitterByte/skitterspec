@@ -6668,6 +6668,10 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
           `the server was running engine ${up.engineWas} and could not be replaced (${up.error}) — ` +
           `its pages are drawn by that engine`
         : `the server was running engine ${up.engineWas}; restarted on ${up.engineIs}`
+    } else if (up.engine === 'newer') {
+      // LOUD, because this render's own engine is the old one: its page is
+      // served by a later engine than the one that wrote it.
+      serverSaid = `the server runs engine ${up.engineWas}, newer than this one (${up.engineIs}) — kept it`
     }
     if (!up.error) {
       // The URLs come from the bind the server HAS, not the one asked for just
@@ -7214,6 +7218,8 @@ async function ensureReviewServer(dir, config, { host = '127.0.0.1', port, resta
             started: false,
             // `current` needs no comment and `unknown` claims nothing — a server
             // from before the version was recorded is healthy, not suspect.
+            // `newer` is adopted too, and the render says so: replacing it would
+            // put an older engine behind every spec's page.
             engine: verdict,
             engineWas: settings.engine || null,
             engineIs: now,
@@ -7416,7 +7422,9 @@ async function specEnvReviewServe(dir, config, flags) {
         (settings.engine ? `  engine: ${settings.engine}\n` : '') +
         (verdict === 'stale'
           ? `  the engine moved under it — this one is ${engineVersionFor(proc.script)}\n`
-          : ''),
+          : verdict === 'newer'
+            ? `  newer than this engine (${engineVersionFor(proc.script)}) — kept, not downgraded\n`
+            : ''),
     )
     return
   }
@@ -8741,6 +8749,7 @@ module.exports = {
   serveProcFor,
   serverScriptOk,
   daemonScript,
+  ensureReviewServer,
   reviewServedUrls,
   memberPageLink,
   restartHost,

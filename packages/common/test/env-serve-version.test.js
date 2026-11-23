@@ -29,9 +29,9 @@ function tmp() {
 test('a matching version is current, a different one is stale', () => {
   assert.strictEqual(staleServer('9.2.0', '9.2.0'), 'current')
   assert.strictEqual(staleServer('9.2.0', '9.3.1'), 'stale')
-  // Direction does not matter: a server running something NEWER than this CLI
-  // is equally not the engine this one would start.
-  assert.strictEqual(staleServer('9.3.1', '9.2.0'), 'stale')
+  // Direction matters: a server running something NEWER than this CLI is kept,
+  // never downgraded (env-serve-downgrade.test.js).
+  assert.strictEqual(staleServer('9.3.1', '9.2.0'), 'newer')
 })
 
 // STAYS SILENT (`negative-checks.md` rule 3). Every one of these is a healthy

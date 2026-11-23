@@ -938,6 +938,22 @@ function engineVersionFor(scriptPath) {
   return null
 }
 
+// Order two `X.Y.Z[-pre]` versions: negative, zero or positive, or null when
+// either is not one. A release sorts after its own pre-releases, as in semver;
+// pre-release labels compare as strings.
+function compareVersions(a, b) {
+  const parse = (v) => /^(\d+)\.(\d+)\.(\d+)(?:-([^+]+))?(?:\+.*)?$/.exec(v)
+  const x = parse(a)
+  const y = parse(b)
+  if (!x || !y) return null
+  for (let i = 1; i <= 3; i++) {
+    if (Number(x[i]) !== Number(y[i])) return Number(x[i]) - Number(y[i])
+  }
+  if (!x[4] !== !y[4]) return x[4] ? -1 : 1
+  if (!x[4]) return 0
+  return x[4] < y[4] ? -1 : x[4] > y[4] ? 1 : 0
+}
+
 /**
  * Is the running server executing the engine this one would start? Pure.
  *
@@ -952,11 +968,18 @@ function engineVersionFor(scriptPath) {
  * `running` is null whenever `engineVersionFor` could not read a package at all
  * (a bundled build, an odd install layout). Both are answered `unknown`, and
  * neither is evidence of anything.
+ *
+ * AND A FOURTH, `newer`: the running server is a LATER engine than this one.
+ * Replacing it would be a downgrade. That happened when a worktree pinned at an
+ * old release ran its own older engine, and the shared server was restarted
+ * from 2.19.0 down to 2.5.0. The caller adopts a newer server. Versions that
+ * cannot be ordered (not `X.Y.Z[-pre]`) are `stale` as before, so this only
+ * ever narrows a restart and never adds one.
  */
 function staleServer(recorded, running, recordedMtime, runningMtime) {
   if (typeof recorded !== 'string' || !recorded) return 'unknown'
   if (typeof running !== 'string' || !running) return 'unknown'
-  if (recorded !== running) return 'stale'
+  if (recorded !== running) return compareVersions(recorded, running) > 0 ? 'newer' : 'stale'
 
   // SAME VERSION IS NOT SAME CODE, which is the whole of this addition. The
   // daemon runs a built copy of the engine — in this repo a symlink to the
