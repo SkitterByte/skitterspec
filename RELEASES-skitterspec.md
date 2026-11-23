@@ -5,6 +5,11 @@ What's new for users of skitterspec. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 23.23.2 — 23 Nov 2026
+
+### Review
+- **Fixed** — Rendering a review from a worktree on an older release no longer swaps the shared review server for that older engine, and the link open on your phone keeps working.
+
 ## 23.23.1 — 23 Nov 2026
 
 ### Hotfix
