@@ -1,0 +1,1 @@
+../../packages/common/assets/rules/spec-format.md

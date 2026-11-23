@@ -138,7 +138,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Installer: skill folders, project-conventions.md, budget measure | ✅ | [01-installer.md](01-installer.md) |
 | 2 | Split spec-reports.md and spec-planning.md | ✅ | [02-split-core-rules.md](02-split-core-rules.md) |
-| 3 | Trim the small rules and the CLAUDE.md section | ⬜ | [03-trim-the-rest.md](03-trim-the-rest.md) |
+| 3 | Trim the small rules and the CLAUDE.md section | ✅ | [03-trim-the-rest.md](03-trim-the-rest.md) |
 | 4 | Migration, budget gate, docs, dogfood | ⬜ | [04-migrate-and-gate.md](04-migrate-and-gate.md) |
 
 ## Open questions
@@ -162,3 +162,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   pin the instruction in its new home, and assertions that only quoted history
   were dropped. Always-loaded total: 31.9k (base), 38.1k (github), down from
   about 126k.
+- 2026-11-23 — Phase 3: the always-loaded totals are now 21.2k (base), 24.1k
+  (github), 23.7k (linear), 23.7k (jira) and 23.8k (azure-boards). The original
+  texts of negative-checks, offered-unblocks and commit-trailers went to
+  `docs/rationale/`. offered-unblocks stays a rule, because six skills relay
+  offers. This repo's commit-trailers copy was re-rendered, spec-format.md was
+  linked (`pnpm relink`), and the CLAUDE.md block was synced to the template.
