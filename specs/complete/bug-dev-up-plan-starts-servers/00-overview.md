@@ -62,3 +62,4 @@ Red:
 - 2026-11-24 — Bug reproduced; failing tests added (red).
 - 2026-11-24 — Fixed: `dev` honours `--plan` on up and down; suite green
   (5514 pass).
+- 2026-11-24 — Completed; fix done, tests green.
