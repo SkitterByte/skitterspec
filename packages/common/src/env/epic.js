@@ -419,7 +419,7 @@ function formatEpicStatus(s) {
   if (!s.found && !s.members.length) {
     return `no epic named ${s.epic}, and no spec names it as its Epic${s.here ? ` in ${s.here}` : ''}.\n`
   }
-  const lanes = s.lanes === null ? 'no lane cap' : `${s.lanes} lanes, ${s.freeLanes} free`
+  const lanes = s.lanes === null ? 'no lane cap' : `${s.lanes} ${s.lanes === 1 ? 'lane' : 'lanes'}, ${s.freeLanes} free`
   const where = s.here ? ` · headers from ${s.here}` : s.found ? '' : ' · epic not on the base branch'
   const out = []
   if (!s.members.length) {

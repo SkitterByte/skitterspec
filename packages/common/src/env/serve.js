@@ -45,7 +45,7 @@ const { renderEpicPage } = require('./epicpage.js')
 const { readRegistry } = require('./registry.js')
 const { loadEnvConfig } = require('./config.js')
 const { primaryAnchor, attachProject, projectName, repoRootOf, prefixOf, fromRepoPath, toRepoPath } = require('./project.js')
-const { specDocsIn, classifyDirtyTree, dirtyPaths } = require('./classify.js')
+const { specDocsIn, classifyDirtyTree, dirtyPaths, treeReader } = require('./classify.js')
 const { liveStateFor } = require('./live.js')
 const { preferRemoteBase } = require('./host.js')
 const { ROUTE: TADA_ROUTE, renderServedTada } = require('../tada/serve.js')
@@ -263,7 +263,8 @@ function docsWorktree(wt, spec, config) {
   const paths = dirtyPaths(trimmedGitReader(wt))
   // Cannot tell — not "no documents".
   if (paths === null) return null
-  const { owned, foreign } = classifyDirtyTree(spec, paths, config)
+  // An epic's members, written beside it in this same tree, are its documents.
+  const { owned, foreign } = classifyDirtyTree(spec, paths, config, { readFile: treeReader(wt) })
   // A TRACKER SNAPSHOT IS NOT SOMEBODY ELSE'S WORK, and requiring a
   // foreign-free tree cost the whole page for the commonest authoring tree
   // there is. The linking push writes `specs/.core/linear-base/<ID>.base.json`

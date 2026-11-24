@@ -204,7 +204,7 @@ const {
 } = require('./env/reviewers.js')
 const { planUp, planCheckoutUp, resolveStack, worktreeSteps } = require('./env/provision.js')
 const { runBootstrap, describeStep } = require('./env/bootstrap.js')
-const { classifyDirtyTree, dirtyPaths, specDocsIn } = require('./env/classify.js')
+const { classifyDirtyTree, dirtyPaths, specDocsIn, treeReader } = require('./env/classify.js')
 const { isGitCommit } = require('./env/commitcmd.js')
 const { planDown, planDownCheckout } = require('./env/teardown.js')
 const {
@@ -5343,7 +5343,8 @@ function specEnvStage(dir, config, specArg, flags = {}, invokedFrom = dir) {
   // PROJECT folder in it — what a pathspec is when run from where a session
   // stands. The same thing at the root of a repo (feat-subfolder-project).
   const prefix = prefixOf(config)
-  const split = classifyDirtyTree(spec, paths, config)
+  // The same reader the page uses, so an epic stages the members it shows.
+  const split = classifyDirtyTree(spec, paths, config, { readFile: treeReader(tree) })
   const owned = split.owned.map((p) => projectRelative(p, prefix))
   const foreign = split.foreign.map((p) => projectRelative(p, prefix))
   const treeShown = prefix ? projectIn(tree, prefix) : tree

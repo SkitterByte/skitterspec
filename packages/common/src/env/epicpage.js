@@ -62,7 +62,7 @@ function stepItem(st, freeLanes) {
 }
 
 function renderEpicPage(answer, { refreshSeconds = REFRESH_SECONDS, project = null } = {}) {
-  const lanes = answer.lanes === null ? 'no lane cap' : `${answer.lanes} lanes, ${answer.freeLanes} free`
+  const lanes = answer.lanes === null ? 'no lane cap' : `${answer.lanes} ${answer.lanes === 1 ? 'lane' : 'lanes'}, ${answer.freeLanes} free`
   const { rows, next } = answer.rows ? { rows: answer.rows, next: answer.next } : epicRows(answer)
   const { progress, groups, steps } = answer.steps ? answer : epicPlan(answer, { rows, next })
   const byName = new Map(rows.map((r) => [r.spec, r]))

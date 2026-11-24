@@ -15,9 +15,19 @@
  * foreign path disqualifies the whole tree.
  */
 
+const fs = require('node:fs')
 const path = require('node:path')
-const { BUCKETS, expandTokens, readFrontmatterField } = require('./resolve.js')
-const { fromRepoPath, prefixOf } = require('./project.js')
+const { BUCKETS, expandTokens, readFrontmatterField, isEpic } = require('./resolve.js')
+const { fromRepoPath, toRepoPath, prefixOf } = require('./project.js')
+
+// The `> **Epic:**` header off an overview, unquoted, or null. The same reading
+// as `epicHeaders` in env/epic.js, kept here so the classifier stays a leaf.
+function epicNamed(text) {
+  const m = /^>\s*\*\*Epic:\*\*[ \t]*(.*)$/m.exec(text || '')
+  if (!m) return null
+  const value = m[1].trim().replace(/^`(.*)`$/, '$1').trim()
+  return value || null
+}
 
 // git reports repo-relative, forward-slashed paths; an untracked directory comes
 // back with a trailing slash. Normalise both away so comparisons are exact.
@@ -77,10 +87,23 @@ function expandCompanion(pattern, spec, config) {
  *     (backlog → in-progress), so a tree mid-move is dirty in two buckets at once
  *     and both halves are the same spec's.
  *   - each expandable `spec.companionPaths` entry.
+ *   - for an EPIC, and only given `readFile`: anything inside another spec's
+ *     folder whose `00-overview.md`, read from the same tree, carries
+ *     `> **Epic:** <this epic>`. `/spec` writes an epic WITH its members in one
+ *     worktree, so those members are the epic's documents being written, not
+ *     somebody else's work (bug-epic-page-misses-members).
  *
+ * WHAT WOULD FOOL THE MEMBER RULE: a member's overview that is not in the tree
+ * being read. That reads as null, which is cannot-tell, and cannot-tell stays
+ * foreign: a refusal is the safe direction to be wrong in. A spec naming another
+ * epic, or none, is foreign as before.
+ *
+ * @param {object} [opts]
+ *   - `readFile`  repo-relative path → text, or null. Without it no member is
+ *                 owned, which is the answer every caller had before.
  * @returns {{owned: string[], foreign: string[]}}
  */
-function classifyDirtyTree(spec, dirtyPaths, config) {
+function classifyDirtyTree(spec, dirtyPaths, config, { readFile = null } = {}) {
   const owned = []
   const foreign = []
   if (!spec) return { owned, foreign: (dirtyPaths || []).map(normalize).filter(Boolean) }
@@ -93,12 +116,30 @@ function classifyDirtyTree(spec, dirtyPaths, config) {
   }
 
   const prefix = prefixOf(config)
+  // One read per member folder, however many of its files are dirty.
+  const memberFolders = new Map()
+  const memberOf = (rel) => {
+    if (!readFile || !isEpic(spec.folder) || rel === null) return false
+    const m = /^specs\/([^/]+)\/([^/]+)\//.exec(rel)
+    if (!m || !BUCKETS.includes(m[1])) return false
+    const key = `${m[1]}/${m[2]}`
+    if (!memberFolders.has(key)) {
+      let text = null
+      try {
+        text = readFile(toRepoPath(`specs/${key}/00-overview.md`, prefix))
+      } catch {
+        // unreadable: cannot tell, so not a member
+      }
+      memberFolders.set(key, epicNamed(text) === spec.folder)
+    }
+    return memberFolders.get(key)
+  }
   for (const raw of dirtyPaths || []) {
     const p = normalize(raw)
     if (!p) continue
     const rel = fromRepoPath(p, prefix)
     const inFolder = rel !== null && folders.some((f) => rel === f || rel.startsWith(`${f}/`))
-    if (inFolder || (rel !== null && companions.has(rel))) owned.push(p)
+    if (inFolder || (rel !== null && companions.has(rel)) || memberOf(rel)) owned.push(p)
     else foreign.push(p)
   }
   return { owned, foreign }
@@ -176,9 +217,23 @@ function dirtyPaths(git) {
 function specDocsIn(tree, spec, config, git) {
   const paths = dirtyPaths(git)
   if (paths === null) return { error: 'git could not be read' }
-  const { owned } = classifyDirtyTree(spec, paths, config)
+  const { owned } = classifyDirtyTree(spec, paths, config, { readFile: treeReader(tree) })
   if (!owned.length) return { empty: true }
   return { tree, owned }
 }
 
-module.exports = { classifyDirtyTree, expandCompanion, unquotePath, dirtyPaths, specDocsIn }
+/**
+ * `classifyDirtyTree`'s `readFile` for a checkout: repo-relative path → its
+ * text in that working tree, or null when it cannot be read (cannot tell).
+ */
+function treeReader(root) {
+  return (rel) => {
+    try {
+      return fs.readFileSync(path.join(root, rel), 'utf8')
+    } catch {
+      return null
+    }
+  }
+}
+
+module.exports = { treeReader, classifyDirtyTree, expandCompanion, unquotePath, dirtyPaths, specDocsIn }

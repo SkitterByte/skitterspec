@@ -174,3 +174,48 @@ test('an epic being WRITTEN keeps its authoring page at the same address', async
     cleanup(dir)
   }
 })
+
+// bug-epic-page-misses-members: `/spec` writes an epic AND its members in the
+// one worktree. The members used to disqualify the authoring view, so the
+// reader got an empty epic dashboard ("No member yet") with nothing to press.
+test('an epic written WITH its members keeps its authoring page, members shown', async () => {
+  const { dir } = scaffold()
+  const wt = path.resolve(dir, `../${path.basename(dir)}-wt`, 'y')
+  git(dir, 'worktree', 'add', '-q', '-b', 'epic/y', wt)
+  write(path.join(wt, 'specs', 'backlog', 'epic-y', '00-overview.md'), '# Y\n\n> **Type:** Epic\n')
+  write(path.join(wt, 'specs', 'backlog', 'feat-y1', '00-overview.md'), '# Y1\n\n> **Epic:** epic-y\n')
+  write(path.join(wt, 'specs', 'backlog', 'feat-y1', '01-one.md'), '# Phase 1 ⬜\n')
+  const s = await serve(dir)
+  try {
+    const res = await s.get('epic-y')
+    assert.strictEqual(res.status, 200)
+    const html = await res.text()
+    assert.doesNotMatch(html, /http-equiv="refresh"/, 'not the epic dashboard')
+    assert.match(html, /feat-y1\/01-one\.md/, 'the member it was written with')
+  } finally {
+    await s.close()
+    cleanup(dir)
+  }
+})
+
+test('STAYS SILENT: a spec of no epic beside it is not swept onto the epic\'s page', async () => {
+  const { dir } = scaffold()
+  const wt = path.resolve(dir, `../${path.basename(dir)}-wt`, 'y')
+  git(dir, 'worktree', 'add', '-q', '-b', 'epic/y', wt)
+  write(path.join(wt, 'specs', 'backlog', 'epic-y', '00-overview.md'), '# Y\n\n> **Type:** Epic\n')
+  write(path.join(wt, 'specs', 'backlog', 'feat-loose', '00-overview.md'), '# L\n\n> **Type:** Feature\n')
+  const s = await serve(dir)
+  try {
+    const html = await (await s.get('epic-y')).text()
+    assert.doesNotMatch(html, /feat-loose/)
+  } finally {
+    await s.close()
+    cleanup(dir)
+  }
+})
+
+test('one lane reads "1 lane", not "1 lanes"', () => {
+  const html = renderEpicPage(answer({ lanes: 1, freeLanes: 1 }))
+  assert.match(html, /1 lane, 1 free/)
+  assert.match(renderEpicPage(answer({ lanes: 2, freeLanes: 1 })), /2 lanes, 1 free/)
+})
