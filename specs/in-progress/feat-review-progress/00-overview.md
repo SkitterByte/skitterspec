@@ -78,7 +78,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Progress line and bar on the review page | ⬜ | [01-progress-line.md](01-progress-line.md) |
+| 1 | Progress line and bar on the review page | ✅ | [01-progress-line.md](01-progress-line.md) |
 
 ## Open questions
 
@@ -87,3 +87,6 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-11-24 — Spec created. Requested from a review page in LSC App.
+- 2026-11-24 — Phase 1 built. The bar is a `role="progressbar"` with
+  `aria-valuenow`, so it is read out too. A phase with no tasks drops the task
+  half ("Phase 1 of 2").

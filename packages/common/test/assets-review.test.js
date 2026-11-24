@@ -285,7 +285,7 @@ function fakeDom(islandText, widths = DEFAULT_WIDTHS) {
     'wrap', 'decided', 'decided-what', 'decided-note', 'decided-toggle', 'drawn-by',
     'send-failed', 'send-failed-what', 'send-failed-note', 'send-failed-cmd',
     'send-failed-lead', 'send-failed-text', 'send-failed-copy',
-    'pickup-wait',
+    'pickup-wait', 'progress',
   ]) {
     byId[id] = make('div')
     byId[id].id = id
@@ -3064,3 +3064,48 @@ test('an open editor with nothing in it is not warned about', () => {
   copyBlob(dom)
   assert.strictEqual(dom.byId['verdict-warn'].hidden, true, 'nothing was said')
 })
+
+// --- progress through the spec, under the title ------------------------------
+
+const progressOf = (dom) => {
+  const box = dom.byId.progress
+  const text = findAll(box, 'progress-text')[0]
+  const fill = findAll(box, 'progress-fill')[0]
+  return {
+    hidden: box.hidden,
+    text: text ? text.textContent : null,
+    width: fill ? fill.style.getPropertyValue('width') : null,
+  }
+}
+const tasks = (done, open) => [
+  ...Array.from({ length: done }, (_, i) => ({ done: true, text: `d${i}` })),
+  ...Array.from({ length: open }, (_, i) => ({ done: false, text: `o${i}` })),
+]
+
+test('a phase in progress shows which phase, its ticked tasks, and a bar for phases done', () => {
+  const dom = runPage(marked({ phases: { total: 3, done: 1, hasNextPhase: true, live: { n: 2, title: 'B', goal: null, tasks: tasks(5, 2) } } }))
+  assert.deepStrictEqual(progressOf(dom), { hidden: false, text: 'Phase 2 of 3 · 5/7 tasks', width: '33%' })
+})
+
+test('a finished spec reads every phase done, with the bar full', () => {
+  const dom = runPage(marked({ phases: { total: 3, done: 3, hasNextPhase: false, live: { n: 3, title: 'C', goal: null, tasks: tasks(4, 0) } } }))
+  assert.deepStrictEqual(progressOf(dom), { hidden: false, text: '3 of 3 phases done', width: '100%' })
+})
+
+test('a new spec reads none started, with the bar empty', () => {
+  const dom = runPage(marked({ phases: { total: 3, done: 0, hasNextPhase: true, live: null } }))
+  assert.deepStrictEqual(progressOf(dom), { hidden: false, text: '3 phases · none started', width: '0%' })
+})
+
+test('a phase with no tasks drops the task half', () => {
+  const dom = runPage(marked({ phases: { total: 2, done: 0, hasNextPhase: true, live: { n: 1, title: 'A', goal: null, tasks: [] } } }))
+  assert.strictEqual(progressOf(dom).text, 'Phase 1 of 2')
+})
+
+test('STAYS SILENT: no phases, or an epic, draws no progress at all', () => {
+  for (const phases of [null, undefined, { total: 0, done: 0, hasNextPhase: false, live: null }]) {
+    const dom = runPage(marked({ phases }))
+    assert.deepStrictEqual(progressOf(dom), { hidden: true, text: null, width: null }, JSON.stringify(phases))
+  }
+})
+

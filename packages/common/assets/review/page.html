@@ -692,6 +692,13 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
 /* The disclosure is a CONTROL, not a panel. Full-width and boxed, it read as a
    section header that happened to be clickable. */
 .context-more { margin: .9rem 0 0; }
+/* How far through the spec this is: a line, then a thin bar for phases done.
+   Theme tokens only, so it follows light and dark; the width is the bar's
+   container's, so it narrows with the page on a phone. */
+.progress { margin: .35rem 0 .6rem; max-width: 28rem; }
+.progress-text { font-size: .85rem; color: var(--muted); }
+.progress-track { height: 4px; margin-top: .3rem; border-radius: 999px; background: var(--line); overflow: hidden; }
+.progress-fill { height: 100%; border-radius: 999px; background: var(--accent); }
 .context-more > summary {
   display: inline-block;
   width: auto;
@@ -844,6 +851,7 @@ a.ticket:hover { border-color: var(--accent); }
   <p class="eyebrow" id="project" hidden></p>
   <h1 id="title"></h1>
   <p class="sub" id="sub"></p>
+  <div class="progress" id="progress" hidden></div>
   <div class="controls">
     <button id="expand-all" type="button">Show all context</button>
     <button id="collapse-all" type="button">Collapse context</button>
@@ -3311,6 +3319,49 @@ a.ticket:hover { border-color: var(--accent); }
       return iso
     }
   }
+  /**
+   * How far through the spec this page is, under the title: which phase out of
+   * how many and that phase's ticked tasks, and a bar for phases done. Read off
+   * `data.phases`, which the engine already sends.
+   *
+   * NOTHING when there are no phases to count — a legacy or single-pass spec
+   * (`phases` null) or an epic (`total` 0). "0 of 0" would be the page
+   * inventing progress for work that is not measured in phases.
+   */
+  ;(function () {
+    var ph = data.phases
+    if (!ph || !(ph.total > 0)) return
+    var live = ph.live
+    var text
+    if (ph.done >= ph.total) {
+      text = ph.total + ' of ' + ph.total + ' phases done'
+    } else if (live && live.n) {
+      text = 'Phase ' + live.n + ' of ' + ph.total
+      var tasks = Array.isArray(live.tasks) ? live.tasks : []
+      if (tasks.length) {
+        var ticked = tasks.filter(function (k) { return k && k.done }).length
+        text += ' \u00b7 ' + ticked + '/' + tasks.length + ' tasks'
+      }
+    } else if (!ph.done) {
+      text = ph.total + ' phases \u00b7 none started'
+    } else {
+      text = ph.done + ' of ' + ph.total + ' phases done'
+    }
+    var box = document.getElementById('progress')
+    box.appendChild(el('div', 'progress-text', text))
+    var track = el('div', 'progress-track')
+    var fill = el('div', 'progress-fill')
+    var pct = Math.round((Math.min(ph.done, ph.total) / ph.total) * 100)
+    fill.style.setProperty('width', pct + '%')
+    track.setAttribute('role', 'progressbar')
+    track.setAttribute('aria-valuemin', '0')
+    track.setAttribute('aria-valuemax', String(ph.total))
+    track.setAttribute('aria-valuenow', String(Math.min(ph.done, ph.total)))
+    track.appendChild(fill)
+    box.appendChild(track)
+    box.hidden = false
+  })()
+
   var t = data.totals
   var sub = document.getElementById('sub')
   function part(text, cls) { sub.appendChild(el('span', cls, text)) }
