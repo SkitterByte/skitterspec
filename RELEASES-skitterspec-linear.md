@@ -5,6 +5,14 @@ What's new for users of skitterspec-linear. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 20.2.1 — 24 Nov 2026
+
+### Env
+- **Fixed** — The skitterspec command now runs spec-sync for the ticketing provider your project has configured, so tracker steps, /spec-push, /spec-status and the Refs: trailer work again on a global install.
+
+### Review
+- **Fixed** — A newly written epic now opens on its review page with the epic and all its member specs, ready for Commit & Start, instead of an empty epic dashboard.
+
 ## 20.2.0 — 24 Nov 2026
 
 **Highlights:** A spec can now build itself from first phase to last without stopping for review at each one. Every phase still leaves its review page to read, and the run ends paused on one final page, pushed, or opened as a pull request.
