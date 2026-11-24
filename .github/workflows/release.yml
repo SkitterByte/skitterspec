@@ -73,14 +73,15 @@ permissions:
   id-token: write
 
 jobs:
-  # THE WINDOWS SUITE GATES THE STAGE. ci.yml has always run Windows on a tag
+  # THE WINDOWS SUITE GATES THE STAGE. ci.yml used to run Windows on a tag
   # too, but beside this workflow rather than before it: the stage job finished
   # in about 90 seconds while Windows still had 5–10 minutes to go, so a red
   # Windows run never stopped a release (skitterspec-azure-boards@2.16.0 was
   # staged while its Windows run failed). Running it here, with `stage`
   # needing it, makes "staged" mean "green on Ubuntu AND Windows", including
   # for a release later approved on the npm website, which no local script
-  # sees. It is the same job as ci.yml's; keep the two in step.
+  # sees. It is the same job as ci.yml's; keep the two in step. ci.yml no
+  # longer runs on tags at all, so this is a tag's only Windows run.
   windows:
     name: windows (node 24)
     runs-on: windows-latest

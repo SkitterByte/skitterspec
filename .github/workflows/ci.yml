@@ -21,11 +21,19 @@
 # release.yml's OIDC exchange only happens when npm finds no credentials at all.
 # Keeping both workflows identical on this point is what stops it being copied
 # across later.
+#
+# BRANCHES ONLY, NEVER TAGS. A bare `push:` fires on every tag as well, so each
+# release tag ran this whole matrix beside release.yml, which already gates that
+# tag on Windows and Ubuntu before staging. A five-package batch spent 15 jobs
+# re-testing code main's push had just tested (chore-release-ci-test-dedup).
+# Naming `branches` and no `tags` is what leaves tags out; the filter is asserted
+# by `scripts/workflows.test.js`.
 
 name: CI
 
 on:
   push:
+    branches: ['**']
   pull_request:
 
 permissions:

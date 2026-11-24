@@ -100,7 +100,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Stop `ci.yml` running on tags | ⬜ | [01-ci-skip-tags.md](01-ci-skip-tags.md) |
+| 1 | Stop `ci.yml` running on tags | ✅ | [01-ci-skip-tags.md](01-ci-skip-tags.md) |
 | 2 | Windows gate adopts an equivalent green run | ⬜ | [02-windows-gate.md](02-windows-gate.md) |
 
 ## Open questions

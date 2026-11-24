@@ -65,6 +65,36 @@ function matrixNodeVersions(yaml) {
     .filter(Boolean)
 }
 
+/**
+ * The block under one trigger of `on:` (e.g. `push`), or null when that
+ * trigger is absent. A bare `push:` yields an empty string — present, with no
+ * filter, which is exactly the shape that fires on tags.
+ */
+function triggerBlock(yaml, event) {
+  const lines = withoutComments(yaml).split('\n')
+  const on = lines.findIndex((l) => /^on:\s*$/.test(l))
+  if (on === -1) return null
+  const start = lines.findIndex((l, i) => i > on && new RegExp(`^ {2}${event}:\\s*$`).test(l))
+  if (start === -1) return null
+  const body = []
+  for (const l of lines.slice(start + 1)) {
+    if (!/^ {4}/.test(l)) break
+    body.push(l)
+  }
+  return body.join('\n')
+}
+
+/**
+ * True when a `push` trigger is limited to branches. GitHub runs a push
+ * workflow for tags unless it names `branches` without `tags`: naming only one
+ * of the two filters leaves the other kind of ref out.
+ */
+function pushSkipsTags(yaml) {
+  const push = triggerBlock(yaml, 'push')
+  if (push === null) return true
+  return /^\s*branches\s*:/m.test(push) && !/^\s*tags(-ignore)?\s*:/m.test(push)
+}
+
 // --- the real corpus --------------------------------------------------------
 
 test('every manifest declares the same node floor', () => {
@@ -96,7 +126,22 @@ test('ci.yml does not set registry-url', () => {
   assert.strictEqual(setsRegistryUrl(yaml), false)
 })
 
+test('ci.yml does not run on tags', () => {
+  // release.yml owns a tag: it gates the stage on Windows and Ubuntu, so CI on
+  // the same tag re-tests code main's push already tested (chore-release-ci-test-dedup).
+  const yaml = fs.readFileSync(path.join(WORKFLOWS, 'ci.yml'), 'utf8')
+  assert.strictEqual(pushSkipsTags(yaml), true)
+})
+
 // --- the checks fire --------------------------------------------------------
+
+test('a bare push trigger, which fires on tags, is caught', () => {
+  assert.strictEqual(pushSkipsTags('on:\n  push:\n  pull_request:\n'), false)
+})
+
+test('a push trigger that also names tags is caught', () => {
+  assert.strictEqual(pushSkipsTags("on:\n  push:\n    branches: ['**']\n    tags: ['v*']\n"), false)
+})
 
 test('a workflow that really sets registry-url is caught', () => {
   assert.strictEqual(
@@ -118,6 +163,15 @@ test('a comment mentioning registry-url is not an accusation', () => {
   // fail the correct file (`.claude/rules/negative-checks.md` rule 3).
   const yaml = '# NOTE: setup-node is used WITHOUT `registry-url` — see release.yml.\n      - uses: actions/setup-node@v7\n'
   assert.strictEqual(setsRegistryUrl(yaml), false)
+})
+
+test('an unfiltered pull_request trigger is not an accusation', () => {
+  // Pull requests never carry a tag ref, so only `push` is held to the filter.
+  assert.strictEqual(pushSkipsTags("on:\n  push:\n    branches: ['**']\n  pull_request:\n"), true)
+})
+
+test('a workflow with no push trigger is not an accusation', () => {
+  assert.strictEqual(pushSkipsTags('on:\n  workflow_dispatch:\n'), true)
 })
 
 test('an unparseable engines range yields no floor, rather than a wrong one', () => {
