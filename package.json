@@ -20,7 +20,7 @@
     "@skitterbyte/skitterspec-provider-linear": "workspace:*"
   },
   "scripts": {
-    "test": "node --test",
+    "test": "node scripts/run-tests.js",
     "test:nested": "node scripts/test-nested.js",
     "build": "node scripts/build-dist.js all",
     "dev:link": "node scripts/dev-link.js",

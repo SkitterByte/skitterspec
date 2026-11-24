@@ -31,7 +31,8 @@ test('root package.json drops the single-package-era release scripts', () => {
 
 test('root package.json keeps build/test and adds release + preversion guard', () => {
   assert.strictEqual(rootPkg.scripts.build, 'node scripts/build-dist.js all')
-  assert.strictEqual(rootPkg.scripts.test, 'node --test')
+  // Bare `node --test` minus the parked sources (scripts/run-tests.js).
+  assert.strictEqual(rootPkg.scripts.test, 'node scripts/run-tests.js')
   assert.strictEqual(rootPkg.scripts.release, 'node scripts/release.js')
   assert.strictEqual(rootPkg.scripts.preversion, 'node scripts/no-root-version.js')
 })

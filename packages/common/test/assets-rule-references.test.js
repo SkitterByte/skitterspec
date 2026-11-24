@@ -20,7 +20,9 @@ const fs = require('node:fs')
 const path = require('node:path')
 
 const PKGS = path.join(__dirname, '..', '..')
-const DISTS = ['skitterspec', 'skitterspec-github', 'skitterspec-linear', 'skitterspec-jira', 'skitterspec-azure-boards']
+// Parked distributions (scripts/parked.json) are not built, so not measured.
+const { active } = require('../../../scripts/parked.js')
+const DISTS = active(['skitterspec', 'skitterspec-github', 'skitterspec-linear', 'skitterspec-jira', 'skitterspec-azure-boards'])
 
 // Rules another package installs beside ours: skittership's commit grammar,
 // and the repo-local docs-freshness convention this repo's own skills name.

@@ -97,7 +97,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Parked list drives build, release and the release workflow | ✅ | [01-park-build-release.md](01-park-build-release.md) |
-| 2 | Tests skip parked sources; docs say parked | ⬜ | [02-park-tests-docs.md](02-park-tests-docs.md) |
+| 2 | Tests skip parked sources; docs say parked | ✅ | [02-park-tests-docs.md](02-park-tests-docs.md) |
 
 ## Open questions
 
@@ -112,3 +112,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   `skitterspec-github` while linear is parked. `ALL_DISTS` / `ALL_PACKAGES` /
   `ALL_TARBALL_INPUTS` stay exported for the build-output scan, the
   migration-guide check and the historical-tag guard test.
+- 2026-11-24 — Phase 2: only `assets-rule-references` and `rules-budget`
+  needed the parked list; the other cross-distribution tests already skip an
+  unbuilt dist. That only showed up after deleting the stale linear/jira build
+  output that bootstrap copies into a worktree, so CI is the real check. The
+  runner's discovery is pinned to bare `node --test` on a fixture tree.

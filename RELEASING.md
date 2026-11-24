@@ -2,15 +2,40 @@
 
 This is a pnpm-workspaces monorepo. The **private root**
 (`skitterspec-monorepo`) is never published — it exists only to host the
-workspaces. Two distributions publish independently, each on its own cadence:
+workspaces. Each distribution publishes independently, on its own cadence:
 
 | Package | npm name | Dir |
 |---------|----------|-----|
 | `skitterspec` | `@skitterbyte/skitterspec` | `packages/skitterspec` |
-| `skitterspec-linear` | `@skitterbyte/skitterspec-linear` | `packages/skitterspec-linear` |
-| `skitterspec-jira` | `@skitterbyte/skitterspec-jira` | `packages/skitterspec-jira` |
 | `skitterspec-github` | `@skitterbyte/skitterspec-github` | `packages/skitterspec-github` |
 | `skitterspec-azure-boards` | `@skitterbyte/skitterspec-azure-boards` | `packages/skitterspec-azure-boards` |
+| `skitterspec-linear` | `@skitterbyte/skitterspec-linear` | `packages/skitterspec-linear` — **parked** |
+| `skitterspec-jira` | `@skitterbyte/skitterspec-jira` | `packages/skitterspec-jira` — **parked** |
+
+### Parked distributions
+
+A **parked** distribution keeps its source in the repo but is not built, released
+or tested. `scripts/parked.json` is the switch: `pnpm build`, `release.js`,
+`npm run approve`, release notes and `dev:link` leave it out (and refuse it by
+name), `pnpm test` and `pnpm test:nested` skip its source package, and
+`release.yml` has no trigger for it. Its last published version stays on npm,
+untouched. `skitterspec-linear` (last 20.2.3) and `skitterspec-jira` (last
+3.2.3) are parked because nothing uses them at the moment
+(chore-park-linear-jira). Their tests still run by hand:
+`node --test packages/linear/test/`.
+
+A commit that feeds only a parked distribution gets no release note and is not
+reported as unattributed: it is waiting for that distribution to be un-parked.
+
+#### Un-parking
+
+1. Remove the name from `dists`, and its source package from `sources`, in
+   `scripts/parked.json`.
+2. In `.github/workflows/release.yml`, add back its `'<name>@*'` tag trigger,
+   its `workflow_dispatch` option and its arm in the `case "$pkg"` guard.
+   `scripts/workflows.test.js` fails until all three are there.
+3. `pnpm build && pnpm test`. Its first release since parking collects every
+   note held since then.
 
 All releasing goes through **`scripts/release.js`**. Do **not** version the root
 package directly — it bumps the private root package (it once misfired

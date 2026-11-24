@@ -23,3 +23,8 @@ test('STAYS SILENT: a package with no test folder is not a finding', () => {
   fs.mkdirSync(path.join(root, 'packages', 'empty'), { recursive: true })
   assert.deepStrictEqual(nestedTestFiles(root), [])
 })
+
+test('a parked source package is not rerun nested (scripts/parked.json)', () => {
+  const files = nestedTestFiles().map((f) => path.relative(path.join(__dirname, '..'), f).split(path.sep).join('/'))
+  assert.ok(!files.some((f) => f.startsWith('packages/linear/') || f.startsWith('packages/jira/')), files.join(', '))
+})

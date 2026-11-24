@@ -13,6 +13,7 @@
 const fs = require('node:fs')
 const path = require('node:path')
 const { spawnSync } = require('node:child_process')
+const { isParkedSource, PARKED } = require('./parked.js')
 
 const ROOT = path.join(__dirname, '..')
 // The adopter's layout: a solution folder with a dot in its name.
@@ -21,10 +22,11 @@ const DEFAULT_PREFIX = 'FF.CSC.Solution'
 const USES_HELPER = /require\(['"][./]*(?:common\/test\/)?helpers\/repo(\.js)?['"]\)/
 
 /** Every `*.test.js` under `packages/<pkg>/test/` that builds repos with the helper. */
-function nestedTestFiles(root = ROOT) {
+function nestedTestFiles(root = ROOT, parked = PARKED) {
   const files = []
   const pkgs = path.join(root, 'packages')
   for (const pkg of fs.readdirSync(pkgs)) {
+    if (isParkedSource(`packages/${pkg}`, parked)) continue // parked: not tested
     const dir = path.join(pkgs, pkg, 'test')
     let names
     try {

@@ -15,8 +15,8 @@ globally side by side.
 | Package | What you get | README |
 |---------|--------------|--------|
 | [`@skitterbyte/skitterspec`](packages/skitterspec/README.md) | The base, tracker-free filesystem workflow. | [readme](packages/skitterspec/README.md) |
-| [`@skitterbyte/skitterspec-linear`](packages/skitterspec-linear/README.md) | Everything in the base **plus** Linear hybrid-sync. | [readme](packages/skitterspec-linear/README.md) |
-| [`@skitterbyte/skitterspec-jira`](packages/skitterspec-jira/README.md) | Everything in the base **plus** one-way Jira Cloud sync. | [readme](packages/skitterspec-jira/README.md) |
+| [`@skitterbyte/skitterspec-linear`](packages/skitterspec-linear/README.md) | Everything in the base **plus** Linear hybrid-sync. *Parked: not currently built or released ([RELEASING.md](RELEASING.md#parked-distributions)).* | [readme](packages/skitterspec-linear/README.md) |
+| [`@skitterbyte/skitterspec-jira`](packages/skitterspec-jira/README.md) | Everything in the base **plus** one-way Jira Cloud sync. *Parked: not currently built or released ([RELEASING.md](RELEASING.md#parked-distributions)).* | [readme](packages/skitterspec-jira/README.md) |
 | [`@skitterbyte/skitterspec-github`](packages/skitterspec-github/README.md) | Everything in the base **plus** one-way GitHub Issues + Projects sync. | [readme](packages/skitterspec-github/README.md) |
 | [`@skitterbyte/skitterspec-azure-boards`](packages/skitterspec-azure-boards/README.md) | Everything in the base **plus** one-way Azure Boards sync. | [readme](packages/skitterspec-azure-boards/README.md) |
 
@@ -38,7 +38,7 @@ pnpm test         # node --test across the workspaces
 Link a distribution into a consuming project and iterate against it:
 
 ```sh
-npm run dev:link ../my-project              # build, then link (defaults to skitterspec-linear)
+npm run dev:link ../my-project              # build, then link (defaults to skitterspec-github while linear is parked)
 npm run dev:link ../my-project skitterspec  # the base distribution instead
 
 # first time only, in that project — dev:sync refuses until it has been set up:

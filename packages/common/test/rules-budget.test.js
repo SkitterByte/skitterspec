@@ -25,7 +25,9 @@ const path = require('node:path')
 
 const BUDGET = 30000
 const PKGS = path.join(__dirname, '..', '..')
-const DISTS = ['skitterspec', 'skitterspec-github', 'skitterspec-linear', 'skitterspec-jira', 'skitterspec-azure-boards']
+// Parked distributions (scripts/parked.json) are not built, so not measured.
+const { active } = require('../../../scripts/parked.js')
+const DISTS = active(['skitterspec', 'skitterspec-github', 'skitterspec-linear', 'skitterspec-jira', 'skitterspec-azure-boards'])
 
 for (const dist of DISTS) {
   test(`${dist}: always-loaded instructions stay within ${BUDGET} chars`, async () => {
