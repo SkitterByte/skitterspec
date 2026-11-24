@@ -315,6 +315,20 @@ tr.band button { font-size: .72rem; padding: .1rem .5rem; margin-right: .3rem; }
   margin: 0 0 1rem;
 }
 .review-summary { margin: 0; }
+/* The phase report — the terminal block's table, kept on the page. */
+.report {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  padding: .8rem 1rem;
+  margin: 0 0 1rem;
+}
+.report-heading { margin: 0 0 .4rem; font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.report-title { margin: 0 0 .6rem; }
+.report-table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+.report-table th { text-align: left; vertical-align: top; white-space: nowrap; padding: .3rem .8rem .3rem 0; color: var(--muted); font-weight: 600; }
+.report-table td { padding: .3rem 0; overflow-wrap: anywhere; }
+.report-table tr + tr { border-top: 1px solid var(--line); }
 .checks { list-style: none; margin: .8rem 0 0; padding: 0; display: grid; gap: .4rem; }
 .check {
   display: grid;

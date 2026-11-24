@@ -190,6 +190,7 @@ const {
   endRun,
   compactionSummary,
 } = require('./env/run.js')
+const { reportHtmlFor, readReport, writeReport, validateReport, recordReport, reviewReportPath } = require('./env/report.js')
 const {
   CHECKS_VERSION,
   BUNDLED_ADAPTERS,
@@ -6765,7 +6766,31 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
     }
   }
 
-  writeReviewPage(out, renderReviewPage(data, { reviewHtml: renderReviewBlock(data.review) }))
+  // THE PHASE REPORT (feat-autonomous-run). The terminal block's rows, kept
+  // per phase beside the notes so the served page — which re-renders from disk
+  // — shows them too. Best-effort: a report that will not parse is said and
+  // skipped, never a failed render.
+  if (flags.report) {
+    let parsed = null
+    try {
+      parsed = JSON.parse(fs.readFileSync(path.resolve(flags.report), 'utf8'))
+    } catch (err) {
+      process.stdout.write(`spec-env review: --report ${flags.report} is not readable JSON — page rendered without it\n`)
+    }
+    if (parsed !== null) {
+      const valid = validateReport(parsed)
+      const stored = readReport(out, spec.folder)
+      if (!valid.ok) {
+        process.stdout.write(`spec-env review: --report ignored — ${valid.reason}\n`)
+      } else if (stored.corrupt) {
+        process.stdout.write(`spec-env review: ${reviewReportPath(out)} is not readable JSON — move it aside; report not recorded\n`)
+      } else {
+        writeReport(out, recordReport(stored.report, { phase: flags.phase, title: valid.title, rows: valid.rows, at: now }))
+      }
+    }
+  }
+
+  writeReviewPage(out, renderReviewPage(data, { reviewHtml: reportHtmlFor(out, spec.folder) + renderReviewBlock(data.review) }))
 
   // RECORD WHAT THIS RENDER DECLARED, for the served copy to read back. The
   // daemon re-renders per request and is not the caller, so without this it can
@@ -8505,6 +8530,7 @@ async function specEnv(rest) {
     else if (args[i] === '--commit') flags.commit = args[++i]
     else if (args[i] === '--snapshot') flags.snapshot = args[++i]
     else if (args[i] === '--reason') flags.reason = args[++i]
+    else if (args[i] === '--report') flags.report = args[++i]
     else positional.push(args[i])
   }
   dir = path.resolve(dir)
@@ -8716,7 +8742,7 @@ async function specEnvDispatch(sub, dir, config, positional, flags, present, inv
       break
     default:
       process.stdout.write(
-        `Usage: skitterspec spec-env <${SPEC_ENV_VERBS.join('|')}> [spec] [--keep-volumes] [--force] [--also <tag>] [--older-than <days>] [--branch] [--out <file>] [--review <json>] [--run-reviewers] [--notes <json>] [--verdict <word>] [--resolve <json>] [--outcome <text>] [--claim <code>] [--drop <code>] [--buttons <set>] [--json] [--record-primary] [--assert-primary-clean]\n` +
+        `Usage: skitterspec spec-env <${SPEC_ENV_VERBS.join('|')}> [spec] [--keep-volumes] [--force] [--also <tag>] [--older-than <days>] [--branch] [--out <file>] [--review <json>] [--report <json>] [--run-reviewers] [--notes <json>] [--verdict <word>] [--resolve <json>] [--outcome <text>] [--claim <code>] [--drop <code>] [--buttons <set>] [--json] [--record-primary] [--assert-primary-clean]\n` +
         '  review serve [--port <n>] [--host <addr>] [--stop] [--status]  serve every diff locally\n' +
         '  review serve --rotate-token    mint a new URL token; every handed-out link dies\n' +
         '  review allow network [--off]  permit the network and tailnet tiers\n' +

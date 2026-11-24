@@ -145,7 +145,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Mode resolution and the run record | ✅ | [01-run-record.md](01-run-record.md) |
-| 2 | Report table on every review page | ⬜ | [02-report-on-page.md](02-report-on-page.md) |
+| 2 | Report table on every review page | ✅ | [02-report-on-page.md](02-report-on-page.md) |
 | 3 | Phase snapshots, run index, final page | ⬜ | [03-snapshots-and-final.md](03-snapshots-and-final.md) |
 | 4 | Compaction hook | ⬜ | [04-compaction-hook.md](04-compaction-hook.md) |
 | 5 | Skill wiring: the autonomous loop and endings | ⬜ | [05-skill-wiring.md](05-skill-wiring.md) |
@@ -165,3 +165,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   verb lists in `env.config.md` and `isolation.md`, and a `docs/reference.html`
   row, landed now because the docs-coverage tests require every dispatched
   verb to be documented; phase 6 still owns the rest and the `verify` stamp.
+- 2026-11-24 — Phase 2: the rows live in a `.report.json` sidecar rather
+  than only in one render, because the review server re-renders every page
+  from disk per request. `--report` without `--phase` records under
+  `current`.

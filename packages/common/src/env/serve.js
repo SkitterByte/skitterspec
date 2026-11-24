@@ -30,6 +30,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 const crypto = require('node:crypto')
 
+const { reportHtmlFor } = require('./report.js')
 const {
   liveWorktreePaths,
   allSpecs,
@@ -573,7 +574,7 @@ function renderSpecPage(dir, config, spec, { branch = false } = {}) {
       treePath: view.tree,
     })
     return {
-      html: renderReviewPage(data, { reviewHtml: renderReviewBlock(data.review) }),
+      html: renderReviewPage(data, { reviewHtml: reportHtmlFor(out, spec.folder) + renderReviewBlock(data.review) }),
       totals: data.totals,
       mode: data.mode,
       fellBack: false,
@@ -680,7 +681,7 @@ function renderSpecPage(dir, config, spec, { branch = false } = {}) {
   }
 
   return {
-    html: renderReviewPage(data, { reviewHtml: renderReviewBlock(data.review) }),
+    html: renderReviewPage(data, { reviewHtml: reportHtmlFor(reviewOutPath(dir, spec.folder, null), spec.folder) + renderReviewBlock(data.review) }),
     totals: data.totals,
     mode: data.mode,
     fellBack,
