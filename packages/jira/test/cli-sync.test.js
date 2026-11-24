@@ -578,6 +578,29 @@ test('ref on an unlinked spec is stderr + exit 1, stdout empty', async () => {
   assert.match(r.err, /has no jira_identifier — omit the trailer/)
 })
 
+// Bare, it answers from the branch — the form the Refs: trailer uses.
+function onBranch(dir, branch) {
+  const git = (...a) => execFileSync('git', ['-C', dir, ...a], { stdio: 'ignore' })
+  git('init', '-q', '-b', branch)
+  git('-c', 'user.name=Ada', '-c', 'user.email=ada@example.invalid', 'commit', '-q', '--allow-empty', '-m', 'init')
+}
+
+test('ref with no spec answers from the branch', async () => {
+  const dir = repoWithSpec({ identifier: 'PROJ-7' })
+  onBranch(dir, 'feat/demo')
+  const r = await run(['ref'], dir)
+  assert.deepStrictEqual(r, { code: 0, out: 'PROJ-7\n', err: '' })
+})
+
+test('ref with no spec on a branch no spec matches says so', async () => {
+  const dir = repoWithSpec({ identifier: 'PROJ-7' })
+  onBranch(dir, 'main')
+  const r = await run(['ref'], dir)
+  assert.strictEqual(r.code, 1)
+  assert.strictEqual(r.out, '')
+  assert.match(r.err, /ref: no spec matches branch main/)
+})
+
 // --- preserve ---------------------------------------------------------------
 
 test('preserve posts the original once, marked, and is idempotent', async () => {

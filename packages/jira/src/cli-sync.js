@@ -771,7 +771,16 @@ function specSyncRef(dir, config, specArg, flags, out, err) {
       return 1
     }
   } else {
-    const branch = currentBranch(dir)
+    // `currentBranch` takes a git READER bound to the checkout, not a path.
+    const { execFileSync } = require('node:child_process')
+    const git = (argv) => {
+      try {
+        return execFileSync('git', ['-C', dir, ...argv], { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim()
+      } catch {
+        return null
+      }
+    }
+    const branch = currentBranch(git)
     if (!branch) {
       err.write(`${PROGRAM} ref: not on a branch\n`)
       return 1
