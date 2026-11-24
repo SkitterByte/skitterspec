@@ -16,14 +16,14 @@
 
 const fs = require('node:fs')
 const path = require('node:path')
-const { DISTS } = require('./build-dist.js')
+const { ALL_DISTS } = require('./build-dist.js')
 
 const ROOT = path.join(__dirname, '..')
 
 // Packages whose `assets/` is composed build output, and gitignored with it.
 // Anything scanning `packages/*/assets` has to skip them or its answer depends on
 // whether the reader has run a build.
-const BUILT = new Set(Object.keys(DISTS))
+const BUILT = new Set(Object.keys(ALL_DISTS))
 
 // What this repo SHIPS, read from the source packages rather than from a list.
 // A skill added tomorrow is in scope the moment its asset exists — which is the

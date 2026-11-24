@@ -44,7 +44,9 @@ test('parseArgs takes a package, an optional target, and --reject', () => {
 
 test('resolvePackage accepts the two publishable names and nothing else', () => {
   assert.strictEqual(resolvePackage('skitterspec').npm, '@skitterbyte/skitterspec')
-  assert.strictEqual(resolvePackage('skitterspec-linear').npm, '@skitterbyte/skitterspec-linear')
+  assert.strictEqual(resolvePackage('skitterspec-github').npm, '@skitterbyte/skitterspec-github')
+  // A parked distribution (scripts/parked.json) is not approvable either.
+  assert.strictEqual(resolvePackage('skitterspec-linear'), null)
   // A private workspace package is not publishable, so it is not approvable.
   assert.strictEqual(resolvePackage('common'), null)
   assert.strictEqual(resolvePackage(''), null)

@@ -26,7 +26,10 @@ const { execFileSync } = require('node:child_process')
 const { installFlags } = require('./dev-link.js')
 
 const ROOT = path.join(__dirname, '..')
-const DISTS = ['skitterspec', 'skitterspec-linear', 'skitterspec-jira', 'skitterspec-github', 'skitterspec-azure-boards']
+const { active } = require('./parked.js')
+
+// Parked distributions (scripts/parked.json) are not built, so not linked.
+const DISTS = active(['skitterspec', 'skitterspec-linear', 'skitterspec-jira', 'skitterspec-github', 'skitterspec-azure-boards'])
 const SCOPE = '@skitterbyte'
 
 function fail(message) {

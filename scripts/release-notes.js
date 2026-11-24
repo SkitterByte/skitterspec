@@ -25,13 +25,17 @@ const path = require('node:path')
 
 const ROOT = path.join(__dirname, '..')
 
-const PACKAGES = ['skitterspec', 'skitterspec-linear', 'skitterspec-jira', 'skitterspec-github', 'skitterspec-azure-boards']
+const { active, isParkedDist } = require('./parked.js')
+
+// Parked distributions (scripts/parked.json) get no notes until un-parked.
+const ALL_PACKAGES = ['skitterspec', 'skitterspec-linear', 'skitterspec-jira', 'skitterspec-github', 'skitterspec-azure-boards']
+const PACKAGES = active(ALL_PACKAGES)
 
 // Which distributions a source package ships in. Derived from build-dist.js's
 // VENDOR list; keep them in step. Paths under the generated dist dirs attribute
 // to nothing — they are build output, gitignored, and never hand-edited.
 const FEEDS = [
-  { prefix: 'packages/common/', packages: PACKAGES },
+  { prefix: 'packages/common/', packages: ALL_PACKAGES },
   { prefix: 'packages/sync-core/', packages: ['skitterspec-linear', 'skitterspec-jira', 'skitterspec-github', 'skitterspec-azure-boards'] },
   { prefix: 'packages/provider-kit/', packages: ['skitterspec-linear', 'skitterspec-jira', 'skitterspec-github', 'skitterspec-azure-boards'] },
   { prefix: 'packages/linear/', packages: ['skitterspec-linear'] },
@@ -81,11 +85,12 @@ function previousTagFor(pkg, version, tags) {
 // --- attribution ------------------------------------------------------------
 
 /** The distributions a set of changed paths ships in. */
-function packagesFor(changedPaths) {
+function packagesFor(changedPaths, { includeParked = false } = {}) {
   const out = new Set()
   for (const p of changedPaths) {
     for (const feed of FEEDS) {
-      if (p.startsWith(feed.prefix)) feed.packages.forEach((n) => out.add(n))
+      if (!p.startsWith(feed.prefix)) continue
+      for (const n of feed.packages) if (includeParked || !isParkedDist(n)) out.add(n)
     }
   }
   return out
@@ -121,7 +126,9 @@ function notesInRange(from, to = 'HEAD', cwd = ROOT) {
       .split('\n')
       .map((l) => l.trim())
       .filter(Boolean)
-    commits.push({ hash, subject, body, files, packages: packagesFor(files) })
+    // `shipsIn` counts parked distributions too: a commit that only feeds a
+    // parked one is held for its un-parking, not reported as an orphan.
+    commits.push({ hash, subject, body, files, packages: packagesFor(files), shipsIn: packagesFor(files, { includeParked: true }) })
   }
   return commits
 }
@@ -217,7 +224,7 @@ function orphansFor(pkg, version, opts = {}) {
       .map((t) => t.trim())
       .filter(Boolean)
   const from = previousTagFor(pkg, version, tags)
-  return notesInRange(from, opts.to || 'HEAD', cwd).filter((c) => c.packages.size === 0)
+  return notesInRange(from, opts.to || 'HEAD', cwd).filter((c) => c.shipsIn.size === 0)
 }
 
 module.exports = {

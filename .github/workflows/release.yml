@@ -53,9 +53,12 @@ on:
     tags:
       # Two literal prefixes, not one glob: `skitterspec@*` cannot match
       # `skitterspec-linear@12.0.0`, so each package's tags stay its own.
+      #
+      # PARKED: skitterspec-linear and skitterspec-jira have no trigger, option
+      # or case arm while scripts/parked.json lists them (chore-park-linear-jira).
+      # Un-parking re-adds all three here; scripts/workflows.test.js holds this
+      # file to that list.
       - 'skitterspec@*'
-      - 'skitterspec-linear@*'
-      - 'skitterspec-jira@*'
       - 'skitterspec-github@*'
       - 'skitterspec-azure-boards@*'
   workflow_dispatch:
@@ -64,7 +67,7 @@ on:
         description: Package to stage
         required: true
         type: choice
-        options: [skitterspec, skitterspec-linear, skitterspec-jira, skitterspec-github, skitterspec-azure-boards]
+        options: [skitterspec, skitterspec-github, skitterspec-azure-boards]
       version:
         description: Version it must already be at (e.g. 19.0.0)
         required: true
@@ -184,7 +187,7 @@ jobs:
             version="${TAG##*@}"   # everything after it
           fi
           case "$pkg" in
-            skitterspec|skitterspec-linear|skitterspec-jira|skitterspec-github|skitterspec-azure-boards) ;;
+            skitterspec|skitterspec-github|skitterspec-azure-boards) ;;
             *) echo "::error::refusing unknown package '$pkg'"; exit 1 ;;
           esac
           case "$version" in

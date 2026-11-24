@@ -58,19 +58,21 @@ test('previousTagFor ignores malformed versions rather than throwing', () => {
 test('packagesFor sends a common change to both distributions', () => {
   assert.deepStrictEqual(
     [...packagesFor(['packages/common/src/cli.js'])].sort(),
-    ['skitterspec', 'skitterspec-azure-boards', 'skitterspec-github', 'skitterspec-jira', 'skitterspec-linear'],
+    ['skitterspec', 'skitterspec-azure-boards', 'skitterspec-github'],
+    'parked distributions (scripts/parked.json) get nothing',
   )
 })
 
 test('packagesFor keeps provider-only changes out of the base', () => {
-  assert.deepStrictEqual([...packagesFor(['packages/linear/src/api.js'])], ['skitterspec-linear'])
-  assert.deepStrictEqual([...packagesFor(['packages/jira/src/api.js'])], ['skitterspec-jira'])
+  assert.deepStrictEqual([...packagesFor(['packages/linear/src/api.js'])], [], 'linear is parked')
+  assert.deepStrictEqual([...packagesFor(['packages/linear/src/api.js'], { includeParked: true })], ['skitterspec-linear'])
+  assert.deepStrictEqual([...packagesFor(['packages/jira/src/api.js'], { includeParked: true })], ['skitterspec-jira'])
   assert.deepStrictEqual([...packagesFor(['packages/github/src/api.js'])], ['skitterspec-github'])
   assert.deepStrictEqual([...packagesFor(['packages/azure-boards/src/api.js'])], ['skitterspec-azure-boards'])
   assert.deepStrictEqual(
     [...packagesFor(['packages/sync-core/index.js'])].sort(),
-    ['skitterspec-azure-boards', 'skitterspec-github', 'skitterspec-jira', 'skitterspec-linear'],
-    'the shared engine ships in both supersets',
+    ['skitterspec-azure-boards', 'skitterspec-github'],
+    'the shared engine ships in every active superset',
   )
 })
 
@@ -143,13 +145,13 @@ test('only commits with a Release-Note footer are selected', () => {
   }
 })
 
-test('a common change lands in both packages; a linear change in one', () => {
+test('a common change lands in both packages; a github change in one', () => {
   const dir = scaffold()
   try {
     commit(dir, 'packages/common/a.js', 'feat(cli): shared\n\nRelease-Note: Shared change.')
-    commit(dir, 'packages/linear/b.js', 'feat(sync): provider\n\nRelease-Note: Provider change.')
+    commit(dir, 'packages/github/b.js', 'feat(sync): provider\n\nRelease-Note: Provider change.')
     const base = notesFor('skitterspec', '1.0.0', { cwd: dir, tags: [] }).map((c) => c.subject)
-    const sup = notesFor('skitterspec-linear', '1.0.0', { cwd: dir, tags: [] }).map((c) => c.subject)
+    const sup = notesFor('skitterspec-github', '1.0.0', { cwd: dir, tags: [] }).map((c) => c.subject)
     assert.deepStrictEqual(base, ['feat(cli): shared'], 'base gets only the shared change')
     assert.strictEqual(sup.length, 2, 'the superset gets both')
   } finally {
@@ -210,11 +212,25 @@ test('stays silent: a first release includes every footer-carrying commit', () =
 
 const { orphansFor, renderFor, releasesFileFor, PACKAGES } = require('./release-notes.js')
 
+test('a commit feeding only a parked distribution is held, not orphaned', () => {
+  // Stays silent: parking linear must not turn every linear commit into an
+  // "unattributed footer" warning on each base release.
+  const dir = scaffold()
+  try {
+    commit(dir, 'packages/linear/b.js', 'feat(sync): provider\n\nRelease-Note: Provider.')
+    const opts = { cwd: dir, tags: [] }
+    assert.deepStrictEqual(orphansFor('skitterspec', '1.0.0', opts), [])
+    for (const pkg of PACKAGES) assert.deepStrictEqual(notesFor(pkg, '1.0.0', opts), [], pkg)
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
 test('every footer-carrying commit is either attributed or reported', () => {
   const dir = scaffold()
   try {
     commit(dir, 'packages/common/a.js', 'feat(cli): shared\n\nRelease-Note: Shared.')
-    commit(dir, 'packages/linear/b.js', 'feat(sync): provider\n\nRelease-Note: Provider.')
+    commit(dir, 'packages/github/b.js', 'feat(sync): provider\n\nRelease-Note: Provider.')
     commit(dir, 'docs/x.md', 'docs(site): website\n\nRelease-Note: Website.')
     const opts = { cwd: dir, tags: [] }
     const all = notesInRange(null, 'HEAD', dir)

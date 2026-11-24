@@ -32,7 +32,7 @@ test('with no consumer directory it prints usage and fails', () => {
   const r = run([])
   assert.strictEqual(r.status, 1)
   assert.match(r.stderr, /usage/)
-  assert.match(r.stderr, /skitterspec-linear/, 'names the distributions it can link')
+  assert.match(r.stderr, /skitterspec-github/, 'names the distributions it can link')
 })
 
 test('a directory with no package.json is refused', () => {
@@ -49,7 +49,15 @@ test('an unknown distribution is refused, and the valid ones are named', () => {
   const r = run([dir, 'skitterspec-nonesuch'])
   assert.strictEqual(r.status, 1)
   assert.match(r.stderr, /unknown distribution/)
-  assert.match(r.stderr, /skitterspec, skitterspec-linear, skitterspec-jira, skitterspec-github/)
+  assert.match(r.stderr, /skitterspec, skitterspec-github, skitterspec-azure-boards/)
+})
+
+test('a parked distribution is refused by name, not as unknown', () => {
+  const dir = tmpDir('consumer')
+  fs.writeFileSync(path.join(dir, 'package.json'), '{"name":"c","version":"1.0.0"}')
+  const r = run([dir, 'skitterspec-linear'])
+  assert.strictEqual(r.status, 1)
+  assert.match(r.stderr, /is parked/)
 })
 
 test('the script builds before it links — the ordering the whole thing is for', () => {

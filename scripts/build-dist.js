@@ -26,6 +26,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 
 const { composeAssets, loadFragments, mergeFragments } = require('./compose.js')
+const { activeEntries, isParkedDist, parkedMessage } = require('./parked.js')
 
 const ROOT = path.join(__dirname, '..')
 const PKGS = path.join(ROOT, 'packages')
@@ -254,7 +255,8 @@ function buildProvider(providerName, distName, out = path.join(PKGS, distName)) 
   return out
 }
 
-const DISTS = {
+// Every distribution this repo knows how to compose, parked or not.
+const ALL_DISTS = {
   skitterspec: buildBase,
   'skitterspec-linear': () => buildProvider('linear', 'skitterspec-linear'),
   'skitterspec-jira': () => buildProvider('jira', 'skitterspec-jira'),
@@ -262,7 +264,11 @@ const DISTS = {
   'skitterspec-azure-boards': () => buildProvider('azure-boards', 'skitterspec-azure-boards'),
 }
 
+// What `build` composes: ALL_DISTS minus the parked ones (scripts/parked.json).
+const DISTS = activeEntries(ALL_DISTS)
+
 function buildDist(name) {
+  if (isParkedDist(name)) throw new Error(`build-dist: ${parkedMessage(name)}`)
   const fn = DISTS[name]
   if (!fn) throw new Error(`build-dist: unknown distribution "${name}" (want: ${Object.keys(DISTS).join(', ')})`)
   return fn()
@@ -273,10 +279,12 @@ function buildAll() {
 }
 
 module.exports = {
-  // Exported so a test can tell a SOURCE package from composed build output
-  // without hardcoding names that drift. `packages/<name>/assets/` for each of
-  // these is gitignored, so anything scanning `packages/*/assets` has to skip
-  // them or its result depends on whether the reader has run a build.
+  // ALL_DISTS is exported so a test can tell a SOURCE package from composed
+  // build output without hardcoding names that drift. `packages/<name>/assets/`
+  // for each of these is gitignored, so anything scanning `packages/*/assets`
+  // has to skip them or its result depends on whether the reader has run a
+  // build — a parked dist included, since a stale build can still sit there.
+  ALL_DISTS,
   DISTS,
   copyMigrationGuide,
   WORKSPACE_REQUIRE_RE,

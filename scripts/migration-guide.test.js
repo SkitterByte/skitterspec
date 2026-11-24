@@ -21,7 +21,8 @@ const assert = require('node:assert')
 const fs = require('node:fs')
 const path = require('node:path')
 
-const { PACKAGES } = require('./release.js')
+// ALL_PACKAGES, parked included: their published majors and headings stand.
+const { ALL_PACKAGES: PACKAGES } = require('./release.js')
 
 const ROOT = path.join(__dirname, '..')
 const GUIDE = path.join(ROOT, 'MIGRATION.md')

@@ -9,7 +9,9 @@ const path = require('node:path')
 const { spawnSync } = require('node:child_process')
 
 const {
+  ALL_PACKAGES,
   PACKAGES,
+  ALL_TARBALL_INPUTS,
   TARBALL_INPUTS,
   lastTagFor,
   assertShippableChange,
@@ -41,9 +43,14 @@ test('resolvePackage maps the two publishable dists to dir + npm name', () => {
   assert.strictEqual(base.dirRel, 'packages/skitterspec')
   assert.ok(base.pkgJsonPath.endsWith(path.join('packages', 'skitterspec', 'package.json')))
 
-  const lin = resolvePackage('skitterspec-linear', ROOT)
-  assert.strictEqual(lin.npm, '@skitterbyte/skitterspec-linear')
-  assert.strictEqual(lin.dirRel, 'packages/skitterspec-linear')
+  const gh = resolvePackage('skitterspec-github', ROOT)
+  assert.strictEqual(gh.npm, '@skitterbyte/skitterspec-github')
+  assert.strictEqual(gh.dirRel, 'packages/skitterspec-github')
+})
+
+test('resolvePackage refuses a parked dist by name, not as unknown', () => {
+  assert.throws(() => resolvePackage('skitterspec-linear', ROOT), /is parked/)
+  assert.throws(() => resolvePackage('skitterspec-jira', ROOT), /is parked/)
 })
 
 test('resolvePackage refuses an unknown package, listing the valid ones', () => {
@@ -55,7 +62,7 @@ test('readVersion reads the real published packages (currently 2.0.0 / 1.0.0)', 
   // These are the live source versions; the test proves the reader works against
   // the actual package.json shape, not a fixture.
   assert.match(readVersion(resolvePackage('skitterspec', ROOT).pkgJsonPath), /^\d+\.\d+\.\d+$/)
-  assert.match(readVersion(resolvePackage('skitterspec-linear', ROOT).pkgJsonPath), /^\d+\.\d+\.\d+$/)
+  assert.match(readVersion(resolvePackage('skitterspec-github', ROOT).pkgJsonPath), /^\d+\.\d+\.\d+$/)
 })
 
 test('writeVersion sets the version in place and preserves formatting', () => {
@@ -332,8 +339,10 @@ test('parseArgs derives package, bump, and the escalating level flags', () => {
 })
 
 // PACKAGES is the small, closed registry the rest keys off.
-test('PACKAGES holds exactly the five publishable distributions', () => {
-  assert.deepStrictEqual(Object.keys(PACKAGES).sort(), ['skitterspec', 'skitterspec-azure-boards', 'skitterspec-github', 'skitterspec-jira', 'skitterspec-linear'])
+test('ALL_PACKAGES holds the five distributions; PACKAGES drops the parked', () => {
+  assert.deepStrictEqual(Object.keys(ALL_PACKAGES).sort(), ['skitterspec', 'skitterspec-azure-boards', 'skitterspec-github', 'skitterspec-jira', 'skitterspec-linear'])
+  assert.deepStrictEqual(Object.keys(PACKAGES).sort(), ['skitterspec', 'skitterspec-azure-boards', 'skitterspec-github'])
+  assert.deepStrictEqual(Object.keys(TARBALL_INPUTS).sort(), Object.keys(PACKAGES).sort())
 })
 
 // A tag cut BEFORE the publish asserts a release npm may not have. `sh` throws on
@@ -391,13 +400,13 @@ test('TARBALL_INPUTS names source packages, never the generated dist dirs', () =
   // packages/<dist>/{src,assets,bin} are gitignored and composed at prepack, so a
   // diff over them is empty for EVERY release — gating on them would read every
   // release as empty.
-  for (const paths of Object.values(TARBALL_INPUTS)) {
+  for (const paths of Object.values(ALL_TARBALL_INPUTS)) {
     for (const p of paths) {
       assert.ok(!/\/(src|assets|bin)$/.test(p), `${p} is a generated dir, not a git-visible input`)
     }
   }
   assert.ok(TARBALL_INPUTS.skitterspec.includes('packages/common'), 'base composes from common')
-  assert.ok(TARBALL_INPUTS['skitterspec-linear'].includes('packages/sync-core'), 'linear vendors the engine')
+  assert.ok(ALL_TARBALL_INPUTS['skitterspec-linear'].includes('packages/sync-core'), 'linear vendors the engine')
 })
 
 test('lastTagFor picks the highest version, not the last listed', () => {
@@ -447,7 +456,7 @@ test('the guard separates the real empty release from the substantive one', () =
   if (has('skitterspec-linear@9.0.0') && has('skitterspec-linear@9.1.0')) {
     const changed = spawnSync(
       'git',
-      ['diff', '--name-only', 'skitterspec-linear@9.0.0', 'skitterspec-linear@9.1.0', '--', ...TARBALL_INPUTS['skitterspec-linear']],
+      ['diff', '--name-only', 'skitterspec-linear@9.0.0', 'skitterspec-linear@9.1.0', '--', ...ALL_TARBALL_INPUTS['skitterspec-linear']],
       { cwd: root, encoding: 'utf8' },
     ).stdout.split('\n').filter(Boolean)
       .filter((f) => f !== 'packages/skitterspec-linear/package.json')

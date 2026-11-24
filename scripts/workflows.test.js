@@ -29,6 +29,8 @@ const fs = require('node:fs')
 const path = require('node:path')
 
 const { manifestEngines, floorOf, cmpVersion, lowest } = require('./lib/engines.js')
+const { PACKAGES } = require('./release.js')
+const { PARKED } = require('./parked.js')
 
 const ROOT = path.join(__dirname, '..')
 const WORKFLOWS = path.join(ROOT, '.github', 'workflows')
@@ -220,12 +222,15 @@ test('release.yml upgrades npm past the staged-publishing floor', () => {
   assert.match(withoutComments(RELEASE()), /npm install -g npm@latest/)
 })
 
-test('release.yml triggers on both packages\' tags', () => {
+test('release.yml triggers on every active package\'s tags, and no parked one', () => {
   const yaml = withoutComments(RELEASE())
-  assert.match(yaml, /'skitterspec@\*'/)
-  assert.match(yaml, /'skitterspec-linear@\*'/)
-  assert.match(yaml, /'skitterspec-jira@\*'/)
-  assert.match(yaml, /'skitterspec-github@\*'/)
+  for (const name of Object.keys(PACKAGES)) {
+    assert.ok(yaml.includes(`'${name}@*'`), `${name} has a tag trigger`)
+  }
+  // Parked (scripts/parked.json): no trigger, dispatch option or case arm.
+  for (const name of PARKED.dists) {
+    assert.ok(!yaml.includes(name), `${name} is parked but release.yml still names it`)
+  }
   assert.match(yaml, /workflow_dispatch:/, 'the recovery path')
 })
 

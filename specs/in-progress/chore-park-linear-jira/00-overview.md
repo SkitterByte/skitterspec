@@ -96,7 +96,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Parked list drives build, release and the release workflow | ⬜ | [01-park-build-release.md](01-park-build-release.md) |
+| 1 | Parked list drives build, release and the release workflow | ✅ | [01-park-build-release.md](01-park-build-release.md) |
 | 2 | Tests skip parked sources; docs say parked | ⬜ | [02-park-tests-docs.md](02-park-tests-docs.md) |
 
 ## Open questions
@@ -106,3 +106,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-11-24 — Spec created.
+- 2026-11-24 — Phase 1: release notes hold a commit that feeds only a parked
+  distribution (`shipsIn`) rather than reporting it as an orphan, so parking
+  adds no warning to every base release. `dev-link` defaults to
+  `skitterspec-github` while linear is parked. `ALL_DISTS` / `ALL_PACKAGES` /
+  `ALL_TARBALL_INPUTS` stay exported for the build-output scan, the
+  migration-guide check and the historical-tag guard test.

@@ -1,0 +1,4 @@
+{
+  "dists": ["skitterspec-linear", "skitterspec-jira"],
+  "sources": ["packages/linear", "packages/jira"]
+}

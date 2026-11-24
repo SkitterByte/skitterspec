@@ -13,6 +13,8 @@
  * Exits non-zero so npm aborts the version bump before it mutates anything.
  */
 
+const { PACKAGES } = require('./release.js')
+
 const MESSAGE = `
 ✗ Refusing 'npm version' at the monorepo root.
 
@@ -21,7 +23,7 @@ const MESSAGE = `
 
       node scripts/release.js <package> <patch|minor|major|x.y.z> [--publish]
 
-  Packages: skitterspec, skitterspec-linear, skitterspec-jira, skitterspec-github, skitterspec-azure-boards
+  Packages: ${Object.keys(PACKAGES).join(', ')}
   See RELEASING.md for the full flow.
 `
 

@@ -31,6 +31,8 @@ const fs = require('node:fs')
 const path = require('node:path')
 const { spawnSync } = require('node:child_process')
 
+const { activeEntries, isParkedDist, parkedMessage } = require('./parked.js')
+
 const ROOT = path.join(__dirname, '..')
 
 // The publishable distributions: short name → workspace dir + npm name.
@@ -39,7 +41,8 @@ const ROOT = path.join(__dirname, '..')
 // is a second opinion about the PLATFORM, not a reproduction of a runner.
 const LINUX_IMAGE = 'node:22'
 
-const PACKAGES = {
+// Every publishable distribution, parked or not.
+const ALL_PACKAGES = {
   skitterspec: { dir: 'packages/skitterspec', npm: '@skitterbyte/skitterspec' },
   'skitterspec-linear': {
     dir: 'packages/skitterspec-linear',
@@ -65,7 +68,7 @@ const PACKAGES = {
 // prepack by build-dist.js, so a diff over them is empty for every release and
 // would report every release as having shipped nothing. The real inputs are the
 // composing SOURCE packages plus the dist's own committed files.
-const TARBALL_INPUTS = {
+const ALL_TARBALL_INPUTS = {
   skitterspec: ['packages/common', 'packages/skitterspec'],
   'skitterspec-linear': [
     'packages/common',
@@ -97,11 +100,17 @@ const TARBALL_INPUTS = {
   ],
 }
 
+// What this tool releases: the above minus the parked distributions
+// (scripts/parked.json). A parked name is refused by name, not as unknown.
+const PACKAGES = activeEntries(ALL_PACKAGES)
+const TARBALL_INPUTS = activeEntries(ALL_TARBALL_INPUTS)
+
 const SEMVER_RE = /^\d+\.\d+\.\d+$/
 
 // --- pure helpers -----------------------------------------------------------
 
 function resolvePackage(name, root = ROOT) {
+  if (isParkedDist(name)) throw new Error(parkedMessage(name))
   const entry = PACKAGES[name]
   if (!entry) {
     throw new Error(
@@ -785,7 +794,9 @@ function main(argv) {
 }
 
 module.exports = {
+  ALL_PACKAGES,
   PACKAGES,
+  ALL_TARBALL_INPUTS,
   TARBALL_INPUTS,
   lastTagFor,
   changedInputs,

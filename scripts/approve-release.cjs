@@ -29,6 +29,7 @@ const { execFileSync } = require('node:child_process')
 const { readFileSync } = require('node:fs')
 const path = require('node:path')
 const { PACKAGES } = require('./release.js')
+const { isParkedDist, parkedMessage } = require('./parked.js')
 
 // `npm stage` landed in 11.15.0. Older npm fails with an opaque "unknown
 // command", which reads as a broken script rather than a stale toolchain.
@@ -154,6 +155,7 @@ function fail(message) {
 function main(argv) {
   const { action, pkg, target } = parseArgs(argv)
 
+  if (pkg && isParkedDist(pkg)) fail(parkedMessage(pkg))
   const resolved = pkg && resolvePackage(pkg)
   if (!resolved) {
     fail(

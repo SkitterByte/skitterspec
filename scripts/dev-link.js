@@ -22,7 +22,10 @@ const path = require('node:path')
 const { execFileSync } = require('node:child_process')
 
 const ROOT = path.join(__dirname, '..')
-const DISTS = ['skitterspec', 'skitterspec-linear', 'skitterspec-jira', 'skitterspec-github', 'skitterspec-azure-boards']
+const { active, isParkedDist, parkedMessage } = require('./parked.js')
+
+// Parked distributions (scripts/parked.json) are not built, so not linked.
+const DISTS = active(['skitterspec', 'skitterspec-linear', 'skitterspec-jira', 'skitterspec-github', 'skitterspec-azure-boards'])
 const SCOPE = '@skitterbyte'
 
 function fail(message) {
@@ -79,8 +82,10 @@ function installFlags(consumer, dist) {
 }
 
 function main(argv) {
-  const [consumerArg, distArg = 'skitterspec-linear'] = argv
+  // The default superset is linear's, or github's while linear is parked.
+  const [consumerArg, distArg = isParkedDist('skitterspec-linear') ? 'skitterspec-github' : 'skitterspec-linear'] = argv
   if (!consumerArg) fail('usage: node scripts/dev-link.js <consumer-dir> [' + DISTS.join('|') + ']')
+  if (isParkedDist(distArg)) fail(parkedMessage(distArg))
   if (!DISTS.includes(distArg)) fail(`unknown distribution "${distArg}" (want: ${DISTS.join(', ')})`)
 
   const consumer = path.resolve(consumerArg)
