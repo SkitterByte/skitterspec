@@ -5,6 +5,11 @@ What's new for users of skitterspec-github. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 3.2.2 — 24 Nov 2026
+
+### Env
+- **Fixed** — spec-env dev up --plan and dev down --plan now only describe what they would do, instead of starting or stopping your dev servers.
+
 ## 3.2.1 — 24 Nov 2026
 
 ### Env
