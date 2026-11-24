@@ -101,7 +101,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Stop `ci.yml` running on tags | ✅ | [01-ci-skip-tags.md](01-ci-skip-tags.md) |
-| 2 | Windows gate adopts an equivalent green run | ⬜ | [02-windows-gate.md](02-windows-gate.md) |
+| 2 | Windows gate adopts an equivalent green run | ✅ | [02-windows-gate.md](02-windows-gate.md) |
 
 ## Open questions
 
@@ -110,3 +110,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-11-24 — Spec created.
+- 2026-11-24 — Phase 2: the Windows job runs on `run != 'false'` rather than `== 'true'`, so a gate that fails outright still runs the suite. Added a test that the gate's job name matches both workflows.

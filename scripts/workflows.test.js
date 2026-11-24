@@ -349,10 +349,47 @@ function jobBlock(yaml, name) {
 // The suite a job runs: its `run:` lines, in order.
 const runLines = (block) => (block.match(/^\s*- run: .*$/gm) || []).map((l) => l.trim())
 
-test('release.yml stages only after its Windows job', () => {
+test('release.yml stages only after its Windows gate and Windows job', () => {
   const stage = jobBlock(RELEASE(), 'stage')
   assert.ok(stage, 'release.yml has a stage job')
-  assert.match(stage, /^\s*needs:\s*\[?\s*windows\s*\]?\s*$/m)
+  assert.match(stage, /^\s*needs:\s*\[\s*windows-gate\s*,\s*windows\s*\]\s*$/m)
+})
+
+test('release.yml stages past a skipped Windows job only when the gate said skip', () => {
+  // A skipped job is also what a cancelled gate or a mistyped condition
+  // produces, so `skipped` alone must never be enough (chore-release-ci-test-dedup).
+  const stage = jobBlock(RELEASE(), 'stage')
+  assert.match(stage, /needs\.windows\.result == 'success'/)
+  assert.match(stage, /needs\.windows\.result == 'skipped' && needs\.windows-gate\.outputs\.run == 'false'/)
+})
+
+test('release.yml runs Windows unless the gate answered exactly false', () => {
+  // An empty output — a gate that failed or printed nothing — must run it.
+  const win = jobBlock(RELEASE(), 'windows')
+  assert.match(win, /^\s*needs:\s*windows-gate\s*$/m)
+  assert.match(win, /needs\.windows-gate\.outputs\.run != 'false'/)
+  assert.doesNotMatch(win, /outputs\.run == 'true'/)
+})
+
+test('the Windows gate reads Actions and gets no OIDC token', () => {
+  const gate = jobBlock(RELEASE(), 'windows-gate')
+  assert.ok(gate, 'release.yml has a windows-gate job')
+  assert.match(gate, /^\s*actions:\s*read\s*$/m)
+  assert.doesNotMatch(gate, /id-token/)
+  assert.match(gate, /fetch-depth:\s*0/)
+  assert.match(gate, /node scripts\/windows-gate\.cjs/)
+})
+
+test('the gate looks for the Windows job by the name both workflows give it', () => {
+  // windows-gate.cjs finds a run's Windows job by name; a rename in either
+  // workflow would leave every candidate `missing` and every tag re-running.
+  const name = /^\s*name:\s*(.+)$/m
+  const ci = jobBlock(fs.readFileSync(path.join(WORKFLOWS, 'ci.yml'), 'utf8'), 'windows')
+  const rel = jobBlock(RELEASE(), 'windows')
+  const script = fs.readFileSync(path.join(__dirname, 'windows-gate.cjs'), 'utf8')
+  const wanted = /const WINDOWS_JOB = '([^']+)'/.exec(script)[1]
+  assert.strictEqual(name.exec(ci)[1].trim(), wanted)
+  assert.strictEqual(name.exec(rel)[1].trim(), wanted)
 })
 
 test('release.yml\'s Windows job runs the same suite as ci.yml\'s', () => {
@@ -367,6 +404,11 @@ test('the Windows job does not get the OIDC token', () => {
   const rel = jobBlock(RELEASE(), 'windows')
   assert.match(rel, /^\s*permissions:\s*$/m)
   assert.doesNotMatch(rel, /id-token/)
+})
+
+test('a stage job that stages past any skipped Windows job is caught', () => {
+  const yaml = "jobs:\n  stage:\n    needs: [windows-gate, windows]\n    if: ${{ needs.windows.result != 'failure' }}\n"
+  assert.doesNotMatch(jobBlock(yaml, 'stage'), /needs\.windows\.result == 'skipped' && needs\.windows-gate\.outputs\.run == 'false'/)
 })
 
 test('a stage job that does not wait for Windows is caught', () => {

@@ -115,6 +115,17 @@ had minutes to go, and `skitterspec-azure-boards@2.16.0` was staged while its
 Windows run failed. `ci.yml` now runs on branches only, so a tag push starts
 this workflow and nothing else.
 
+**One Windows run per batch, not per tag.** A batch's tagged commits differ from
+each other, and from main's head, only by a version line and a `RELEASES-*.md`.
+So the workflow's `windows-gate` job (`scripts/windows-gate.cjs`) looks for an
+earlier `ci.yml` or `release.yml` run whose commit differs from this one by
+nothing else, waits up to 30 minutes for its Windows job, and adopts a green
+one. The gate's log and the run summary name the run it adopted. Main's CI push
+lands before the tags, so it is normally the one adopted. Anything the gate
+cannot vouch for — no such run, a red or cancelled one, an API error — runs the
+Windows suite here as before. The stage job's Ubuntu `pnpm test` still runs for
+every tag.
+
 **Staged is not published.** A staged build waits for a human to approve it with
 2FA:
 

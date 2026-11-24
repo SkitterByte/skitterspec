@@ -8,7 +8,9 @@
 #     npm run approve <package> <version>     # after this run goes green
 #
 # The run takes about 10 minutes: the stage job waits for the Windows suite
-# (the `windows` job below), so nothing is staged until it is green.
+# (the `windows` job below), so nothing is staged until it is green. In a batch
+# most tags take a couple: the `windows-gate` job adopts an earlier green
+# Windows run of an equivalent tree, usually main's CI push, instead.
 #
 # --- the four things here that each cost a failed publish -------------------
 #
@@ -82,8 +84,46 @@ jobs:
   # for a release later approved on the npm website, which no local script
   # sees. It is the same job as ci.yml's; keep the two in step. ci.yml no
   # longer runs on tags at all, so this is a tag's only Windows run.
+  #
+  # ONE WINDOWS RUN PER BATCH, NOT PER TAG. A batch's tagged commits differ
+  # from each other and from main's head only by a version line and a
+  # RELEASES-*.md, so the gate below looks for an EARLIER ci.yml or release.yml
+  # run of an equivalent tree, waits for its Windows job, and adopts a green
+  # one (scripts/windows-gate.cjs). "Staged" then means green on Windows for
+  # this tree or one differing only in that bookkeeping. Every cannot-tell —
+  # no candidate, a red one, an API error, a gate that failed outright —
+  # leaves `run` anything but 'false', and this job runs as it always did.
+  windows-gate:
+    name: windows gate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      run: ${{ steps.gate.outputs.run }}
+    steps:
+      # Full history: a candidate's commit has to be here to be diffed, and one
+      # that is not counts as not equivalent.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # No `registry-url` here either — see the header.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      - id: gate
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/windows-gate.cjs
+
   windows:
     name: windows (node 24)
+    needs: windows-gate
+    # `!= 'false'`, never `== 'true'`: a gate that failed or printed nothing
+    # leaves the output empty, and an empty answer must run the suite.
+    if: ${{ !cancelled() && needs.windows-gate.outputs.run != 'false' }}
     runs-on: windows-latest
     # Only what checkout needs: the OIDC token is the stage job's alone.
     permissions:
@@ -109,7 +149,10 @@ jobs:
 
   stage:
     runs-on: ubuntu-latest
-    needs: windows
+    needs: [windows-gate, windows]
+    # A skipped Windows job stages only when the gate said skip. Anything else
+    # skipped — a cancelled gate, a condition nobody meant — stages nothing.
+    if: ${{ !cancelled() && (needs.windows.result == 'success' || (needs.windows.result == 'skipped' && needs.windows-gate.outputs.run == 'false')) }}
     steps:
       # Full history and tags: the board step below ranges from the previous
       # tag in the series, which a shallow clone cannot see.
