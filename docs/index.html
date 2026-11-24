@@ -6,7 +6,7 @@ covers:
   - packages/common/src/cli.js
   - packages/common/src/init.js
   - packages/common/bin/**
-verified: a2f50d28c222
+verified: a1614e8f5bb6
 -->
 <html lang="en">
 <head>
@@ -992,7 +992,7 @@ npx @skitterbyte/skitterspec <span class="p">init</span>
 <span class="c"># version — the base answers `skitterspec`</span>
 <span class="c"># npx @skitterbyte/skitterspec-linear init</span></div>
         <p>The only one using it on a shared repo? Install it globally and run <span class="mono">skitterspec init --local</span> — the same install, kept on your machine and out of git, with only <span class="mono">specs/</span> committed. Converting is per branch, and it names any long-lived branch (such as <span class="mono">master</span>) still carrying the install. To pause it, <span class="mono">skitterspec disable</span> stops Claude using it and leaves the files; <span class="mono">skitterspec enable</span> turns it back on, installing it if it is gone, and <span class="mono">skitterspec uninstall</span> takes it off the machine. Never for a team: its hooks and rules are shared policy.</p>
-        <p>Several projects, or several trackers? Install globally, the base beside each provider you use, and one command updates every local install after a release: <span class="mono">npm i -g @skitterbyte/skitterspec @skitterbyte/skitterspec-github</span>, then <span class="mono">skitterspec update --all</span>. The <span class="mono">skitterspec</span> command picks up whichever provider each project has configured, <span class="mono">spec-sync</span> included, as long as that provider is installed beside it. Team installs are listed and left alone. A Windows VM has its own global installs, so run both lines there too. Moving an existing install over is step by step in <span class="mono">MIGRATION.md</span>.</p>
+        <p>Several projects, or several trackers? Install globally, the base beside each provider you use, and one command updates every local install after a release: <span class="mono">npm i -g @skitterbyte/skitterspec @skitterbyte/skitterspec-github</span>, then <span class="mono">skitterspec update --all</span>. The <span class="mono">skitterspec</span> command picks up whichever provider each project has configured, <span class="mono">init</span>, <span class="mono">update</span> and <span class="mono">spec-sync</span> included, as long as that provider is installed beside it; where it is not, <span class="mono">update</span> refuses rather than install the base set over the provider's skills. Team installs are listed and left alone. A Windows VM has its own global installs, so run both lines there too. Moving an existing install over is step by step in <span class="mono">MIGRATION.md</span>.</p>
       </div>
 
       <div class="qbox">

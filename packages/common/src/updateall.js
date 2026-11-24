@@ -62,16 +62,16 @@ function inPrimary(dir, git) {
 }
 
 /**
- * The distribution that owns a project: what its manifest recorded, else the
- * provider whose config is in `specs/.core/`, else the base. Inferred only for
- * manifests written before the field existed.
+ * The distribution that owns a project: the one provider whose config is in
+ * `specs/.core/`, else what its manifest recorded, else the base. The config
+ * wins because a bare base `update` used to rewrite the manifest's field to
+ * the base (bug-base-update-clobbers-provider), so the field alone can name
+ * the wrong set; two configs is unreadable, and the manifest decides.
  */
 function distributionOf(dir, manifest, exists) {
-  if (manifest.distribution) return manifest.distribution
-  for (const p of PROVIDERS) {
-    if (exists(path.join(dir, 'specs', '.core', `${p}.config.json`))) return `${BASE}-${p}`
-  }
-  return BASE
+  const configured = PROVIDERS.filter((p) => exists(path.join(dir, 'specs', '.core', `${p}.config.json`)))
+  if (configured.length === 1) return `${BASE}-${configured[0]}`
+  return manifest.distribution || BASE
 }
 
 const binOf = (pkg) => pkg.replace(/^@skitterbyte\//, '')

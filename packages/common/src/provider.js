@@ -90,6 +90,67 @@ function registerConfiguredProvider({ cwd, envConfig, idea, resolve = resolvePac
   return { provider: p.name, registered: 'config' }
 }
 
+// The configured provider's own bin, installed beside the base or in the
+// project, or null when it is not installed. `candidates` narrows where to
+// look: an install takes only the published superset, since the workspace
+// source package's assets are uncomposed and its bin refuses to install them.
+function providerBin(p, dir, resolve, candidates = p.candidates) {
+  const bin = join('bin', `skitterspec-${p.name}.js`)
+  for (const [pkg] of candidates) {
+    const root = resolve(pkg, [__dirname, dir])
+    if (root && existsSync(join(root, bin))) return join(root, bin)
+  }
+  return null
+}
+
+/**
+ * Run `init`, `update`, `enable` or `uninstall` for a project with a provider
+ * configured through that provider's own bin. The install set is a
+ * distribution's own `assets/`, and the base's lacks the provider's skills,
+ * seams and docs — so the base installing it would prune and rewrite them
+ * (bug-base-update-clobbers-provider). `update --all` is not forwarded: it
+ * runs each project's own distribution itself.
+ *
+ * `target` is the folder the verb acts on (`--dir`, else its positional,
+ * else cwd). Returns the exit status, or `null` when the base installs as it
+ * always has: another verb, or no provider configured.
+ *
+ * WHAT WOULD FOOL THIS: a provider installed where Node's resolution cannot
+ * see it from the base or the project reads as not installed — and the verb is
+ * refused, naming the package, rather than falling back to the base set. Two
+ * provider configs is a project this cannot read, refused the same way.
+ */
+const INSTALL_VERBS = ['init', 'update', 'enable', 'uninstall']
+
+function forwardInstallCommand({ cwd, argv, target = cwd, resolve = resolvePackage, warn = () => {}, spawn = spawnSync }) {
+  const [cmd, ...rest] = argv
+  if (!INSTALL_VERBS.includes(cmd)) return null
+  if (cmd === 'update' && rest.includes('--all')) return null
+  if (rest.includes('--help') || rest.includes('-h')) return null
+  const dir = projectDir(target)
+  if (!dir) return null
+  const configured = PROVIDERS.filter((p) => existsSync(join(dir, p.configFile)))
+  if (configured.length === 0) return null
+  if (configured.length > 1) {
+    warn(
+      `skitterspec: more than one ticketing provider is configured here (${configured.map((p) => p.configFile).join(', ')}) — ` +
+        `${cmd} refused: keep one, then run it again`,
+    )
+    return 1
+  }
+  const p = configured[0]
+  const bin = providerBin(p, dir, resolve, p.candidates.slice(0, 1))
+  if (bin) {
+    const r = spawn(process.execPath, [bin, ...argv], { cwd, stdio: 'inherit' })
+    return r.status ?? 1
+  }
+  warn(
+    `skitterspec: ${cmd} refused — ${p.configFile} is here but @skitterbyte/skitterspec-${p.name} is not installed beside this one, ` +
+      `and the base set would overwrite its skills. Install it alongside @skitterbyte/skitterspec, at the latest of each.`,
+  )
+  return 1
+}
+
 /**
  * Run a verb the base does not ship (`commands`, e.g. `spec-sync`) on the
  * provider configured in the project at or above `cwd`, through that
@@ -119,13 +180,10 @@ function forwardProviderCommand({
   const configured = PROVIDERS.filter((p) => existsSync(join(dir, p.configFile)))
   if (configured.length !== 1) return null
   const p = configured[0]
-  const bin = join('bin', `skitterspec-${p.name}.js`)
-  for (const [pkg] of p.candidates) {
-    const root = resolve(pkg, [__dirname, dir])
-    if (root && existsSync(join(root, bin))) {
-      const r = spawn(process.execPath, [join(root, bin), ...argv], { cwd, stdio: 'inherit' })
-      return r.status ?? 1
-    }
+  const bin = providerBin(p, dir, resolve)
+  if (bin) {
+    const r = spawn(process.execPath, [bin, ...argv], { cwd, stdio: 'inherit' })
+    return r.status ?? 1
   }
   warn(
     `skitterspec: ${cmd} needs @skitterbyte/skitterspec-${p.name} installed beside this one — ` +
@@ -134,4 +192,4 @@ function forwardProviderCommand({
   return 1
 }
 
-module.exports = { registerConfiguredProvider, forwardProviderCommand, PROVIDERS }
+module.exports = { registerConfiguredProvider, forwardProviderCommand, forwardInstallCommand, INSTALL_VERBS, PROVIDERS }

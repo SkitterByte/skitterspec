@@ -40,6 +40,27 @@ if (argv[0] === 'init' || (argv[0] === 'update' && !argv.includes('--all'))) {
   }
 }
 
+// An install verb in a provider project installs that provider's set, so it
+// goes to the provider's own bin, or is refused when that is not installed —
+// never the base set over the provider's files.
+// A flag parse() rejects is left for run() to report as it always has.
+if (require('../src/provider.js').INSTALL_VERBS.includes(argv[0])) {
+  let target = null
+  try {
+    const { opts, positional } = require('../src/cli.js').parse(argv.slice(1))
+    target = require('node:path').resolve(opts.dir || positional[0] || process.cwd())
+  } catch {}
+  const installed =
+    target &&
+    require('../src/provider.js').forwardInstallCommand({
+      cwd: process.cwd(),
+      argv,
+      target,
+      warn: (line) => console.error(line),
+    })
+  if (installed !== null) process.exit(installed)
+}
+
 // A verb this base does not ship (spec-sync) goes to the configured provider's
 // own bin, which makes its own registrations — so this runs before ours.
 const forwarded = require('../src/provider.js').forwardProviderCommand({
