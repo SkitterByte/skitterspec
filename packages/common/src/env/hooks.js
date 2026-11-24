@@ -82,7 +82,18 @@ const HOOKS = [
     matcher: 'Edit|Write|NotebookEdit|MultiEdit|Bash',
     timeout: HOOK_TIMEOUT,
   },
-].map((h) => ({ ...h, script: `${h.stem}.cjs`, re: hookStemRe(h.stem) }))
+  {
+    // Notes a context compaction against the phase an autonomous run is
+    // building (feat-autonomous-run). A different EVENT, not a different
+    // matcher: it fires before the harness compacts, on either trigger, so it
+    // carries no matcher at all. It decides nothing and never blocks.
+    key: 'run-compact',
+    stem: '.claude/hooks/run-compact',
+    event: 'PreCompact',
+    matcher: null,
+    timeout: HOOK_TIMEOUT,
+  },
+].map((h) => ({ event: 'PreToolUse', ...h, script: `${h.stem}.cjs`, re: hookStemRe(h.stem) }))
 
 function isObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -105,10 +116,17 @@ function commandFor(script) {
 }
 
 function hookEntry(hook = HOOKS[0]) {
-  return {
-    matcher: hook.matcher,
-    hooks: [{ type: 'command', command: commandFor(hook.script), timeout: hook.timeout }],
-  }
+  const hooks = [{ type: 'command', command: commandFor(hook.script), timeout: hook.timeout }]
+  // An event with no matcher (PreCompact here) is written without the key, so
+  // it fires on every trigger rather than on a matcher of the empty string.
+  return hook.matcher ? { matcher: hook.matcher, hooks } : { hooks }
+}
+
+// Every hook entry this package writes, grouped by the event it belongs under.
+function entriesByEvent() {
+  const out = {}
+  for (const h of HOOKS) (out[h.event] = out[h.event] || []).push(hookEntry(h))
+  return out
 }
 
 /**
@@ -149,7 +167,8 @@ function registeredHooks(preToolUse, hook = HOOKS[0]) {
  */
 function ensureOneHook(parsed, hook) {
   const hooks = isObject(parsed.hooks) ? parsed.hooks : {}
-  const preToolUse = Array.isArray(hooks.PreToolUse) ? hooks.PreToolUse : []
+  const event = hook.event || 'PreToolUse'
+  const preToolUse = Array.isArray(hooks[event]) ? hooks[event] : []
 
   // Registered already — but possibly under a path that no longer exists, since
   // the script's extension changed. Rewrite the path IN PLACE rather than
@@ -166,7 +185,7 @@ function ensureOneHook(parsed, hook) {
     return { changed: true, reason: 'migrated' }
   }
 
-  parsed.hooks = { ...hooks, PreToolUse: [...preToolUse, hookEntry(hook)] }
+  parsed.hooks = { ...hooks, [event]: [...preToolUse, hookEntry(hook)] }
   return { changed: true, reason: 'added' }
 }
 
@@ -192,7 +211,7 @@ function ensureHooks(dir, { local = false } = {}) {
     raw = fs.readFileSync(file, 'utf-8')
   } catch (error) {
     if (error.code === 'ENOENT') {
-      writeSettings(file, { hooks: { PreToolUse: HOOKS.map((h) => hookEntry(h)) } })
+      writeSettings(file, { hooks: entriesByEvent() })
       return { changed: true, reason: 'created' }
     }
     throw error
@@ -241,25 +260,30 @@ function removeHooks(dir, { local = false, dryRun = false } = {}) {
     return { removed: 0, emptied: false, reason: error.code === 'ENOENT' ? 'absent' : 'malformed' }
   }
   if (!isObject(parsed)) return { removed: 0, emptied: false, reason: 'malformed' }
-  const pre = isObject(parsed.hooks) && Array.isArray(parsed.hooks.PreToolUse) ? parsed.hooks.PreToolUse : null
-  if (!pre) return { removed: 0, emptied: false, reason: 'none' }
+  if (!isObject(parsed.hooks)) return { removed: 0, emptied: false, reason: 'none' }
 
   let removed = 0
   const ours = (h) => isObject(h) && typeof h.command === 'string' && HOOKS.some((k) => k.re.test(h.command))
-  const kept = []
-  for (const group of pre) {
-    if (!isObject(group) || !Array.isArray(group.hooks)) {
-      kept.push(group)
-      continue
+  // Every event this package registers under — and only those, so another
+  // event's hooks are never even looked at.
+  for (const event of [...new Set(HOOKS.map((h) => h.event))]) {
+    const pre = Array.isArray(parsed.hooks[event]) ? parsed.hooks[event] : null
+    if (!pre) continue
+    const kept = []
+    for (const group of pre) {
+      if (!isObject(group) || !Array.isArray(group.hooks)) {
+        kept.push(group)
+        continue
+      }
+      const rest = group.hooks.filter((h) => !ours(h))
+      removed += group.hooks.length - rest.length
+      if (rest.length) kept.push(rest.length === group.hooks.length ? group : { ...group, hooks: rest })
     }
-    const rest = group.hooks.filter((h) => !ours(h))
-    removed += group.hooks.length - rest.length
-    if (rest.length) kept.push(rest.length === group.hooks.length ? group : { ...group, hooks: rest })
+    if (kept.length) parsed.hooks[event] = kept
+    else delete parsed.hooks[event]
   }
   if (!removed) return { removed: 0, emptied: false, reason: 'none' }
 
-  if (kept.length) parsed.hooks.PreToolUse = kept
-  else delete parsed.hooks.PreToolUse
   if (!Object.keys(parsed.hooks).length) delete parsed.hooks
   const emptied = !Object.keys(parsed).length
   if (!emptied && !dryRun) writeSettings(file, parsed)

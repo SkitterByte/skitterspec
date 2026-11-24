@@ -4779,15 +4779,29 @@ function specEnvRun(dir, config, positional, flags = {}) {
     say({ ok: false, reason: `unknown action ${action}` }, `spec-env run: unknown action "${action}" — use ${RUN_ACTIONS.join(', ')}`)
     return
   }
+  const stateDir = path.join(dir, stateDirLabel(config))
   let spec
   try {
     spec = resolveSpecWithWorktree(dir, config, specArg)
   } catch (err) {
-    if (quietOnUnknown) return
-    say({ ok: false, reason: err.message }, `spec-env run: cannot tell which spec — ${err.message}`)
-    return
+    // THE HOOK'S FALLBACK, and only the hook's. A session compacting in the
+    // primary checkout names no spec and stands in no worktree, so the usual
+    // resolution has nothing to go on. The run record itself is a positive
+    // signal: exactly ONE active run is the run that is compacting. None, or
+    // several, is cannot-tell and records nothing.
+    const sole = quietOnUnknown && !specArg ? soleActiveRun(stateDir) : null
+    if (sole) {
+      try {
+        spec = resolveSpecWithWorktree(dir, config, sole)
+      } catch {
+        return
+      }
+    } else {
+      if (quietOnUnknown) return
+      say({ ok: false, reason: err.message }, `spec-env run: cannot tell which spec — ${err.message}`)
+      return
+    }
   }
-  const stateDir = path.join(dir, stateDirLabel(config))
   const read = readRun(stateDir, spec.folder)
   if (read.corrupt) {
     if (quietOnUnknown) return
@@ -4891,6 +4905,22 @@ function specEnvRun(dir, config, positional, flags = {}) {
 }
 
 const RUN_ACTIONS = Object.freeze(['resolve', 'phase', 'stop', 'compacted', 'end', 'status'])
+
+// The one spec with an active run in this state dir, or null when there are
+// none or several. Never throws: an unreadable record is not an active run.
+function soleActiveRun(stateDir) {
+  let names
+  try {
+    names = fs.readdirSync(path.join(stateDir, 'runs')).filter((n) => n.endsWith('.json'))
+  } catch {
+    return null
+  }
+  const active = names.map((n) => n.slice(0, -5)).filter((spec) => {
+    const read = readRun(stateDir, spec)
+    return !read.corrupt && read.record && read.record.active
+  })
+  return active.length === 1 ? active[0] : null
+}
 
 /**
  * `skitterspec spec-env resume <name|#N> [--reopen] [--json]` (feat-spec-resume)
