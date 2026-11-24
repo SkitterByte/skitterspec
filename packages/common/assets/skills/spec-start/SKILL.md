@@ -411,6 +411,14 @@ marks phase 1 started, refreshes the mirror again, builds it with tests and
 reports. Do not stop and ask the operator to run it: the branch is here and they
 asked to start the spec.
 
+**An autonomous run does not ask.** `--auto`, `--supervised` and
+`--then pause|push|pr` are passed straight through to `/spec-next`, which
+resolves the run (flag > the spec's `Run:` header > `auto` in
+`env.config.json`). Ask `skitterspec spec-env run resolve <name> … --json`
+here first. When it answers `mode: "auto"`, the operator has already said to
+build it all, so carry on into `/spec-next` with the same flags in either
+mode. On `supervised`, the rest of this step applies.
+
 **`worktree` mode — offer it, then do what they say.** Step 3 left this session
 standing in the worktree, so both endings happen right here and neither needs a
 second session opened anywhere. In prose: say the worktree is ready and name its

@@ -356,6 +356,30 @@ it — and the paste was the one place it broke. The *work* either authorises is
 ordinary phase-sized cost, and step 3 is where the operator decides whether to
 spend it.
 
+### `complete`, `push`, `pr` — the final page of an autonomous run
+
+These come only from the page an autonomous run ends on under `pause`
+(`spec-next/autonomous.md`). Every phase is already committed, so there is
+nothing to hand to `review.commitWith`. Each verdict names what happens to the
+branch, and each one ends the run with
+`skitterspec spec-env run end <spec> --outcome <verdict>` once it has acted:
+
+- **`complete`**: carry on into **`/spec-complete`**, which verifies, lands
+  and tears down exactly as if typed.
+- **`push`**: `skitterspec spec-env integrate <spec> --push`, and run what it
+  plans. The press is the push consent. The spec stays in flight.
+- **`pr`**: carry on into **`/spec-complete`** under PR landing
+  (`--strategy pr` where `land.strategy` is not already `pr`). Its PR body lists
+  each phase with its commit.
+
+A failure stops there, exactly as a failed commit ends `commit-continue`. Say
+where it broke, and leave the run active so the page can be answered again.
+
+**`commit-continue` on a phase where an autonomous run stopped resumes the run.**
+`/spec-next` resolves the run record first, so it carries on in the
+run's own mode and ending with nothing passed. That is the stop condition being
+answered, not a new run.
+
 ## 2b. An action changes something, then hands the page back
 
 Only on a pass carrying an **action**. Two of them, and

@@ -71,7 +71,7 @@ test('listSkillFiles puts SKILL.md first and skips dotfiles', () => {
   const skill = path.join(pkg.root, 'assets', 'skills', 'spec-next')
   fs.writeFileSync(path.join(skill, 'a-first.md'), 'x\n')
   fs.writeFileSync(path.join(skill, '.DS_Store'), 'x')
-  assert.deepStrictEqual(pkg.load().listSkillFiles('spec-next'), ['SKILL.md', 'a-first.md'])
+  assert.deepStrictEqual(pkg.load().listSkillFiles('spec-next'), ['SKILL.md', 'a-first.md', 'autonomous.md'])
 })
 
 test('project-conventions.md is written once and survives update and --force', async () => {

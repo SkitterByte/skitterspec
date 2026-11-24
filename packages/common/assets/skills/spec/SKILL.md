@@ -104,7 +104,15 @@ not write the spec until this is resolved.
       before building that phase, and `/spec-resume` is how it goes on. This
       is free text, a condition only a person can judge, which is what sets it
       apart from an epic member's `Waits on:`. With no such wait, write none.
-  12. **Open questions** — anything still undecided.
+  12. **Run mode** *(only when `specs/.core/env.config.json` exists)*: should
+      this spec build autonomously, every phase committed with no stop for
+      review, or stop on every phase's page? Offer the project's `auto.default`
+      (supervised when unset) and ask only whether this spec differs. A
+      difference is written as `> **Run:** auto` or `> **Run:** supervised`.
+      Matching the default writes no line, so the config keeps deciding.
+      Recommend `supervised` for anything that touches data, auth or a public
+      surface.
+  13. **Open questions** — anything still undecided.
 
 Stop grilling when there are no unresolved branches that would change the spec.
 Briefly play back the agreed understanding before writing.
@@ -278,6 +286,8 @@ the codebase, link rather than duplicate):
 > **Area:** <comma-separated files/modules this touches>
 > **Stack:** <worktree — or "worktree + docker" if it touches the DB/stateful
 > services; only acted on when isolation is enabled — see Phase A item 9>
+> **Run:** <auto or supervised — only when it differs from the project's
+> `auto.default` (Phase A item 12). Omit the line entirely otherwise>
 > **Incident:** <incident-<name> — only when this spec is a fix for an open
 > incident spec; the next push links the two as related on the tracker, and
 > `/spec-complete` on the incident counts this spec among its fixes. Omit the

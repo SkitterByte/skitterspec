@@ -148,7 +148,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 2 | Report table on every review page | ✅ | [02-report-on-page.md](02-report-on-page.md) |
 | 3 | Phase snapshots, run index, final page | ✅ | [03-snapshots-and-final.md](03-snapshots-and-final.md) |
 | 4 | Compaction hook | ✅ | [04-compaction-hook.md](04-compaction-hook.md) |
-| 5 | Skill wiring: the autonomous loop and endings | ⬜ | [05-skill-wiring.md](05-skill-wiring.md) |
+| 5 | Skill wiring: the autonomous loop and endings | ✅ | [05-skill-wiring.md](05-skill-wiring.md) |
 | 6 | Docs and rules | ⬜ | [06-docs.md](06-docs.md) |
 
 ## Open questions
@@ -184,3 +184,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   falls back to the one active run record; none or several records nothing.
   This repo's own `.claude/settings.json` gains the hook at its next
   `skitterspec update`, not in this branch.
+- 2026-11-24 — Phase 5: the loop lives in `spec-next/autonomous.md`, a
+  supporting file beside `SKILL.md`, which only says when to follow it. That
+  keeps the supervised path's text unchanged. `/spec` asks the `Run:` question
+  only as a difference from `auto.default`, so a spec that matches it carries
+  no line.

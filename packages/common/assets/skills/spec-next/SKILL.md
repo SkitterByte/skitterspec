@@ -16,6 +16,15 @@ flight — provisioning, moving it to `in-progress`, getting its branch here —
 `/spec-start`'s job. Re-run this per phase until the spec is done, then
 `/spec-complete`.
 
+**Or let it run.** `--auto`, `--supervised` and `--then pause|push|pr` choose
+whether this run stops on every phase's page or builds every phase to the
+end. Once §1 has named the spec, ask the engine
+(`skitterspec spec-env run resolve <spec> … --json`, passing only the flags
+typed). On `mode: "auto"`, follow
+[`autonomous.md`](autonomous.md) for the whole run. It reuses §2 to §4b
+unchanged and replaces §5 and §6. On `supervised`, the default everywhere
+nothing says otherwise, this file applies exactly as written.
+
 ## 1. Identify the spec in flight
 
 **`--worktree <path>` answers before anything else.** When the invocation names a
@@ -399,8 +408,16 @@ the moment the page is about, so render it now — **after** the tests pass and
 **before** the commit:
 
 ```
-skitterspec spec-env review <spec> --run-reviewers
+skitterspec spec-env review <spec> --run-reviewers --report <rows.json> --phase <n>
 ```
+
+**`--report` puts this phase's report table on the page**, so its Notes and
+Follow-ups are there for anyone who reads the page later, not only in this
+terminal. Write the rows of the block §6 will end with, as JSON in a scratch
+file: `{"title": "<verdict sentence>", "rows": [{"field": "Built", "value":
+"…"}, …]}`, leaving out `Next` and `Review`, which only make sense here. An
+empty `field` continues the row above. The engine orders, escapes and keeps
+them per phase, and a bad file is reported and skipped, never a failed render.
 
 **This is free.** It is the engine reading git and splicing text into a template;
 the diff never passes through you, so a 266KB patch costs nothing. Report the

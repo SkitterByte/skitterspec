@@ -433,10 +433,19 @@ person happens before the ready, in this order:
    merge?"* — the base branch is named so a spec that outlived a release roll
    is caught by the person reading a stale rc name. On a no, stop with the
    held commands relayed.
+   **An autonomous run that ends on `pr` has already consented**: the
+   operator named `pr` by flag, config or the final page's `Open PR` button.
+   Say the target in the report's `Landed` row instead of asking.
 3. **Run the plan.** `skitterspec spec-env integrate <name> --push` and run
    what it prints: fetch, rebase onto `<remote>/<base>`, the push, and the PR
    create — or, where a draft already exists, the flip-to-ready. A rebase
    conflict aborts and stops exactly as 6-feature/bug step 2.
+   **Where `skitterspec spec-env run status <name> --json` returns a record**,
+   the spec was built by an autonomous run. Add one line per phase to the PR
+   body: the phase number, its title from the phase index, and its commit from
+   the record. Use the host's PR-edit command (`gh pr edit <n> --body-file`,
+   or `az repos pr update --description`). The PR's commit list is already one
+   commit per phase, and this names them.
 4. **Defer the finalise.** §4's bucket move follows the spec documents'
    `land.specDocs` lane: under `trunk` leave the spec in `specs/in-progress/`
    — run 2 moves it on base after the merge; under `branch` commit the move on
