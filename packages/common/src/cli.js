@@ -47,6 +47,7 @@ const SPEC_ENV_VERBS = Object.freeze([
   'status',
   'resolve',
   'resume',
+  'run',
   'base',
   'nospec',
   'main',
@@ -174,6 +175,21 @@ const {
   grantPermit,
   permitHonoured,
 } = require('./env/review.js')
+const {
+  ENDINGS,
+  parseRunHeader,
+  resolveRun,
+  runPath,
+  readRun,
+  writeRun,
+  openRun,
+  currentPhase,
+  recordPhase,
+  recordStop,
+  recordCompaction,
+  endRun,
+  compactionSummary,
+} = require('./env/run.js')
 const {
   CHECKS_VERSION,
   BUNDLED_ADAPTERS,
@@ -359,6 +375,10 @@ Usage:
                                                   (prints commands; creates nothing)
                                                   --reopen: a completed spec, re-opened on a
                                                   fresh branch from the base
+                                run <action> [spec]  an autonomous run: resolve (mode + ending,
+                                                  --auto|--supervised, --then pause|push|pr),
+                                                  phase <n> --commit <sha>, stop --reason,
+                                                  compacted, end, status
                                 base              fetch, list baseBranchPattern matches
                                                   newest-first, mark the base, and name
                                                   specs forked from an older match
@@ -4720,6 +4740,157 @@ function specEnvResolve(dir, config, specArg, flags = {}) {
 }
 
 /**
+ * `skitterspec spec-env run <resolve|phase|stop|compacted|end|status> [spec]`
+ * (feat-autonomous-run)
+ *
+ *   resolve   [spec] [--auto|--supervised] [--then pause|push|pr] [--phase <n>]
+ *             which mode and ending this run takes; an autonomous one opens
+ *             (or keeps) the run record. A supervised one writes nothing.
+ *   phase     [spec] <n> [--commit <sha>] [--snapshot <path>]
+ *             a phase the run committed; also logs `auto-commit` in the
+ *             review outcome log, so "nobody pressed a verdict" is on record.
+ *   stop      [spec] --reason <text>   the run stopped on a stop condition
+ *   compacted [spec]                   the context compacted (the hook's call)
+ *   end       [spec] [--outcome <ending>]
+ *   status    [spec]
+ *
+ * `--json` on every action. The record lives in the primary checkout's state
+ * dir, beside the review sidecars, so every worktree reads the same one.
+ *
+ * NEVER FATAL BEYOND A TYPO. A flag that contradicts itself refuses (exit 1);
+ * a corrupt record is cannot-tell — reported, never written over — and the
+ * `compacted` action exits 0 and says nothing on every cannot-tell, because a
+ * hook that fails loudly on a session with no run is accusing a healthy one.
+ */
+function specEnvRun(dir, config, positional, flags = {}) {
+  const action = positional[0] || 'status'
+  const rest = positional.slice(1)
+  const numeric = rest.find((a) => /^\d+$/.test(a))
+  const specArg = rest.find((a) => !/^\d+$/.test(a))
+  const quietOnUnknown = action === 'compacted'
+  const say = (obj, text) => {
+    if (flags.json) process.stdout.write(JSON.stringify(obj, null, 2) + '\n')
+    else if (text) process.stdout.write(text + '\n')
+  }
+  if (!RUN_ACTIONS.includes(action)) {
+    process.exitCode = 1
+    say({ ok: false, reason: `unknown action ${action}` }, `spec-env run: unknown action "${action}" — use ${RUN_ACTIONS.join(', ')}`)
+    return
+  }
+  let spec
+  try {
+    spec = resolveSpecWithWorktree(dir, config, specArg)
+  } catch (err) {
+    if (quietOnUnknown) return
+    say({ ok: false, reason: err.message }, `spec-env run: cannot tell which spec — ${err.message}`)
+    return
+  }
+  const stateDir = path.join(dir, stateDirLabel(config))
+  const read = readRun(stateDir, spec.folder)
+  if (read.corrupt) {
+    if (quietOnUnknown) return
+    say(
+      { ok: false, spec: spec.folder, corrupt: true },
+      `spec-env run: ${runPath(stateDir, spec.folder)} is not readable JSON — move it aside rather than losing what it holds.`,
+    )
+    return
+  }
+  const at = new Date().toISOString()
+  const active = read.record && read.record.active ? read.record : null
+
+  if (action === 'resolve') {
+    let overview = ''
+    try {
+      overview = fs.readFileSync(path.join(spec.path, '00-overview.md'), 'utf8')
+    } catch {
+      // No overview is no header: the config decides, as for any spec without one.
+    }
+    const header = parseRunHeader(overview)
+    const resolved = resolveRun({ flags, header, config, active })
+    if (!resolved.ok) {
+      process.exitCode = 1
+      say({ ok: false, spec: spec.folder, reason: resolved.reason }, `spec-env run: ${resolved.reason}`)
+      return
+    }
+    let record = null
+    if (resolved.mode === 'auto') {
+      record = openRun(read.record, resolved, { spec: spec.folder, at, startPhase: flags.phase })
+      writeRun(stateDir, spec.folder, record)
+    }
+    const from = { flag: 'flag', run: 'the active run', header: 'the spec header', config: 'env.config.json', default: 'default' }
+    say(
+      { ok: true, spec: spec.folder, ...resolved, resumed: Boolean(active && resolved.mode === 'auto'), record: record ? runPath(stateDir, spec.folder) : null },
+      `spec-env run: ${spec.folder}\n` +
+        `  mode:     ${resolved.mode}  (${from[resolved.modeFrom]})\n` +
+        (resolved.mode === 'auto'
+          ? `  then:     ${resolved.then}  (${from[resolved.thenFrom]})\n` +
+            `  fixes:    up to ${resolved.maxFixAttempts} at a red phase\n` +
+            `  record:   ${active ? 'resumed' : 'opened'} · ${runPath(stateDir, spec.folder)}`
+          : '  record:   none — a supervised run stops on every phase'),
+    )
+    return
+  }
+
+  if (action === 'status') {
+    say(
+      { ok: true, spec: spec.folder, record: read.record, compactions: compactionSummary(read.record) || null },
+      read.record
+        ? `spec-env run: ${spec.folder} — ${read.record.active ? 'active' : 'ended'} · ${read.record.mode} · then ${read.record.then}\n` +
+            `  phases:   ${(read.record.phases || []).map((p) => `${p.n}${p.commit ? `@${String(p.commit).slice(0, 7)}` : ''}`).join(', ') || 'none yet'}\n` +
+            `  stops:    ${(read.record.stops || []).length}` +
+            (compactionSummary(read.record) ? `\n  context:  ${compactionSummary(read.record)}` : '')
+        : `spec-env run: ${spec.folder} — no run recorded`,
+    )
+    return
+  }
+
+  // Every remaining action writes to an ACTIVE run. Without one there is
+  // nothing to write to, and inventing a run would put an autonomous run in
+  // the record that nobody started.
+  if (!active) {
+    if (quietOnUnknown) return
+    say({ ok: false, spec: spec.folder, reason: 'no active run' }, `spec-env run ${action}: ${spec.folder} has no active run — nothing recorded`)
+    return
+  }
+
+  let record = active
+  if (action === 'phase') {
+    const n = numeric || flags.phase
+    const result = recordPhase(record, { n: Number(n), commit: flags.commit, snapshot: flags.snapshot, at })
+    if (!result.ok) {
+      process.exitCode = 1
+      say({ ok: false, spec: spec.folder, reason: result.reason }, `spec-env run phase: ${result.reason}`)
+      return
+    }
+    record = result.record
+    // On the review's own record too, where a reader of the page looks: the
+    // phase was committed by the run, not by a verdict.
+    const out = reviewOutPath(dir, spec.folder)
+    const notesRead = readNotes(out, spec.folder)
+    if (!notesRead.corrupt) {
+      writeNotes(out, appendDecision(notesRead.notes, { verdict: 'auto-commit', at, note: `phase ${n}${flags.commit ? ` · ${flags.commit}` : ''} · autonomous run` }))
+    }
+  } else if (action === 'stop') {
+    record = recordStop(record, { reason: flags.reason, at })
+  } else if (action === 'compacted') {
+    record = recordCompaction(record, { at })
+  } else if (action === 'end') {
+    const outcome = flags.outcome && ENDINGS.includes(flags.outcome) ? flags.outcome : null
+    record = endRun(record, { at, outcome })
+  }
+  writeRun(stateDir, spec.folder, record)
+  const line = {
+    phase: () => `spec-env run: ${spec.folder} — phase ${numeric || flags.phase} recorded`,
+    stop: () => `spec-env run: ${spec.folder} — stopped at phase ${currentPhase(record)}`,
+    compacted: () => `spec-env run: ${spec.folder} — ${compactionSummary(record)}`,
+    end: () => `spec-env run: ${spec.folder} — ended (${record.outcome})` + (compactionSummary(record) ? ` · ${compactionSummary(record)}` : ''),
+  }[action]()
+  say({ ok: true, spec: spec.folder, action, record, compactions: compactionSummary(record) || null }, line)
+}
+
+const RUN_ACTIONS = Object.freeze(['resolve', 'phase', 'stop', 'compacted', 'end', 'status'])
+
+/**
  * `skitterspec spec-env resume <name|#N> [--reopen] [--json]` (feat-spec-resume)
  *
  * Which in-flight spec the argument means, what it is blocked on, and — where
@@ -8328,6 +8499,12 @@ async function specEnv(rest) {
     else if (args[i] === '--use-fallback') flags.useFallback = true
     else if (args[i] === '--unpin') flags.unpin = true
     else if (args[i] === '--reopen') flags.reopen = true
+    else if (args[i] === '--auto') flags.auto = true
+    else if (args[i] === '--supervised') flags.supervised = true
+    else if (args[i] === '--then') flags.then = args[++i] ?? ''
+    else if (args[i] === '--commit') flags.commit = args[++i]
+    else if (args[i] === '--snapshot') flags.snapshot = args[++i]
+    else if (args[i] === '--reason') flags.reason = args[++i]
     else positional.push(args[i])
   }
   dir = path.resolve(dir)
@@ -8481,6 +8658,9 @@ async function specEnvDispatch(sub, dir, config, positional, flags, present, inv
       break
     case 'resume':
       specEnvResume(dir, config, positional[0], flags)
+      break
+    case 'run':
+      specEnvRun(dir, config, positional, flags)
       break
     case 'base':
       specEnvBase(dir, config, flags)

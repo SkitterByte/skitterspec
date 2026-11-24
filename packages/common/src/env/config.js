@@ -344,6 +344,16 @@ const DEFAULT_CONFIG = Object.freeze({
     // adapter, `{name, command, format}` is bring-your-own.
     reviewers: Object.freeze([]),
   }),
+  // Autonomous runs (`spec-env run`, feat-autonomous-run). `default` is the
+  // mode a spec runs in when neither its `> **Run:**` header nor a flag says:
+  // "supervised" (stop on every phase's page, today's behaviour) or "auto"
+  // (build every phase, commit each, stop only on a stop condition). `then` is
+  // how an autonomous run ends: "pause" (one final page that waits), "push"
+  // (push the branch) or "pr" (`/spec-complete`'s PR run). Configuring push or
+  // pr IS the push consent for runs that take it. `maxFixAttempts` bounds the
+  // tries at a red phase before the run stops. An unrecognised value falls back
+  // to its default — never to "auto": a typo must not make a run unattended.
+  auto: Object.freeze({ default: 'supervised', then: 'pause', maxFixAttempts: 3 }),
   // Live overlay (`spec-env live`). `migrations` is a list of globs marking
   // migration files; a branch that changes any of them is treated as stateful and
   // `live take` refuses it (code-only v1). Default: none (nothing is stateful).
@@ -458,6 +468,7 @@ function defaults() {
     guards: { ...DEFAULT_CONFIG.guards },
     teardown: { ...DEFAULT_CONFIG.teardown },
     review: { ...DEFAULT_CONFIG.review, reviewers: [] },
+    auto: { ...DEFAULT_CONFIG.auto },
     live: { migrations: [], afterSwitch: [] },
     hotfix: { ...DEFAULT_CONFIG.hotfix, targets: [] },
   }
@@ -856,6 +867,13 @@ function mergeConfig(base, parsed) {
     if (Array.isArray(parsed.review.reviewers)) {
       base.review.reviewers = normalizeReviewers(parsed.review.reviewers)
     }
+  }
+
+  if (isObject(parsed.auto)) {
+    if (parsed.auto.default === 'auto' || parsed.auto.default === 'supervised') base.auto.default = parsed.auto.default
+    if (['pause', 'push', 'pr'].includes(parsed.auto.then)) base.auto.then = parsed.auto.then
+    const n = parsed.auto.maxFixAttempts
+    if (Number.isInteger(n) && n >= 0) base.auto.maxFixAttempts = n
   }
 
   if (isObject(parsed.spec) && Array.isArray(parsed.spec.companionPaths)) {

@@ -31,7 +31,7 @@ host **dev servers** (`dev` in `env.config.json`) on the spec's ports.
 first.
 
 The engine is `skitterspec spec-env
-<up|bootstrap|nospec|main|project|down|prune|dev|connect|integrate|disposition|handoff|hotfix|live|review|stage|checks|status|resolve|resume|base>`.
+<up|bootstrap|nospec|main|project|down|prune|dev|connect|integrate|disposition|handoff|hotfix|live|review|stage|checks|status|resolve|resume|run|base>`.
 `up` plans the fork, and **`bootstrap` runs the worktree's own steps**: seeding
 the gitignored files, the env file, `setup` and the stack. Never reconstruct
 those steps as shell commands.
