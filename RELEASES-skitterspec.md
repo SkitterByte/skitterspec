@@ -5,6 +5,11 @@ What's new for users of skitterspec. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 23.23.3 — 24 Nov 2026
+
+### Env
+- **Fixed** — The skitterspec command now follows the ticketing provider your project has configured, so spec documents ride their own branch and ideas go to your tracker without setting land.specDocs by hand.
+
 ## 23.23.2 — 23 Nov 2026
 
 ### Review
