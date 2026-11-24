@@ -98,3 +98,4 @@ configured → refused, nothing written; no provider → base install, silent;
 - 2026-11-24 — Follow-up surfaced: a fresh worktree's `pnpm install` fails —
   the parked `skitterspec-jira`/`-linear` `prepare` scripts throw from
   `build-dist.js`; not in scope here.
+- 2026-11-24 — Completed; fix done, tests green.
