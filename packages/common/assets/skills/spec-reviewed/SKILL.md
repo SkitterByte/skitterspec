@@ -83,7 +83,8 @@ invocation does, above, and claim the code *there*. Then go to step 4 — a name
 pass has nothing to disambiguate.
 
 A **verdict word** — `commit`, `commit-continue`, `commit-start`,
-`commit-land`, `continue`, `changes`, `discuss` — is the conclusion itself,
+`commit-land`, `complete`, `push`, `pr`, `continue`, `changes`, `discuss` —
+is the conclusion itself,
 arriving without a pass behind it. It is
 what a **`file://` page** hands over: that page has no server to POST to and no
 store to write to, so it copies a command instead of sending anything, and this

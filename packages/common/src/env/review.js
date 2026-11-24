@@ -589,11 +589,19 @@ const NOTES_VERSION = 1
  * below and is therefore structurally incapable of clearing an armed gate: a
  * phase that ended still owes a committing verdict or a recorded skip.
  */
+// `complete`, `push` and `pr` are the FINAL page's verdicts (feat-autonomous-
+// run): an autonomous run that ended on `pause` has committed every phase, so
+// what is left to decide is the ending — land and tear down (`complete`, which
+// is `/spec-complete`), push the branch (`push`), or open the PR (`pr`). They
+// are committing in the gate's sense: each is the answer a finished run owes.
 const VERDICTS = [
   'commit',
   'commit-continue',
   'commit-start',
   'commit-land',
+  'complete',
+  'push',
+  'pr',
   'continue',
   'changes',
   'discuss',
@@ -913,7 +921,7 @@ function tailnetLabel(url) {
 // obligation that outlives the turn. A mid-run reader saying "carry on" has
 // answered the offer in front of them and nothing else, so the gate a finished
 // phase armed must survive it untouched.
-const COMMITTING = ['commit', 'commit-continue', 'commit-start', 'commit-land']
+const COMMITTING = ['commit', 'commit-continue', 'commit-start', 'commit-land', 'complete', 'push', 'pr']
 
 /**
  * Which set of buttons a rendered page shows.
@@ -972,7 +980,11 @@ const COMMITTING = ['commit', 'commit-continue', 'commit-start', 'commit-land']
  * serve daemon, so one name covering two renders would be ambiguous exactly
  * where it is used to decide something.
  */
-const BUTTON_SETS = ['committing', 'midrun', 'authoring', 'refresh', 'nospec', 'fix']
+// `snapshot` is a kept phase page of an autonomous run: read-only, no verdict
+// at all, because the run committed that phase and carried on. `final` is the
+// page an autonomous run ends on under `pause`: `complete`, `push`, `pr`, plus
+// `changes` and `discuss`.
+const BUTTON_SETS = ['committing', 'midrun', 'authoring', 'refresh', 'nospec', 'fix', 'snapshot', 'final']
 const DEFAULT_BUTTON_SET = 'committing'
 
 /**

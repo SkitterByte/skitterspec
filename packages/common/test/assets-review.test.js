@@ -277,7 +277,7 @@ function fakeDom(islandText, widths = DEFAULT_WIDTHS) {
   for (const id of [
     'title', 'sub', 'files', 'tree', 'tree-wrap', 'tree-summary',
     'expand-all', 'collapse-all', 'show-noise', 'noise-label', 'theme', 'review-block',
-    'verdict', 'verdict-commit', 'verdict-commit-continue', 'verdict-commit-start', 'verdict-commit-land', 'verdict-continue',
+    'verdict', 'verdict-commit', 'verdict-commit-continue', 'verdict-commit-start', 'verdict-commit-land', 'verdict-complete', 'verdict-push', 'verdict-pr', 'verdict-continue',
     'verdict-changes', 'verdict-discuss',
     'verdict-count', 'verdict-log', 'verdict-warn', 'copy-out', 'copy-hint',
     'sent-cmd', 'sent-cmd-lead', 'sent-cmd-text', 'sent-cmd-copy', 'cmd-list', 'cmd-lead',
@@ -1535,7 +1535,7 @@ test('the committing verdicts are named once, so one cannot slip the block', () 
   // member without anyone noticing would accept the bug this guards against:
   // a committing verdict that is not in the list is a committing verdict an
   // open comment does not block.
-  assert.match(TEMPLATE, /var COMMITTERS = \['commit', 'commit-continue', 'commit-start', 'commit-land'\]/)
+  assert.match(TEMPLATE, /var COMMITTERS = \['commit', 'commit-continue', 'commit-start', 'commit-land', 'complete', 'push', 'pr'\]/)
   assert.match(TEMPLATE, /COMMITTERS\.forEach/)
   // And the old per-button form is gone, not merely unused.
   assert.doesNotMatch(TEMPLATE, /verdictBtns\.approve/)

@@ -146,7 +146,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Mode resolution and the run record | ✅ | [01-run-record.md](01-run-record.md) |
 | 2 | Report table on every review page | ✅ | [02-report-on-page.md](02-report-on-page.md) |
-| 3 | Phase snapshots, run index, final page | ⬜ | [03-snapshots-and-final.md](03-snapshots-and-final.md) |
+| 3 | Phase snapshots, run index, final page | ✅ | [03-snapshots-and-final.md](03-snapshots-and-final.md) |
 | 4 | Compaction hook | ⬜ | [04-compaction-hook.md](04-compaction-hook.md) |
 | 5 | Skill wiring: the autonomous loop and endings | ⬜ | [05-skill-wiring.md](05-skill-wiring.md) |
 | 6 | Docs and rules | ⬜ | [06-docs.md](06-docs.md) |
@@ -169,3 +169,12 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   than only in one render, because the review server re-renders every page
   from disk per request. `--report` without `--phase` records under
   `current`.
+- 2026-11-24 — Phase 3: snapshot pages carry no verdict bar at all, so a
+  note left on one has no way back (a pass needs a verdict); notes are left
+  on the final page instead, which is where Request changes is. Reviewer
+  findings reach the final page by rendering it with `--run-reviewers` over
+  the whole branch rather than by merging per-phase caches. `run phase` lost
+  its `--snapshot` flag: the snapshot files on disk are the record. The
+  run-index and snapshot links on the final page work on the served page
+  only. `/spec-reviewed` names the three new verdicts now, because a test
+  pins its closed list to the engine's; their routing stays in phase 5.

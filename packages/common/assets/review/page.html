@@ -329,6 +329,10 @@ tr.band button { font-size: .72rem; padding: .1rem .5rem; margin-right: .3rem; }
 .report-table th { text-align: left; vertical-align: top; white-space: nowrap; padding: .3rem .8rem .3rem 0; color: var(--muted); font-weight: 600; }
 .report-table td { padding: .3rem 0; overflow-wrap: anywhere; }
 .report-table tr + tr { border-top: 1px solid var(--line); }
+/* The final page's aggregate: every phase's follow-ups and notes, in order. */
+.run-items { margin: 0 0 .6rem; padding-left: 1.1rem; font-size: .88rem; }
+.run-items li { margin: .2rem 0; overflow-wrap: anywhere; }
+.run-phase { color: var(--muted); font-size: .8rem; margin-right: .3rem; }
 .checks { list-style: none; margin: .8rem 0 0; padding: 0; display: grid; gap: .4rem; }
 .check {
   display: grid;
@@ -978,6 +982,12 @@ a.ticket:hover { border-color: var(--accent); }
              context-dependent reading of "Commit", because one of those two
              readings destroys a worktree. -->
         <button id="verdict-commit-land" class="v-commit" type="button" hidden>&#10003; Commit &amp; Land</button>
+        <!-- THE FINAL PAGE'S ENDINGS (feat-autonomous-run), hidden unless the
+             render asked for the `final` set. Every phase is already committed,
+             so each names what happens to the finished branch. -->
+        <button id="verdict-complete" class="v-commit" type="button" hidden>&#10003; Complete</button>
+        <button id="verdict-push" class="v-commit" type="button" hidden>&#8593; Push branch</button>
+        <button id="verdict-pr" class="v-commit" type="button" hidden>&#8593; Open PR</button>
         <button id="verdict-changes" class="v-changes" type="button">↺ Request changes</button>
         <button id="verdict-discuss" type="button">… Discuss first</button>
         <span class="verdict-count" id="verdict-count" aria-live="polite"></span>
@@ -1949,6 +1959,9 @@ a.ticket:hover { border-color: var(--accent); }
     'commit-continue': document.getElementById('verdict-commit-continue'),
     'commit-start': document.getElementById('verdict-commit-start'),
     'commit-land': document.getElementById('verdict-commit-land'),
+    complete: document.getElementById('verdict-complete'),
+    push: document.getElementById('verdict-push'),
+    pr: document.getElementById('verdict-pr'),
     continue: document.getElementById('verdict-continue'),
     changes: document.getElementById('verdict-changes'),
     discuss: document.getElementById('verdict-discuss'),
@@ -1956,7 +1969,7 @@ a.ticket:hover { border-color: var(--accent); }
   // The committing pair, named once. A fifth verdict that commits is added
   // here, and the shared block below follows for free — the same reason the
   // engine keeps a `COMMITTING` list rather than a second condition.
-  var COMMITTERS = ['commit', 'commit-continue', 'commit-start', 'commit-land']
+  var COMMITTERS = ['commit', 'commit-continue', 'commit-start', 'commit-land', 'complete', 'push', 'pr']
 
   /*
    * WHICH BUTTONS THIS PAGE OFFERS, and it comes from the render rather than
@@ -1984,11 +1997,25 @@ a.ticket:hover { border-color: var(--accent); }
     // because `Commit & Continue` names a next phase a spec with no phase files
     // does not have. Same three buttons as `refresh`, a different subject.
     fix: ['commit', 'changes', 'discuss'],
+    // A KEPT PHASE of an autonomous run: the run committed it and carried on,
+    // so there is nothing to decide here — it is read, not answered.
+    snapshot: [],
+    // THE PAGE AN AUTONOMOUS RUN ENDS ON: every phase committed, so the
+    // choice left is what happens to the branch.
+    final: ['complete', 'push', 'pr', 'changes', 'discuss'],
   }
   var OFFERED = OFFERS[data.buttons] || OFFERS.committing
   Object.keys(verdictBtns).forEach(function (key) {
-    verdictBtns[key].hidden = OFFERED.indexOf(key) === -1
+    // A button the markup lacks is skipped, not a crash: an older or trimmed
+    // template must still get a working page.
+    if (verdictBtns[key]) verdictBtns[key].hidden = OFFERED.indexOf(key) === -1
   })
+  // NOTHING TO ANSWER, so no bar at all: a kept phase page offers no verdict,
+  // and an empty bar would read as a page that forgot its buttons.
+  if (!OFFERED.length) {
+    var bar = document.getElementById('verdict')
+    if (bar) bar.hidden = true
+  }
 
   // EVERY VERDICT, because this is the one place a verdict gets a reader-facing
   // name: `refresh` relabels only the committing pair, but the decided panel
@@ -2000,6 +2027,9 @@ a.ticket:hover { border-color: var(--accent); }
     'commit-continue': '✓ Commit & Continue',
     'commit-start': '✓ Commit & Start',
     'commit-land': '✓ Commit & Land',
+    complete: '✓ Complete',
+    push: '↑ Push branch',
+    pr: '↑ Open PR',
     continue: '→ Continue',
     changes: '↺ Request changes',
     discuss: '… Discuss first',
@@ -2019,6 +2049,9 @@ a.ticket:hover { border-color: var(--accent); }
     // Says what it will NOT do, for the same reason: nothing is committed by
     // this, so the work it resumes is still uncommitted afterwards.
     continue: 'You have read it — carry on with the run; nothing is committed',
+    complete: 'Finish the spec: verify, land on the base branch, and remove the worktree',
+    push: 'Push the branch to the remote and stop; the spec stays in flight',
+    pr: 'Push the branch and open a pull request listing each phase',
   }
 
   var verdictEl = document.getElementById('verdict')
@@ -2311,6 +2344,10 @@ a.ticket:hover { border-color: var(--accent); }
     'commit-continue': 'committed, then carried on',
     'commit-start': 'committed, then put in flight',
     'commit-land': 'committed, landed, and torn down',
+    complete: 'completed',
+    push: 'pushed',
+    pr: 'opened as a PR',
+    'auto-commit': 'committed by the autonomous run',
     continue: 'read it and carried on',
     changes: 'changes requested',
     discuss: 'discussed',

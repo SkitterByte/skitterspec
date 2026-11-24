@@ -191,6 +191,7 @@ const {
   compactionSummary,
 } = require('./env/run.js')
 const { reportHtmlFor, readReport, writeReport, validateReport, recordReport, reviewReportPath } = require('./env/report.js')
+const { snapshotPath, pageHeadFor } = require('./env/runpage.js')
 const {
   CHECKS_VERSION,
   BUNDLED_ADAPTERS,
@@ -4747,7 +4748,7 @@ function specEnvResolve(dir, config, specArg, flags = {}) {
  *   resolve   [spec] [--auto|--supervised] [--then pause|push|pr] [--phase <n>]
  *             which mode and ending this run takes; an autonomous one opens
  *             (or keeps) the run record. A supervised one writes nothing.
- *   phase     [spec] <n> [--commit <sha>] [--snapshot <path>]
+ *   phase     [spec] <n> [--commit <sha>]
  *             a phase the run committed; also logs `auto-commit` in the
  *             review outcome log, so "nobody pressed a verdict" is on record.
  *   stop      [spec] --reason <text>   the run stopped on a stop condition
@@ -4857,7 +4858,7 @@ function specEnvRun(dir, config, positional, flags = {}) {
   let record = active
   if (action === 'phase') {
     const n = numeric || flags.phase
-    const result = recordPhase(record, { n: Number(n), commit: flags.commit, snapshot: flags.snapshot, at })
+    const result = recordPhase(record, { n: Number(n), commit: flags.commit, at })
     if (!result.ok) {
       process.exitCode = 1
       say({ ok: false, spec: spec.folder, reason: result.reason }, `spec-env run phase: ${result.reason}`)
@@ -6042,6 +6043,17 @@ function specEnvReviewSkip(dir, config, rest, flags) {
 }
 
 async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
+  // THE FINAL PAGE of an autonomous run (feat-autonomous-run): the whole
+  // branch, under the ending's buttons. Said as one flag because the two halves
+  // are never wanted apart — a final page of one phase's diff would ask the
+  // reader to judge the run from a part of it.
+  if (flags.final) {
+    if (flags.buttons && flags.buttons !== 'final') {
+      process.stdout.write(`spec-env review: --final and --buttons ${flags.buttons} contradict each other — nothing rendered.\n`)
+      return
+    }
+    flags = { ...flags, buttons: 'final', branch: true }
+  }
   // REFUSED BY NAME, never coerced to the default. A typo'd button set silently
   // rendering the committing page is the same failure the verdict validator
   // refuses for the same reason: a caller asking for the mid-run page and
@@ -6790,7 +6802,23 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
     }
   }
 
-  writeReviewPage(out, renderReviewPage(data, { reviewHtml: reportHtmlFor(out, spec.folder) + renderReviewBlock(data.review) }))
+  writeReviewPage(out, renderReviewPage(data, { reviewHtml: pageHeadFor(out, spec.folder, buttons) + renderReviewBlock(data.review) }))
+
+  // THE KEPT PHASE PAGE. The same render, read-only, written where the next
+  // phase's render will not reach it — so the run can be read phase by phase
+  // after it has moved on. It needs a phase to be named, because a snapshot of
+  // "whatever phase this is" is one nobody can find again.
+  if (flags.snapshot) {
+    const n = Number(flags.phase)
+    if (!Number.isInteger(n) || n < 1) {
+      process.stdout.write('spec-env review: --snapshot needs --phase <n> — no snapshot kept\n')
+    } else {
+      const snap = snapshotPath(out, n)
+      fs.mkdirSync(path.dirname(snap), { recursive: true })
+      fs.writeFileSync(snap, renderReviewPage({ ...data, buttons: 'snapshot' }, { reviewHtml: reportHtmlFor(out, spec.folder) + renderReviewBlock(data.review) }))
+      if (!flags.json) process.stdout.write(`  snapshot: phase ${n} · ${snap}\n`)
+    }
+  }
 
   // RECORD WHAT THIS RENDER DECLARED, for the served copy to read back. The
   // daemon re-renders per request and is not the caller, so without this it can
@@ -8528,7 +8556,8 @@ async function specEnv(rest) {
     else if (args[i] === '--supervised') flags.supervised = true
     else if (args[i] === '--then') flags.then = args[++i] ?? ''
     else if (args[i] === '--commit') flags.commit = args[++i]
-    else if (args[i] === '--snapshot') flags.snapshot = args[++i]
+    else if (args[i] === '--snapshot') flags.snapshot = true
+    else if (args[i] === '--final') flags.final = true
     else if (args[i] === '--reason') flags.reason = args[++i]
     else if (args[i] === '--report') flags.report = args[++i]
     else positional.push(args[i])

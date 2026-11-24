@@ -136,7 +136,7 @@ test('an unknown verdict is refused by name rather than read as discuss', () => 
   for (const bad of ['aprove', 'APPROVE', '', 'reject', 3, true, ['commit']]) {
     assert.throws(
       () => parse({ verdict: bad }),
-      /verdict .* is not one of commit, commit-continue, commit-start, commit-land, continue, changes, discuss/,
+      /verdict .* is not one of commit, commit-continue, commit-start, commit-land, complete, push, pr, continue, changes, discuss/,
       `should refuse ${JSON.stringify(bad)}`,
     )
   }
@@ -522,12 +522,15 @@ test('annotateLastDecision touches only the last entry', () => {
 // review page that did not describe what it does, and a review is the guard in
 // front of an action.
 
-test('the seven verdicts are the actions, and an absent one still means discuss', () => {
+test('the ten verdicts are the actions, and an absent one still means discuss', () => {
   assert.deepStrictEqual(VERDICTS, [
     'commit',
     'commit-continue',
     'commit-start',
     'commit-land',
+    'complete',
+    'push',
+    'pr',
     'continue',
     'changes',
     'discuss',
@@ -577,7 +580,7 @@ test('a stored or sent `approve` reads as `commit` everywhere it can appear', ()
 // test written for it.
 test('every committing verdict is blocked by the same open comment', () => {
   const { COMMITTING } = require('../src/env/review.js')
-  assert.deepStrictEqual(COMMITTING, ['commit', 'commit-continue', 'commit-start', 'commit-land'])
+  assert.deepStrictEqual(COMMITTING, ['commit', 'commit-continue', 'commit-start', 'commit-land', 'complete', 'push', 'pr'])
 
   const notes = mergeNotes(
     emptyNotes('feat-alpha'),

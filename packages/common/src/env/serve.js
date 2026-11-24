@@ -30,7 +30,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 const crypto = require('node:crypto')
 
-const { reportHtmlFor } = require('./report.js')
+const { pageHeadFor, runIndexFor, snapshotPath } = require('./runpage.js')
 const {
   liveWorktreePaths,
   allSpecs,
@@ -97,6 +97,15 @@ function routeFor(url, { token = null } = {}) {
   }
 
   if (segments.length === 0) return { kind: 'index' }
+  // AN AUTONOMOUS RUN'S PAGES (feat-autonomous-run): `<spec>/run` is the run
+  // index, `<spec>/phase-<n>` a kept phase page. Both are reads; anything else
+  // two segments deep is not a page.
+  if (segments.length === 2) {
+    if (segments[1] === 'run') return { kind: 'run', spec: segments[0] }
+    const m = /^phase-(\d+)$/.exec(segments[1])
+    if (m) return { kind: 'snapshot', spec: segments[0], phase: Number(m[1]) }
+    return { kind: 'notfound' }
+  }
   if (segments.length > 1) return { kind: 'notfound' }
   // The ta-da page: a window, not a spec. Its query is the window and passed
   // through whole, to be read — and refused if unreadable — by `tada/serve.js`.
@@ -519,7 +528,9 @@ function receivePass(dir, config, spec, blob) {
  * so every `/no-spec` page served over http offered to put nothing in flight,
  * and the pass came back naming a verdict its own skill could not act on.
  */
-const NARROWING_SETS = ['midrun', 'refresh', 'fix']
+// `final` too: the run's last render declared it, and a served re-render
+// must keep offering the ending rather than fall back to `Commit`.
+const NARROWING_SETS = ['midrun', 'refresh', 'fix', 'final']
 
 function buttonsForView(viewKind, spec, recorded) {
   if (NARROWING_SETS.includes(recorded)) return recorded
@@ -574,7 +585,7 @@ function renderSpecPage(dir, config, spec, { branch = false } = {}) {
       treePath: view.tree,
     })
     return {
-      html: renderReviewPage(data, { reviewHtml: reportHtmlFor(out, spec.folder) + renderReviewBlock(data.review) }),
+      html: renderReviewPage(data, { reviewHtml: pageHeadFor(out, spec.folder, buttons) + renderReviewBlock(data.review) }),
       totals: data.totals,
       mode: data.mode,
       fellBack: false,
@@ -681,7 +692,7 @@ function renderSpecPage(dir, config, spec, { branch = false } = {}) {
   }
 
   return {
-    html: renderReviewPage(data, { reviewHtml: reportHtmlFor(reviewOutPath(dir, spec.folder, null), spec.folder) + renderReviewBlock(data.review) }),
+    html: renderReviewPage(data, { reviewHtml: pageHeadFor(reviewOutPath(dir, spec.folder, null), spec.folder, buttons) + renderReviewBlock(data.review) }),
     totals: data.totals,
     mode: data.mode,
     fellBack,
@@ -816,7 +827,7 @@ function readBody(req, limit = MAX_PASS_BYTES) {
   })
 }
 
-function createReviewServer({ resolveEntries, resolveEpics = () => [], render, receive = null, passState = null, tada = null, token = null, project = null }) {
+function createReviewServer({ resolveEntries, resolveEpics = () => [], render, receive = null, passState = null, tada = null, runPage = null, snapshot = null, token = null, project = null }) {
   return http.createServer((req, res) => {
     const send = (code, body, type = 'text/html; charset=utf-8') => {
       res.writeHead(code, { 'content-type': type, 'cache-control': 'no-store' })
@@ -881,6 +892,19 @@ function createReviewServer({ resolveEntries, resolveEpics = () => [], render, r
           (err) => send(500, `render failed: ${err.message}`, 'text/plain; charset=utf-8'),
         )
       return
+    }
+
+    // A SERVER BUILT WITHOUT THE HOOKS is an older one, and says not found —
+    // the same answer an unknown path gets.
+    if (route.kind === 'run' || route.kind === 'snapshot') {
+      const hook = route.kind === 'run' ? runPage : snapshot
+      if (!hook) return send(404, 'not found', 'text/plain; charset=utf-8')
+      try {
+        const out = route.kind === 'run' ? hook(route.spec, { token }) : hook(route.spec, route.phase)
+        return out && out.html ? send(200, out.html) : send(404, 'not found', 'text/plain; charset=utf-8')
+      } catch (err) {
+        return send(500, `render failed: ${err.message}`, 'text/plain; charset=utf-8')
+      }
     }
 
     try {
@@ -1106,6 +1130,24 @@ function serverHooks(dir, config) {
       return renderSpecPage(dir, config, resolveOne(folder), opts)
     },
     receive: (folder, blob) => receivePass(dir, config, resolveOne(folder), blob),
+    // The run index, built per request from the run record and the report
+    // sidecar; a spec this daemon cannot resolve is a 404, not an empty run.
+    runPage: (folder, { token: t = null } = {}) => {
+      const one = resolveOne(folder)
+      if (!one) return null
+      return { html: runIndexFor(reviewOutPath(dir, one.folder, null), one.folder, { token: t, project: projectName(config) }) }
+    },
+    // A kept phase page is served as written — it is a record of what that
+    // phase looked like, so re-rendering it from today's tree would defeat it.
+    snapshot: (folder, phase) => {
+      const one = resolveOne(folder)
+      if (!one) return null
+      try {
+        return { html: fs.readFileSync(snapshotPath(reviewOutPath(dir, one.folder, null), phase), 'utf8') }
+      } catch {
+        return null
+      }
+    },
     // A spec this daemon cannot resolve is not a pass that was claimed — it is
     // a lookup that could not see, so it says nothing rather than reporting the
     // comfortable answer. Same rule the engine's own three states follow.

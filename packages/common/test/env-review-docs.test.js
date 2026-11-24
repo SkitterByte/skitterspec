@@ -341,7 +341,7 @@ test('the page has a Commit & Start button, hidden until a render asks for it', 
 })
 
 test('the page treats commit-start as a committer, so an open note blocks it', () => {
-  assert.match(PAGE, /var COMMITTERS = \['commit', 'commit-continue', 'commit-start', 'commit-land'\]/)
+  assert.match(PAGE, /var COMMITTERS = \['commit', 'commit-continue', 'commit-start', 'commit-land', 'complete', 'push', 'pr'\]/)
 })
 
 test('the page names commit-start everywhere a verdict is named', () => {
