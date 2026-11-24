@@ -5,6 +5,11 @@ What's new for users of skitterspec. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 23.24.3 — 24 Nov 2026
+
+### Spec Next
+- **Fixed** — When a phase reaches steps only you can do, /spec-next now stops with a page for the code built so far and tells you how to reach it before listing the steps, instead of asking how testing went before you could test. A /spec-live that did not switch now says NOT LIVE first.
+
 ## 23.24.2 — 24 Nov 2026
 
 ### Env
