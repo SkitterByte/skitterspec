@@ -194,3 +194,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   `env.config.json.example` carries the `auto` block too.
 - 2026-11-24 — Follow-up surfaced: no autonomous run has been exercised
   end to end; do one once this ships and `skitterspec update` installs it.
+- 2026-11-24 — Completed; all phases done, tests green.
