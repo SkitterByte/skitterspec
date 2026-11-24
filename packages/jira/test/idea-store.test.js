@@ -9,10 +9,13 @@
 
 const { test } = require('node:test')
 const assert = require('node:assert')
-const fs = require('node:fs')
-const path = require('node:path')
+const { register } = require('../src/register.js')
 
 test('the jira entry point declares that it holds no ideas', () => {
-  const bin = fs.readFileSync(path.join(__dirname, '..', 'bin', 'skitterspec-jira.js'), 'utf8')
-  assert.match(bin, /setProviderIdeaStore\(\{ supports: false \}\)/)
+  const stores = []
+  register({
+    envConfig: { setProviderEnvDefaults() {}, setProviderConfigFile() {} },
+    idea: { setProviderIdeaStore: (s) => stores.push(s) },
+  })
+  assert.deepStrictEqual(stores, [{ supports: false }])
 })

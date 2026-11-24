@@ -22,24 +22,11 @@ if (!existsSync(join(__dirname, '..', 'src'))) {
 
 const { run, HELP } = require('@skitterbyte/skitterspec-common/src/cli.js')
 
-// The provider's isolation defaults, registered beneath the project's own
-// env.config.json so `spec-env stage` claims this provider's snapshot sidecar
-// without a hand edit (see common src/env/config.js, setProviderEnvDefaults).
-require('@skitterbyte/skitterspec-common/src/env/config.js').setProviderEnvDefaults(
-  require('@skitterbyte/skitterspec-provider-azure-boards/src/config.js').ENV_CONFIG_DEFAULTS,
-)
-// Its config file too: present, it is what makes `land.specDocs` default to
-// "branch" (see common src/env/config.js, setProviderConfigFile).
-require('@skitterbyte/skitterspec-common/src/env/config.js').setProviderConfigFile(
-  require('@skitterbyte/skitterspec-provider-azure-boards/src/config.js').CONFIG_FILE,
-)
-// Azure Boards holds ideas: a work item tagged `intake.ideaTag`, at the
-// project root. Registered so `skitterspec idea` hands Azure the command
-// instead of writing specs/ideas.md (see common src/idea.js, selectStore).
-require('@skitterbyte/skitterspec-common/src/idea.js').setProviderIdeaStore({
-  supports: true,
-  run: (sub, argv, { cwd, out } = {}) =>
-    require('@skitterbyte/skitterspec-provider-azure-boards/src/cli-sync.js').specSync(['idea', sub, ...argv], { cwd, out }),
+// The provider's registrations on the engine: env defaults, config file and
+// idea store (see src/register.js, which the base bin also calls).
+require('@skitterbyte/skitterspec-provider-azure-boards/src/register.js').register({
+  envConfig: require('@skitterbyte/skitterspec-common/src/env/config.js'),
+  idea: require('@skitterbyte/skitterspec-common/src/idea.js'),
 })
 const {
   PROVIDER_COMMANDS,

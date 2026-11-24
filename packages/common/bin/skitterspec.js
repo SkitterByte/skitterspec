@@ -40,6 +40,15 @@ if (argv[0] === 'init' || (argv[0] === 'update' && !argv.includes('--all'))) {
   }
 }
 
+// Every skill's engine call runs this bin, providers included (#278), so pick
+// up the provider the project configured before anything reads the config.
+require('../src/provider.js').registerConfiguredProvider({
+  cwd: process.cwd(),
+  envConfig: require('../src/env/config.js'),
+  idea: require('../src/idea.js'),
+  warn: (line) => console.error(line),
+})
+
 run(argv).catch((err) => {
   console.error(`skitterspec: ${err.message}`)
   process.exit(1)
