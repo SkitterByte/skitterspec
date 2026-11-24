@@ -111,3 +111,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 - 2026-11-24 — Spec created.
 - 2026-11-24 — Phase 2: the Windows job runs on `run != 'false'` rather than `== 'true'`, so a gate that fails outright still runs the suite. Added a test that the gate's job name matches both workflows.
+- 2026-11-24 — Completed; all phases done, tests green.
