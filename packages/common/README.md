@@ -208,6 +208,7 @@ knowing before touching one:
 | `assets/skills/` | **the judgment** — when to render, when to arm, how to route a verdict. `/spec-diff` §2 owns the routing and every other skill points at it |
 | `src/env/review.js` | **the page and the pass** — the payload, the verdict and action vocabularies, the sidecars |
 | `src/env/serve.js` | **the wait** — one server, one token, one write path |
+| `src/env/report.js` · `src/env/runpage.js` · `src/env/run.js` | **the record a run leaves** — the phase report table, the kept phase pages and the final page's aggregate, and the autonomous run record |
 
 `skitterspec spec-env review` is the whole surface:
 
@@ -223,12 +224,19 @@ review gate [spec] --check    # is one owed? non-zero if so — what the commit 
 review skip "<reason>"        # move on without one, on the record
 review waiting                # passes nobody claimed, across every spec
 review allow network --set    # permit the network and tailnet tiers; empty toggles
+review <spec> --report F --phase N  # keep that phase's report table and show it on the page
+review <spec> --snapshot --phase N  # also keep the page as a read-only phase-N copy
+review <spec> --final         # whole branch, headed by the run, under the ending buttons
+run resolve <spec> [--auto|--supervised] [--then pause|push|pr]  # autonomous or not
+run phase|stop|compacted|end|status <spec>  # the autonomous run record
 ```
 
 Three files sit beside the page in `.spec-env/reviews/`, all gitignored:
 `<spec>.html` is the render, `<spec>.notes.json` holds the accepts, comments,
 resolutions and the outcome log, and `<spec>.pending.json` is the holding area a
-POST writes into. **A POST can only reach the holding area**; the notes sidecar
+POST writes into. `<spec>.report.json` keeps each phase's report table, and
+`<spec>/phase-<n>.html` are an autonomous run's kept phase pages, served with
+the run index at `<spec>/run`; the run record itself is `.spec-env/runs/<spec>.json`. **A POST can only reach the holding area**; the notes sidecar
 is written by a *claim*, which is the containment that lets the endpoint be open
 to the network at all.
 

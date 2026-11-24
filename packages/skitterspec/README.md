@@ -170,6 +170,30 @@ that file changes again, announced rather than silent.
 **The marks are information, never a gate**:
 nothing counts them, and the verdict is the one thing you choose, once.
 
+### Or let it run start to finish
+
+`/spec-start <name> --auto` (or `> **Run:** auto` on the spec, or
+`auto.default: "auto"` in `env.config.json`) builds every phase without waiting
+for a verdict. Each phase is committed and its page kept as a read-only
+snapshot, listed as they land on the run index at `<spec>/run`. The run stops
+and waits for you on red tests after `auto.maxFixAttempts` tries, a
+`Blocked on:` line, steps only a person can do, or a decision the spec left
+open; `Commit & Continue` on that page resumes it. It ends as `auto.then` or
+`--then` says:
+
+- **`pause`**: one final page with every phase's follow-ups and notes above the
+  whole-branch diff, offering `Complete`, `Push branch` and `Open PR`
+- **`push`**: push the branch, spec still in flight
+- **`pr`**: `/spec-complete`'s PR run, with each phase's commit in the PR body
+
+Naming `push` or `pr` is the push consent for that run. A push notification
+says when it finished or stopped, and a `PreCompact` hook records how often the
+context compacted. `--supervised` on any command turns it back off.
+
+**Every page carries its report.** Supervised or not, the table a phase ends
+with in the terminal (Built, Tests, Notes, Follow-ups) is on that phase's page
+too.
+
 ### A phase that ended owes an answer
 
 The **gate** is armed when a phase ends and its page is rendered, and exactly two
@@ -220,6 +244,14 @@ All optional, in `specs/.core/env.config.json`:
 | `review.reader` | `"detect"` | where you are reading — `local`, `remote`, or detect it |
 | `review.servePort` | derived | the port, normally derived from the repo's path |
 | `review.reviewers` | `[]` | external code reviewers whose findings render as checks. Empty by default — adding one sends the worktree's diff to whatever the command talks to |
+
+Autonomous runs read three more keys, also optional:
+
+| Key | Default | Does |
+|-----|---------|------|
+| `auto.default` | `"supervised"` | `"auto"` builds every phase to the end; a spec's `Run:` header and `--auto` / `--supervised` override it |
+| `auto.then` | `"pause"` | how an autonomous run ends: `"pause"`, `"push"` or `"pr"`. `--then` overrides it |
+| `auto.maxFixAttempts` | `3` | tries at a red phase before the run stops and waits |
 
 **`review.reviewers` is a seam, not a vendor.** An entry is either
 `{ "use": "<adapter>" }` for one skitterspec bundles, or

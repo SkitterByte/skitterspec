@@ -15,6 +15,10 @@ the day and plan the next one across projects.
   Mark it up and press a verdict. `/spec-next` waits for that press, and a phase
   that ended owes one before the next is built. A newly written spec's page
   offers `Commit & Start` (`commit-start`).
+- **Or let it run**: `--auto` on `/spec-start` or `/spec-next` (or
+  `> **Run:** auto`, or `auto.default` in `env.config.json`) builds every
+  phase without stopping, keeps each phase's page, and ends as `--then` says:
+  `pause`, `push` or `pr`.
 - **Every skill ends with the same report block**: a verdict, a table, and
   `Next`.
 - **Guards**: work never happens in the primary checkout on the base branch,
