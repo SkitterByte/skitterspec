@@ -176,3 +176,54 @@ test('resolve reports the same coordinates from the worktree as from main', () =
     cleanup(dir)
   }
 })
+
+// bug-dev-up-plan-starts-servers: `--plan` is the engine's "describe, run
+// nothing" flag (`up`, `bootstrap`, `hotfix land`), and `dev` never received
+// the flags at all — so `dev up --plan` spawned the servers it was asked to
+// describe, and `dev down --plan` killed them.
+const registryFile = (dir) => path.join(dir, '.spec-env', 'registry.json')
+const slotOf = (dir) => {
+  try {
+    return JSON.parse(fs.readFileSync(registryFile(dir), 'utf-8')).slots['feat-x']
+  } catch {
+    return undefined
+  }
+}
+
+test('dev up --plan describes the servers and starts none', () => {
+  const { dir } = scaffoldBranchOnlySpec()
+  try {
+    const out = cli(dir, 'spec-env', 'dev', 'up', 'feat-x', '--plan')
+    assert.match(out, /plan — nothing started/)
+    assert.match(out, /web: port \d+ {2}would start: node -e/)
+    assert.ok(!fs.existsSync(path.join(dir, '.spec-env', 'pids', 'feat-x-web.pid')), 'nothing spawned')
+    assert.strictEqual(slotOf(dir), undefined, 'and no slot was reserved')
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('dev down --plan leaves a running server running', () => {
+  const { dir } = scaffoldBranchOnlySpec()
+  try {
+    cli(dir, 'spec-env', 'dev', 'up', 'feat-x')
+    const pid = Number(fs.readFileSync(path.join(dir, '.spec-env', 'pids', 'feat-x-web.pid'), 'utf-8').trim())
+    const out = cli(dir, 'spec-env', 'dev', 'down', 'feat-x', '--plan')
+    assert.match(out, /plan — nothing stopped/)
+    assert.match(out, new RegExp(`web: would stop pid ${pid}`))
+    assert.doesNotThrow(() => process.kill(pid, 0), 'still alive')
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('STAYS SILENT: dev up --plan on a running server says so and starts nothing more', () => {
+  const { dir } = scaffoldBranchOnlySpec()
+  try {
+    cli(dir, 'spec-env', 'dev', 'up', 'feat-x')
+    const out = cli(dir, 'spec-env', 'dev', 'up', 'feat-x', '--plan')
+    assert.match(out, /web: port \d+ {2}already running \(pid \d+\)/)
+  } finally {
+    cleanup(dir)
+  }
+})

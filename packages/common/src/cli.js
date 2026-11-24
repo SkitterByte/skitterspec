@@ -344,6 +344,7 @@ Usage:
                                 prune             reap orphaned test-DB volumes (--older-than <days>)
                                 dev up <spec>     start host dev servers on the spec's ports
                                 dev down <spec>   stop the spec's host dev servers
+                                                  (--plan on either: describe, touch nothing)
                                 connect <spec>    expose a spec on the canonical ports (main = off)
                                 integrate <spec>  plan the land: rebase + fast-forward, or in PR
                                                   mode push + PR (--push, --draft, --strategy);
@@ -7119,12 +7120,17 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
 // servers (e.g. `pnpm dev`) need a block even on a worktree-only spec, so `up`
 // allocates a slot if the spec has none (idempotent). The planner is pure
 // (dev.js); the spawning/killing lives in supervise.js.
-async function specEnvDev(dir, config, positional) {
+//
+// `--plan` describes and touches nothing — no slot reserved, nothing spawned or
+// killed — as it does on `up`, `bootstrap` and `hotfix land`. This verb once
+// never received the flags, so `dev up --plan` started the very servers it was
+// asked to describe (bug-dev-up-plan-starts-servers).
+async function specEnvDev(dir, config, positional, flags = {}) {
   const action = positional[0]
   const specArg = positional[1]
   // The action must be named; the spec may be omitted (resolved from the registry).
   if (action !== 'up' && action !== 'down') {
-    process.stdout.write('Usage: skitterspec spec-env dev <up|down> [spec]\n')
+    process.stdout.write('Usage: skitterspec spec-env dev <up|down> [spec] [--plan]\n')
     return
   }
   const spec = resolveSpecWithWorktree(dir, config, specArg)
@@ -7139,9 +7145,10 @@ async function specEnvDev(dir, config, positional) {
   let slot
   if (action === 'up') {
     // Ensure a slot (idempotent) so the port block is reserved even worktree-only.
+    // A plan computes the same slot and writes nothing.
     const alloc = allocateSlot(registry, spec.folder)
     slot = alloc.slot
-    writeRegistry(dir, config, alloc.registry)
+    if (!flags.plan) writeRegistry(dir, config, alloc.registry)
   } else {
     // Teardown only needs the pid-file paths (keyed by folder, not slot), so the
     // slot value is immaterial — use the existing one, or 0 as a placeholder.
@@ -7151,6 +7158,32 @@ async function specEnvDev(dir, config, positional) {
   }
 
   const plan = planDev(spec, slot, config)
+
+  if (flags.plan) {
+    // A live pid is the positive signal for "already running"; a missing or
+    // stale pid file reads as would-start, which is what `up` would then do.
+    const running = (proc) => {
+      const pid = readPid(path.resolve(dir, proc.pidFile))
+      return pid && isAlive(pid) ? pid : null
+    }
+    const out = [
+      `spec-env dev ${action}: ${spec.folder}  slot ${slot}  (plan — nothing ${action === 'up' ? 'started' : 'stopped'})`,
+    ]
+    for (const proc of plan.procs) {
+      const pid = running(proc)
+      if (action === 'up') {
+        out.push(
+          pid
+            ? `  ${proc.name}: port ${proc.port}  already running (pid ${pid})`
+            : `  ${proc.name}: port ${proc.port}  would start: ${proc.command}`,
+        )
+      } else {
+        out.push(`  ${proc.name}: ${pid ? `would stop pid ${pid}` : 'not running'}`)
+      }
+    }
+    process.stdout.write(out.join('\n') + '\n')
+    return
+  }
 
   if (action === 'up') {
     const out = [`spec-env dev up: ${spec.folder}  slot ${slot}  (ports from ${plan.portOffset})`]
@@ -8719,7 +8752,7 @@ async function specEnvDispatch(sub, dir, config, positional, flags, present, inv
       specEnvPrune(dir, config, flags)
       break
     case 'dev':
-      await specEnvDev(dir, config, positional)
+      await specEnvDev(dir, config, positional, flags)
       break
     case 'connect':
       await specEnvConnect(dir, config, positional[0])
