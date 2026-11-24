@@ -117,3 +117,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   unbuilt dist. That only showed up after deleting the stale linear/jira build
   output that bootstrap copies into a worktree, so CI is the real check. The
   runner's discovery is pinned to bare `node --test` on a fixture tree.
+- 2026-11-24 — Completed; all phases done, tests green.
