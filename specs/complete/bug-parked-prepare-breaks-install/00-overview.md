@@ -61,3 +61,4 @@ _No external surface changes — internal refactor only._
 
 - 2026-11-24 — Bug reproduced; failing test added (red).
 - 2026-11-24 — Fixed: parked dists skip their build on `prepare`; test green.
+- 2026-11-24 — Completed; fix done, tests green.
