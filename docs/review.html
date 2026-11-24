@@ -11,7 +11,12 @@ covers:
   - packages/common/src/env/epicpage.js
   - packages/common/assets/hooks/review-gate.cjs
   - packages/common/assets/rules/spec-reports.md
-verified: 4d2285b0d7e3
+  - packages/common/src/env/run.js
+  - packages/common/src/env/report.js
+  - packages/common/src/env/runpage.js
+  - packages/common/assets/skills/spec-next/autonomous.md
+  - packages/common/assets/hooks/run-compact.cjs
+verified: 5f37565b997d
 -->
 <html lang="en">
 <head>
@@ -797,6 +802,20 @@ verified: 4d2285b0d7e3
     <div class="reveal">
       <p class="lede"><b>What costs, and what doesn't.</b> The diff never passes through the model: git writes the patches and the engine splices them into the page as text. A 266KB patch costs <b>zero</b> context tokens, and a 289KB page costs the same to publish as a 5KB one. The only part that costs is the <em>written</em> review — roughly 700 output tokens, because writing it means reading the diff — so it's offered, never assumed.</p>
       <p class="lede"><b>A phase that ended owes an answer.</b> The <b>gate</b> is armed when a phase ends and its page is rendered, and exactly two things clear it: a committing verdict, or <span class="mono" style="font-size:.9em">spec-env review skip "&lt;reason&gt;"</span>. Until one happens <span class="mono" style="font-size:.9em">/spec-next</span> refuses to build the next phase, and a hook refuses <span class="mono" style="font-size:.9em">git commit</span> in that worktree — which is what covers a bare commit, a chained one, and your own commit skill without skitterspec editing it. Three things keep it a push rather than a wall: it is armed only by a phase <em>ending</em>, so reading half-finished work owes nothing; the exit is always one command, and one of them is <em>"I am moving on"</em> with the reason on the record; and every cannot-tell case exits 0 — saying nothing, except that an engine the hook cannot find at all gets one stderr line naming where it looked. <span class="mono" style="font-size:.9em">review.required: false</span> turns it off for a project.</p>
+    </div>
+  </div>
+</section>
+
+<section id="autonomous">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <div class="eyebrow">When nobody needs to stop it</div>
+      <h2>Let it run start to finish. Every phase still leaves its page.</h2>
+    </div>
+    <div class="reveal">
+      <p class="lede"><b>Autonomous runs.</b> <span class="mono" style="font-size:.9em">/spec-start --auto</span>, a <span class="mono" style="font-size:.9em">&gt; **Run:** auto</span> header, or <span class="mono" style="font-size:.9em">auto.default</span> in <span class="mono" style="font-size:.9em">env.config.json</span> builds every phase without waiting for a verdict. Each phase is committed, and its page, report table included, is kept as a read-only snapshot. The run index at <span class="mono" style="font-size:.9em">&lt;spec&gt;/run</span> lists them as they land, so you can read along while it works.</p>
+      <p class="lede"><b>It stops for you</b> on red tests after <span class="mono" style="font-size:.9em">auto.maxFixAttempts</span> tries, a <span class="mono" style="font-size:.9em">Blocked on:</span> line or unmet epic wait, steps only a person can do, or a decision the spec left open. That phase's page waits like any supervised one, and <span class="mono" style="font-size:.9em">Commit &amp; Continue</span> resumes the run. <b>It ends</b> as <span class="mono" style="font-size:.9em">auto.then</span> or <span class="mono" style="font-size:.9em">--then</span> says: <em>pause</em> on one final page (every phase's follow-ups and notes above the whole-branch diff, with Complete · Push branch · Open PR), <em>push</em> the branch, or open a <em>pr</em> whose body lists each phase's commit. A push notification says when it finished or stopped, and the report says how many times the context compacted.</p>
+      <p class="lede"><b>Every page carries its report.</b> Supervised or not, the table a phase ends with in the terminal (Built, Tests, Notes, Follow-ups) is on that phase's page too, so whoever reads it later sees it.</p>
     </div>
   </div>
 </section>

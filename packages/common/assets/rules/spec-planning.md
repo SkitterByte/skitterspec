@@ -95,6 +95,15 @@ Read it when a skill sends you there.
 `git commit` takes whatever someone else staged. `skitterspec spec-env stage`
 splits the tree into this spec's documents and everything else.
 
+## Autonomous runs
+
+A spec can build every phase without stopping for a verdict: `--auto` on
+`/spec-start` or `/spec-next`, a `> **Run:** auto` header, or `auto.default`
+in `env.config.json`. Each phase is committed and its page kept as a snapshot.
+The run stops for red tests, a blocker, manual steps or an open decision, and
+ends as `auto.then` (or `--then`) says: `pause`, `push` or `pr`. The loop is
+in `.claude/skills/spec-next/autonomous.md`.
+
 ## Ticketing provider (when one is installed)
 
 The repo owns each spec's **content**. The tracker is a one-way generated

@@ -427,6 +427,25 @@ through to a documented conservative default; see the field notes below.
     "deleteRemoteBranch": "prompt"
   },
 
+  // Autonomous runs (`spec-env run`, `/spec-next --auto`). A spec builds every
+  // phase to the end, committing each and keeping each phase's page as a
+  // snapshot, instead of stopping on every phase for a verdict.
+  //   default: "supervised" (stop per phase, as always) or "auto". A spec's
+  //            `> **Run:**` header overrides it, and `--auto` / `--supervised`
+  //            on the command override both.
+  //   then:    how an autonomous run ends — "pause" (one final page that
+  //            waits: Complete · Push branch · Open PR), "push" (push the
+  //            branch) or "pr" (`/spec-complete`'s PR run). Setting push or pr
+  //            here IS the push consent for runs that take it. `--then`
+  //            overrides it.
+  //   maxFixAttempts: tries at a red phase before the run stops and waits.
+  // An unrecognised value falls back to its default, never to "auto".
+  "auto": {
+    "default": "supervised",
+    "then": "pause",
+    "maxFixAttempts": 3
+  },
+
   // Live overlay (`spec-env live` / `/spec-live`): test a spec on the already-
   // running dev server by checking its branch out in the primary checkout.
   // `migrations` is a list of globs (`**`, `*`, `?`) marking migration files; a

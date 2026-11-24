@@ -41,6 +41,11 @@ row:
   waiting on a verdict. The banner, its tier stack and the wait are defined in
   `.claude/skills/spec-diff/review-wait.md`. Read it before rendering one.
 
+**An autonomous run reports once**, at its end or its stop, not per phase:
+each phase's rows are already on its snapshot. Ending on `pause`, its banner's
+exits are `Complete` lands it · `Push branch` · `Open PR` · `Request changes`
+works them.
+
 **Asking implies waiting.** A render that asks the reader for a verdict ends the
 turn waiting for one, under the banner. A run that is not going to wait does not
 ask: it reports the page in a `Review` row with the counts and the link, and no

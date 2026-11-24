@@ -6,7 +6,7 @@ covers:
   - packages/common/src/cli.js
   - packages/common/src/init.js
   - packages/common/bin/**
-verified: 7704f9b4386d
+verified: 5f37565b997d
 -->
 <html lang="en">
 <head>
@@ -600,7 +600,7 @@ verified: 7704f9b4386d
       <div class="stage">
         <span class="num">02 · BUILD</span>
         <h3><span class="cmdname">/spec-start</span></h3>
-        <p>Puts the spec in flight — provisions its worktree, brings dev servers up, promotes it to in-progress — then builds phase 1 in that worktree. Each phase after that is <code>/spec-next</code>, and a phase isn't done until its tests are green.</p>
+        <p>Puts the spec in flight — provisions its worktree, brings dev servers up, promotes it to in-progress — then builds phase 1 in that worktree. Each phase after that is <code>/spec-next</code>, and a phase isn't done until its tests are green. With <code>--auto</code> (or <code>&gt; **Run:** auto</code> on the spec) it builds every phase to the end without stopping for review, keeping each phase's page, and finishes paused on one final page, pushed, or opened as a PR.</p>
         <div class="foot"><span class="status progress">In Progress</span> specs/in-progress/</div>
         <svg class="stage-arrow" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
       </div>

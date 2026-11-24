@@ -79,6 +79,8 @@ Each spec has one of seven kinds, recorded twice: in the header
   tracker project holds several. A key from the provider's config, which
   decides what it means there (Azure Boards: `azure.products` maps it to an
   area path).
+- `> **Run:**`: optional: `auto` or `supervised`, only where the spec differs
+  from `auto.default` in `env.config.json`. A flag on the command overrides it.
 - `> **Blocked on:**`: on a spec or a phase file: a wait outside the repo, in
   free text, optionally with `(until YYYY-MM-DD)`. Only a person can judge it
   met. `/spec-resume` clears it.

@@ -12,7 +12,7 @@ github_url: "https://github.com/SkitterByte/skitterspec/issues/295"
 > **Raised:** 2026-11-24
 > **Area:** packages/common/src/env/review.js, packages/common/src/env/render.js, packages/common/src/env/serve.js, packages/common/src/env/config.js, packages/common/src/env/hooks.js, packages/common/src/init.js, packages/common/assets/skills/{spec,spec-start,spec-next,spec-diff,spec-complete}, packages/common/assets/rules/{spec-planning,spec-format,spec-reports}.md, specs/.core/env.config.md, docs
 > **Stack:** worktree
-> **Docs:** review, reference
+> **Docs:** review, reference, index
 
 ## Summary
 
@@ -149,7 +149,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 3 | Phase snapshots, run index, final page | ✅ | [03-snapshots-and-final.md](03-snapshots-and-final.md) |
 | 4 | Compaction hook | ✅ | [04-compaction-hook.md](04-compaction-hook.md) |
 | 5 | Skill wiring: the autonomous loop and endings | ✅ | [05-skill-wiring.md](05-skill-wiring.md) |
-| 6 | Docs and rules | ⬜ | [06-docs.md](06-docs.md) |
+| 6 | Docs and rules | ✅ | [06-docs.md](06-docs.md) |
 
 ## Open questions
 
@@ -189,3 +189,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   keeps the supervised path's text unchanged. `/spec` asks the `Run:` question
   only as a difference from `auto.default`, so a spec that matches it carries
   no line.
+- 2026-11-24 — Phase 6: `docs/index.html` added to `Docs:` after
+  `docs-freshness impact` flagged it for the `/spec-next` description.
+  `env.config.json.example` carries the `auto` block too.
+- 2026-11-24 — Follow-up surfaced: no autonomous run has been exercised
+  end to end; do one once this ships and `skitterspec update` installs it.
