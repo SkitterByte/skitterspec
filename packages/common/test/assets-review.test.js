@@ -2017,6 +2017,20 @@ test('a single-pass fix says a clean read commits — it is finished work', () =
   assert.strictEqual(countSays(runPage(marked({ buttons: 'fix' }))), 'Nothing marked — a clean read still commits')
 })
 
+// A phase stopped at its manual steps: the code half is green and has to be
+// committed before `/spec-live` will take it, and nothing follows it for
+// `/spec-next` to build until the steps are confirmed.
+test('a manual-step stop offers Commit, and not Commit & Continue', () => {
+  const dom = runPage(marked({ buttons: 'manual' }))
+  assert.strictEqual(dom.byId['verdict-commit'].hidden, false, 'the code half commits so it can go live')
+  assert.strictEqual(dom.byId['verdict-commit-continue'].hidden, true, 'the manual steps come next, not a build')
+  assert.strictEqual(dom.byId['verdict-commit-start'].hidden, true)
+  assert.strictEqual(dom.byId['verdict-continue'].hidden, true)
+  assert.strictEqual(dom.byId['verdict-changes'].hidden, false)
+  assert.strictEqual(dom.byId['verdict-discuss'].hidden, false)
+  assert.strictEqual(accepted(copyBlob(dom, 'commit')).verdict, 'commit')
+})
+
 test('a verdict this render never offered cannot be reached by dispatching at it', () => {
   // The button set is a fact, not a style — the same rule the disabled block
   // already follows. A browser will not fire a hidden control; every other

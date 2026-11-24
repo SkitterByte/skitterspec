@@ -1997,6 +1997,10 @@ a.ticket:hover { border-color: var(--accent); }
     // because `Commit & Continue` names a next phase a spec with no phase files
     // does not have. Same three buttons as `refresh`, a different subject.
     fix: ['commit', 'changes', 'discuss'],
+    // A PHASE STOPPED AT ITS MANUAL STEPS: the code half commits so it can go
+    // live and be tested; the steps come next, so there is nothing to Continue
+    // into. `/spec-next` §3 renders it, and arms nothing.
+    manual: ['commit', 'changes', 'discuss'],
     // A KEPT PHASE of an autonomous run: the run committed it and carried on,
     // so there is nothing to decide here — it is read, not answered.
     snapshot: [],

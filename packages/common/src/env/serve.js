@@ -531,7 +531,9 @@ function receivePass(dir, config, spec, blob) {
  */
 // `final` too: the run's last render declared it, and a served re-render
 // must keep offering the ending rather than fall back to `Commit`.
-const NARROWING_SETS = ['midrun', 'refresh', 'fix', 'final']
+// `manual` narrows the same way `fix` does: a served re-render of a phase
+// stopped at its manual steps must not hand back `Commit & Continue`.
+const NARROWING_SETS = ['midrun', 'refresh', 'fix', 'manual', 'final']
 
 function buttonsForView(viewKind, spec, recorded) {
   if (NARROWING_SETS.includes(recorded)) return recorded

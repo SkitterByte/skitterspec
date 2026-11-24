@@ -314,6 +314,8 @@ test('buttonsForView: only the narrowing sets come from the record', () => {
   // `fix` is the third, and it answers a different question from the other two:
   // not whether the run had finished, but whether the work was ever phased.
   assert.strictEqual(buttonsForView('worktree', { specless: false }, 'fix'), 'fix')
+  // `manual`: a phase stopped at its manual steps, its code half ready to commit.
+  assert.strictEqual(buttonsForView('worktree', { specless: false }, 'manual'), 'manual')
   // Widening words are ignored wherever they appear.
   assert.strictEqual(buttonsForView('worktree', { specless: true }, 'committing'), 'nospec')
   assert.strictEqual(buttonsForView('worktree', { specless: true }, 'authoring'), 'nospec')

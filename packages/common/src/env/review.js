@@ -984,7 +984,10 @@ const COMMITTING = ['commit', 'commit-continue', 'commit-start', 'commit-land', 
 // at all, because the run committed that phase and carried on. `final` is the
 // page an autonomous run ends on under `pause`: `complete`, `push`, `pr`, plus
 // `changes` and `discuss`.
-const BUTTON_SETS = ['committing', 'midrun', 'authoring', 'refresh', 'nospec', 'fix', 'snapshot', 'final']
+// `manual` is a phase stopped at its manual steps: its code half is green and
+// must be committed before `/spec-live` will take it, and what follows is a
+// person's testing, not a build — so `Commit`, never `Commit & Continue`.
+const BUTTON_SETS = ['committing', 'midrun', 'authoring', 'refresh', 'nospec', 'fix', 'manual', 'snapshot', 'final']
 const DEFAULT_BUTTON_SET = 'committing'
 
 /**

@@ -8143,6 +8143,17 @@ function liveRebaseTarget(dir, config, base) {
 
 // Take the running instance: rebase the spec's branch onto base, free it from its
 // worktree, and check it out in the primary checkout so the dev server reloads it.
+// A TAKE THAT DID NOT HAPPEN SAYS SO FIRST. Every outcome used to open
+// `spec-env live take: …`, so a one-line refusal read like the success line,
+// and an operator (ereqs, 2026-11-24) went to test a feature that was never
+// switched in. The marker leads, the consequence follows, the reason after.
+function notLive(folder, why) {
+  return (
+    `✖ NOT LIVE — spec-env live take refused ${folder}; nothing switched, ` +
+    `the running instance is unchanged.\n\n  ${why}\n`
+  )
+}
+
 async function specEnvLiveTake(dir, config, specArg, flags = {}) {
   const spec = resolveSpecWithWorktree(dir, config, specArg)
 
@@ -8230,7 +8241,7 @@ async function specEnvLiveTake(dir, config, specArg, flags = {}) {
     // entitled to the same way out — so the refusal prints what it would have
     // offered rather than making a harness the only route to it.
     process.stdout.write(
-      `spec-env live take: blocked — ${plan.reason}.\n` +
+      notLive(spec.folder, `blocked — ${plan.reason}.`) +
         (plan.offer ? `  ${plan.offer.label}: ${plan.offer.command}\n` : ''),
     )
     return
@@ -8247,17 +8258,20 @@ async function specEnvLiveTake(dir, config, specArg, flags = {}) {
     const started = runGit(spec.worktreePath, ['rebase', '--show-current-patch']).ok
     if (started) runGit(spec.worktreePath, ['rebase', '--abort'])
     process.stdout.write(
-      started
-        ? `spec-env live take: rebase of ${spec.branch} onto ${onto} hit conflicts — ` +
-            `resolve them in ${spec.worktreePath}, then retry.\n`
-        : `spec-env live take: rebase of ${spec.branch} onto ${onto} could not start — ` +
-            `git said:\n    ${reb.err.split('\n').join('\n    ')}\n`,
+      notLive(
+        spec.folder,
+        started
+          ? `rebase of ${spec.branch} onto ${onto} hit conflicts — ` +
+              `resolve them in ${spec.worktreePath}, then retry.`
+          : `rebase of ${spec.branch} onto ${onto} could not start — ` +
+              `git said:\n    ${reb.err.split('\n').join('\n    ')}`,
+      ),
     )
     return
   }
   const det = runGit(spec.worktreePath, ['switch', '--detach'])
   if (!det.ok) {
-    process.stdout.write(`spec-env live take: could not detach the worktree — ${det.err}\n`)
+    process.stdout.write(notLive(spec.folder, `could not detach the worktree — ${det.err}`))
     return
   }
   const co = runGit(dir, ['checkout', spec.branch])
@@ -8265,8 +8279,7 @@ async function specEnvLiveTake(dir, config, specArg, flags = {}) {
     // Roll the detach back so the worktree keeps its branch.
     runGit(spec.worktreePath, ['switch', spec.branch])
     process.stdout.write(
-      `spec-env live take: could not check out ${spec.branch} in the primary ` +
-        `checkout — ${co.err}\n`,
+      notLive(spec.folder, `could not check out ${spec.branch} in the primary checkout — ${co.err}`),
     )
     return
   }

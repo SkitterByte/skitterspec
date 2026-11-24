@@ -46,7 +46,7 @@ test('it asks with exactly the three answers', () => {
 // The stays-silent half: an unconfirmed step must not end the phase, arm the
 // gate, or ask for a verdict on work nobody finished.
 test('an unconfirmed step leaves the phase open and arms nothing', () => {
-  assert.match(section, /leaves the phase `🔄`/)
+  assert.match(section, /leave the phase `🔄`/)
   assert.match(section, /no page, no arm, no wait/)
 })
 
@@ -54,7 +54,7 @@ test('an unconfirmed step leaves the phase open and arms nothing', () => {
 // them and the next run listed a different set from the one the reader saw.
 test('steps the skill had to write are saved to the phase file before asking', () => {
   assert.match(section, /Steps you had to write are saved first/)
-  assert.match(section, /numbered sub-checkboxes \*\*before\*\* you\s+ask/)
+  assert.match(section, /numbered sub-checkboxes \*\*before\*\* you\s+list them/)
 })
 
 // The report that broke came from `/commit`, not `/spec-next`, so the rule
@@ -91,4 +91,51 @@ test('the example continues Next on label-less rows, and Next stays last', () =>
 // amendment must not read as "Next always spans rows".
 test('stays silent: a report with no open manual steps keeps a one-row Next', () => {
   assert.match(rows, /no\s+open manual steps keeps its one-row `Next`/)
+})
+
+// Seen in ereqs, 2026-11-24: the run printed the steps and asked "All done /
+// Some failed / Not yet" in the same turn. The harness's question dialog hid
+// the text before it, so the operator saw the question with no steps, and the
+// work was not yet reachable (not live, not on main), so there was nothing to
+// test. The first listing therefore ends the turn and asks nothing; the
+// question waits for the operator to come back.
+//
+// WHAT WOULD FOOL THIS: a section that adds "ends the turn" somewhere but still
+// tells the run to "Then ask" straight after listing. The ordering assertion
+// below is on the instruction that introduces the answers, not on a phrase.
+test('the first listing ends the turn and asks no question', () => {
+  assert.match(section, /ends the turn/)
+  assert.match(section, /asks\s+no\s+(picker\s+)?question/)
+  assert.doesNotMatch(section, /Then ask one question/, 'no ask straight after listing')
+  const listed = section.indexOf('verbatim and numbered')
+  const answers = section.indexOf('**All done**')
+  const ends = section.indexOf('ends the turn')
+  assert.ok(listed >= 0 && ends > listed && answers > ends, 'list, end the turn, and only then the answers')
+})
+
+test('Next names how to reach the work before the steps', () => {
+  assert.match(section, /`\/spec-live`/)
+  assert.match(section, /`\/spec-to-main`/)
+  assert.match(section, /migration/)
+})
+
+test('the operator\'s reply resolves it, or a later run asks', () => {
+  assert.match(section, /next message/)
+  assert.match(section, /come back/)
+})
+
+test('a picker carries the steps in its question text', () => {
+  assert.match(section, /inside the question text/)
+  assert.match(section, /never only in the text before it/)
+})
+
+// Same incident: the stop rendered no page, and left the built code
+// uncommitted, so `/spec-live` refused a dirty worktree.
+test('the stop renders a page with the manual set, and arms nothing', () => {
+  assert.match(section, /--buttons manual/)
+  assert.match(section, /does not arm/)
+})
+
+test('Next commits the built code before it reaches for the work', () => {
+  assert.match(section, /`\/commit`, then `\/spec-live`/)
 })

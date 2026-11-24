@@ -309,28 +309,55 @@ Then build it, following the project rules in `.claude/rules/*.md` and `CLAUDE.m
 - Never hardcode dates in tests; never run destructive commands against a real
   database — use the project's test database only.
 
-### Manual steps — list them, then ask
+### Manual steps — list them, end the turn, ask when they come back
 
 Some tasks are a person's to do: every task in an **Issue** spec, and any task
 you cannot perform yourself — operate a UI, check a device, confirm something
 on a board, run a manual test pass. That is a **judgment**, not a marker: there
 is no `(manual)` tag to look for, and a spec written before this rule has none.
 
-Build the tasks before the first manual one as usual. Then **stop at it** and
-print **every remaining manual step of this phase, verbatim and numbered**, as a
-plain markdown list in the conversation — never fenced, and
-**never only the phase file's path**. A pointer to the file sends the reader
-out of the terminal to find out what to do, which is the failure this exists to
-fix; the steps themselves are what they act on.
+Build the tasks before the first manual one as usual, to green.
+Then **stop at it** and print
+**every remaining manual step of this phase, verbatim and numbered** —
+never fenced, and **never only the phase file's path**. A pointer to the file
+sends the reader out of the terminal to find out what to do, which is the
+failure this exists to fix; the steps themselves are what they act on.
 
 **Steps you had to write are saved first.** When the phase file holds only a
 vague manual task — "check it on the running host" — and you wrote the steps
 yourself, add them under that task as numbered sub-checkboxes **before** you
-ask. The conversation does not survive a `/clear`, and a later run that makes
-up its own set lists different steps from the ones the reader was shown. A
-phase whose manual steps are already tasks is left as it is.
+list them. The conversation does not survive a `/clear`, and a later run that
+makes up its own set lists different steps from the ones the reader was shown.
+A phase whose manual steps are already tasks is left as it is.
 
-Then ask one question, with three answers:
+**The first listing ends the turn, and asks no question.** Asking in the same
+turn fails twice over (ereqs, 2026-11-24): the harness's question dialog can
+cover the text before it, so the reader sees "how did it go?" with no steps;
+and the work is not reachable yet — uncommitted in this worktree, not live, not
+on the base branch — so nothing could have been tested. The stop is a report:
+
+1. **Render the page for the code built so far**, only where the project has
+   isolation: `skitterspec spec-env review <spec> --buttons manual`. The
+   `manual` set offers `Commit` and drops `Commit & Continue`: the code half
+   commits so `/spec-live` can take a clean tree, and what follows is a
+   person's testing, not a build. It **does not arm** the gate — the phase did
+   not end. Committing part of a phase is deliberate here, unlike a `midrun`
+   page: the manual steps test this code, and it cannot be reached until it is
+   committed. Wait for the verdict as §5 does, under its banner; a `Commit`
+   runs through `/spec-diff` §2a.
+2. **End `⚠️`**, `Why` the phase stopped at its manual steps. `Next` first
+   names how to reach the work — `/commit`, then `/spec-live`; or
+   `/commit`, then `/spec-to-main` where live refuses the branch (it touches
+   migrations, which would change the shared database) or a step needs it on
+   the base branch — then the steps a row each, then a closing row: *tell me
+   how it went, or `/spec-next`*. The rows follow
+   `.claude/rules/spec-reports.md`, *Open manual steps are rows*.
+
+**The operator's next message is the answer** — "all done", "step 5 failed:
+…" — read as one of the three below. Or a later `/spec-next` finds the steps
+still unticked: re-list them, and now that the operator has come back, ask.
+A picker carries the steps **inside the question text**,
+never only in the text before it. The three answers:
 
 - **All done** — tick those steps and carry on to the end of the phase.
 - **Some failed** — the picker cannot list the steps (it holds four options and
@@ -340,16 +367,10 @@ Then ask one question, with three answers:
   never switch.
 - **Not yet** — tick nothing.
 
-This is the mid-run question `.claude/rules/spec-reports.md` already allows —
-whether a person did something is a question you cannot answer yourself — so it
-needs no new shape in the report.
-
-**Some failed or Not yet leaves the phase `🔄`, and stops the run there.** Code
-tasks after an unconfirmed step are not built past it, and the phase did not
-end: **skip §4's done-marking and §5 entirely** — no page, no arm, no wait.
-End `⚠️` and name `/spec-next` in `Next`; it re-lists the same unticked steps.
-Its `Next` lists the open steps a row each, copied from the phase file —
-`.claude/rules/spec-reports.md`, *Open manual steps are rows*.
+**The stop, Some failed and Not yet leave the phase `🔄`, and stop the run there.** Code tasks after an unconfirmed step are not built past it, and the
+phase did not end: **skip §4's done-marking and §5's committing render** — on
+an answer, no page, no arm, no wait. End `⚠️` and name `/spec-next` in `Next`;
+it re-lists the same unticked steps, a row each, copied from the phase file.
 
 ## 4. Record progress
 

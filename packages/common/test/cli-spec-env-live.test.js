@@ -811,3 +811,36 @@ test('stays silent: with no afterSwitch configured, take and release print no se
     cleanup(dir)
   }
 })
+
+// --- a refusal must not look like a success ----------------------------------
+//
+// Seen in ereqs, 2026-11-24: `/spec-live` refused a worktree with uncommitted
+// changes, and the one line it printed — `spec-env live take: blocked — …` —
+// read like the success line, which also opens `spec-env live take: …`. The
+// operator went to test a feature that was never switched in.
+
+test('a refused take says NOT LIVE first, loudly, and that nothing switched', async () => {
+  const { dir, worktree } = scaffoldRepoWithSpecWorktree()
+  try {
+    fs.writeFileSync(path.join(worktree, 'README.md'), '# uncommitted\n')
+    const out = await runQuiet(['spec-env', 'live', 'take', 'feat-x', '--dir', dir])
+    const first = out.split('\n')[0]
+    assert.match(first, /^✖ NOT LIVE/, `the first line is the refusal: ${first}`)
+    assert.match(first, /feat-x/)
+    assert.match(out, /nothing switched/)
+    assert.match(out, /blocked — .*uncommitted changes/, 'the reason is still quoted')
+    assert.strictEqual(git(dir, 'symbolic-ref', '--short', 'HEAD'), 'main', 'and nothing did switch')
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('stays silent: a take that worked carries no NOT LIVE marker', async () => {
+  const { dir } = scaffoldRepoWithSpecWorktree()
+  try {
+    const out = await runQuiet(['spec-env', 'live', 'take', 'feat-x', '--dir', dir])
+    assert.doesNotMatch(out, /NOT LIVE|✖/)
+  } finally {
+    cleanup(dir)
+  }
+})
