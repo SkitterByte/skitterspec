@@ -88,3 +88,4 @@ packages/common/test/env-serve-epic.test.js`. Red:
 - 2026-11-24 — Decided: the epic dashboard is not taught to read members
   inside an epic's uncommitted tree. With this fix that tree shows the
   authoring page, and after the verdict lands the members are on base.
+- 2026-11-24 — Completed; fix done, tests green.
