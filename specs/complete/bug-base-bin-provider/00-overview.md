@@ -106,3 +106,4 @@ spec-env integrate: feat-x has no worktree — nothing to integrate.
 - 2026-11-24 — Fixed: the base bin registers the configured provider through
   its new `src/register.js`; test green, `pnpm test` 5413 passed. The jira
   idea-store test read the bin's source text, so it now calls `register`.
+- 2026-11-24 — Completed; all tasks done, tests green.
