@@ -86,3 +86,4 @@ AssertionError: The input was expected to not match the regular expression /unkn
 - 2026-11-24 — Fixed: the base bin forwards provider-only verbs to the
   configured provider's bin; test green. Two existing tests ran the base from
   this repo, which configures GitHub, so they now run outside any project.
+- 2026-11-24 — Completed; fix done, tests green.
