@@ -90,3 +90,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-11-24 — Phase 1 built. The bar is a `role="progressbar"` with
   `aria-valuenow`, so it is read out too. A phase with no tasks drops the task
   half ("Phase 1 of 2").
+- 2026-11-24 — Completed; all phases done, tests green.
