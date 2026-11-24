@@ -5,6 +5,21 @@ What's new for users of skitterspec-linear. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 20.2.0 — 24 Nov 2026
+
+**Highlights:** A spec can now build itself from first phase to last without stopping for review at each one. Every phase still leaves its review page to read, and the run ends paused on one final page, pushed, or opened as a pull request.
+
+### Azure
+- **New** — /spec asks which product a spec belongs to when your Azure Boards project holds several, the review page shows it beside the title, /spec-idea can file an idea under a product, and doctor checks every product's area path exists.
+- **New** — Azure Boards projects can now hold several products. Map each product to an area path in azure.products, add a Product header to a spec, and its work item and phase items are filed there, and moved when the header changes.
+
+### Review
+- **New** — Each review page now shows the phase's report table, so its notes and follow-ups are there for anyone reading the page later.
+- **New** — The review page shows how far through the spec the work is, such as Phase 2 of 3 with 5 of 7 tasks done, with a bar for the phases finished.
+
+### Skills
+- **New** — A spec can now build itself from first phase to last without stopping for review at each one. Every phase still leaves its review page to read, and the run ends paused on one final page, pushed, or opened as a pull request.
+
 ## 20.1.3 — 24 Nov 2026
 
 ### Env
