@@ -185,3 +185,16 @@ test('a provider that holds ideas is handed the command', async () => {
     cleanup(dir)
   }
 })
+
+test('--product is a flag, not part of the idea: the file store names it as not recorded', async () => {
+  const dir = repo()
+  try {
+    const { code, out } = await idea(['add', 'Bid scoring', '--product', 'tendering'], dir)
+    assert.strictEqual(code, 0, out)
+    assert.match(out, /added "bid-scoring"/)
+    assert.match(out, /product: tendering not recorded/)
+    assert.doesNotMatch(fs.readFileSync(path.join(dir, 'specs', 'ideas.md'), 'utf8'), /tendering/)
+  } finally {
+    cleanup(dir)
+  }
+})

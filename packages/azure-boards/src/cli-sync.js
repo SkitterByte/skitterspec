@@ -66,6 +66,7 @@ const {
   specKindOf,
   mintTypeFor,
   stateNameFor,
+  productArea,
 } = require('./config.js')
 const {
   resolveCredential,
@@ -395,9 +396,31 @@ function applyOps({ adapter, config, out, kind = 'feature', snapshotDir = null }
   }
 }
 
+// `products` — what a spec's `> **Product:**` may name, read by /spec to know
+// whether to ask, and the area each files into. `default` is where a spec
+// without the header goes once any product is set (null: nothing is placed).
+function specSyncProducts(config, flags, out) {
+  const products = Object.entries(config.azure.products || {}).map(([key, p]) => ({ key, areaPath: p.areaPath }))
+  const fallback = products.length ? config.azure.areaPath || null : null
+  if (flags.json) {
+    out.write(JSON.stringify({ products, default: fallback }, null, 2) + '\n')
+    return 0
+  }
+  if (!products.length) {
+    out.write(`${PROGRAM} products: none — azure.products is not set, so specs are filed as before\n`)
+    return 0
+  }
+  const lines = [`${PROGRAM} products:`]
+  for (const p of products) lines.push(`  ${p.key.padEnd(16)} ${p.areaPath}`)
+  lines.push(`  ${'(no header)'.padEnd(16)} ${fallback || 'the project default area'}`)
+  out.write(lines.join('\n') + '\n')
+  return 0
+}
+
 // `idea add|list|drop` — the store `skitterspec idea` hands Azure Boards: a
 // work item of `azure.workItemType` tagged `intake.ideaTag`, created with NO
-// area path, so it lands at the project root and out of the spec area. `/spec
+// area path, so it lands at the project root and out of the spec area —
+// unless `--product` names one, which files it in that product's area. `/spec
 // <id>` adopts one like any other item, which is why an adopted one drops out
 // of `list`.
 //
@@ -421,6 +444,17 @@ async function specSyncIdea(dir, config, positional, flags, out) {
     return verb ? 1 : 0
   }
   if (!tag) return refuse('intake.ideaTag is empty — an idea is a work item carrying that tag, so set one')
+  // A product files the idea in its area, so each product's stakeholders see
+  // their own ideas. Resolved before any call: an unknown product refuses with
+  // the text handed back, rather than filing it at the root.
+  let area
+  if (verb === 'add' && flags.product) {
+    try {
+      area = productArea(config, flags.product)
+    } catch (error) {
+      return refuse(`${error.message}; nothing was written`, { text })
+    }
+  }
 
   const cred = apiAdapterFor(config, flags)
   if (kit.resolveTransport(flags, config, cred.ok) === 'mcp' || !cred.ok) {
@@ -452,9 +486,9 @@ async function specSyncIdea(dir, config, positional, flags, out) {
       if (at === -1) return refuse('nothing to capture — give the idea some text')
       const title = lines[at].trim()
       const description = lines.slice(at + 1).join('\n').trim()
-      const made = await az.createIssue({ title, description, workItemType: type, tags: [tag] })
-      say({ ok: true, store: 'azure-boards', action: 'add', identifier: made.identifier, url: made.url, title }, [
-        `${PROGRAM} idea: filed ${made.identifier} "${title}" (${type}, tagged "${tag}", no area path)`,
+      const made = await az.createIssue({ title, description, workItemType: type, tags: [tag], ...(area ? { areaPath: area } : {}) })
+      say({ ok: true, store: 'azure-boards', action: 'add', identifier: made.identifier, url: made.url, title, areaPath: area || null }, [
+        `${PROGRAM} idea: filed ${made.identifier} "${title}" (${type}, tagged "${tag}", ${area ? `in ${area}` : 'no area path'})`,
         `  url:     ${made.url}`,
         `  promote: /spec ${made.identifier}`,
       ])
@@ -1788,6 +1822,37 @@ async function specSyncDoctor(dir, flags, out) {
               : row('types', 'Mapped types', 'ok', 'every mapped type exists and carries its body field'),
           )
         }
+        // Every product's area path, and the default they fall back to, must
+        // exist — Azure refuses the whole write over an unknown area. NO ROW
+        // when no product is set: a project that places nothing has nothing to
+        // check. An area that could not be asked about is a warning, never a
+        // failure (cannot-tell routes to the harmless branch).
+        const productAreas = Object.values(config.azure.products || {}).map((p) => p.areaPath)
+        if (productAreas.length) {
+          const areas = [...new Set([...productAreas, config.azure.areaPath].filter(Boolean))]
+          const missingAreas = []
+          let unknownArea = null
+          for (const area of areas) {
+            try {
+              if (!(await adapter.areaExists(area))) missingAreas.push(area)
+            } catch (error) {
+              unknownArea = `${area}: ${String((error && error.message) || error).split('\n')[0]}`
+            }
+          }
+          checks.push(
+            missingAreas.length
+              ? row(
+                  'areas',
+                  'Product areas',
+                  'broken',
+                  `not in the project: ${missingAreas.join(', ')}`,
+                  `create the area under Project settings → Areas, or fix ${CONFIG_FILE} -> azure.products / azure.areaPath`,
+                )
+              : unknownArea
+                ? row('areas', 'Product areas', 'warn', `could not check ${unknownArea}`)
+                : row('areas', 'Product areas', 'ok', `every product's area exists (${areas.length})`),
+          )
+        }
         // The capability probe Decision 8 names: identity search is the op
         // that fails first on a narrow token. A 401 here is a WARN, not
         // broken — work item sync is whole without it; only `users` search
@@ -1950,6 +2015,8 @@ const USAGE = `Usage: skitterspec-azure-boards spec-sync <subcommand>
   list [--all | --state NAME|BUCKET | --next N] [--mine | --by USER]  tracker listing
   linked [--json]                        specs and their linked items (offline)
   idea add|list|drop [--json]            ideas: work items tagged intake.ideaTag
+    [--product <key>]                    add: file the idea in that product's area
+  products [--json]                      the products a spec can name, and their areas
   ownership [--json]                     who owns status and assignee (offline)
   board <spec> [--json]                  is the item finished where the spec is not?
   ref [<spec>]                           the Refs: trailer value for this branch
@@ -2037,6 +2104,8 @@ async function specSync(rest, io = {}) {
       return specSyncIdea(dir, config, positional, flags, out)
     case 'ownership':
       return kit.specSyncOwnership(config, flags, out, PROGRAM)
+    case 'products':
+      return specSyncProducts(config, flags, out)
     case 'board':
       return specSyncBoard(dir, config, positional[0], flags, out)
     case 'states':
@@ -2114,6 +2183,7 @@ function parseArgs(args, sub) {
     '--release': { kind: 'boolean' },
     '--if-unassigned': { kind: 'boolean', name: 'ifUnassigned' },
     '--reason': { kind: 'value' },
+    '--product': { kind: 'string' },
     '--count': { kind: 'boolean' },
     '--mine': { kind: 'boolean' },
     '--next': { kind: 'number' },

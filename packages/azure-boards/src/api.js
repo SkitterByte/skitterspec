@@ -517,6 +517,19 @@ function makeApiAdapter({ orgUrl, project, token, fetch: fetchImpl, sleep, maxRe
       return ((raw && raw.value) || []).map((f) => f.referenceName).filter(Boolean)
     },
 
+    // Does this area path exist in the project? `true`/`false`, from the
+    // Areas classification tree. The first segment is the project's own root
+    // area, so it is dropped and the rest walks down from there.
+    async areaExists(areaPath) {
+      const parts = String(areaPath || '').split('\\').map((p) => p.trim()).filter(Boolean)
+      if (!parts.length) return false
+      const rest = parts.slice(1).map((p) => encodeURIComponent(p)).join('/')
+      const raw = await request('GET', `${projectBase}/wit/classificationnodes/Areas${rest ? '/' + rest : ''}`, {
+        allow404: true,
+      })
+      return raw != null
+    },
+
     // The authenticated user, from connectionData — the one identity read
     // that needs no scope beyond the PAT being valid (phase 1 spike).
     // A PREVIEW resource: plain 7.1 is refused ("the -preview flag must be

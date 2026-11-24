@@ -18,6 +18,20 @@ that phase's tasks in its description as a read-only markdown checklist. That is
 under `summary` (a new config's default) the issue and each sub-issue carry
 a short block instead, and the phase's tasks stay in git.
 
+**Name the product first, when the project has products.** Run
+`skitterspec spec-sync products --json`. It decides which Azure area the work
+item and its phases are filed in, so it has to be in the header before the
+first push:
+
+- **No products** — write nothing, and carry on.
+- **Exactly one** — write `> **Product:** <key>` without asking.
+- **Several** — if the spec has no `> **Product:**` yet, ask which, as one
+  question listing each key with its area path and recommending the one the
+  spec's `Area:` or wording points at. Write the answer into the header.
+
+A key that is not in the list refuses the push and names the ones that are,
+so never invent one.
+
 **Linking is just the first push**, so it runs the same engine path `/spec-push`
 does — you never create the work item by hand:
 

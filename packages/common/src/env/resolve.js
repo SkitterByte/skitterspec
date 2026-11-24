@@ -232,13 +232,18 @@ function readOverview(specDir, { overviewFile = '00-overview.md', identifierFiel
   const problem = sectionOf(text, 'Problem') || sectionOf(text, 'Symptom')
   const impact = impactRows(sectionOf(text, 'Impact'))
   const ticket = readTicket(text, identifierField)
+  // The `> **Product:**` the spec belongs to, where one tracker project holds
+  // several: a reader of a review needs to know whose work this is.
+  const productLine = /^>\s*\*\*Product:\*\*\s*(.+)$/m.exec(text)
+  const product = productLine ? productLine[1].trim().replace(/^`(.*)`$/, '$1').trim() || null : null
   // The ticket counts towards "is there anything to say": a spec linked to a
   // tracker but carrying neither section still has a header worth drawing.
-  if (!problem && !impact && !ticket) return null
+  if (!problem && !impact && !ticket && !product) return null
   return {
     ...(problem ? { problem } : {}),
     ...(impact ? { impact } : {}),
     ...(ticket ? { ticket } : {}),
+    ...(product ? { product } : {}),
   }
 }
 

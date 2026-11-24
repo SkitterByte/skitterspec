@@ -26,7 +26,7 @@ const { describeBaseBranch, baseRemote } = require('./env/resolve.js')
 const { primaryAnchor } = require('./env/project.js')
 
 const USAGE =
-  'Usage: skitterspec idea add <text> | list [--count] | drop <id> [--reason <why>]  [--json] [--dir <path>]\n'
+  'Usage: skitterspec idea add <text> [--product <key>] | list [--count] | drop <id> [--reason <why>]  [--json] [--dir <path>]\n'
 
 function reader(cwd) {
   return (argv) => {
@@ -56,7 +56,7 @@ function git(cwd, argv, { input, env } = {}) {
 }
 
 function parseArgs(argv) {
-  const flags = { json: false, count: false, dir: null, reason: null }
+  const flags = { json: false, count: false, dir: null, reason: null, product: null }
   const positional = []
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
@@ -64,6 +64,7 @@ function parseArgs(argv) {
     else if (a === '--count') flags.count = true
     else if (a === '--dir') flags.dir = argv[++i]
     else if (a === '--reason') flags.reason = argv[++i]
+    else if (a === '--product') flags.product = argv[++i]
     else positional.push(a)
   }
   return { flags, positional }
@@ -208,6 +209,8 @@ async function fileStore(sub, positional, flags, { cwd, now, out }) {
       `idea: ${verb} "${plan.id}" ${sub === 'add' ? 'to' : 'from'} ${ctx.rel} on ${ctx.base} (${commit.slice(0, 7)})`,
       `  title:   ${plan.entry.title}`,
       `  pushed:  no — ${push} publishes it`,
+      // The file has no products; say so rather than drop the flag in silence.
+      ...(sub === 'add' && flags.product ? [`  product: ${flags.product} not recorded — specs/ideas.md has no products`] : []),
     ],
   )
   return 0

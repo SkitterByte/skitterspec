@@ -55,6 +55,12 @@ line becomes the title and the rest becomes the body:
 skitterspec idea add "<text>" --json
 ```
 
+When the reader names the product the idea belongs to, add
+`--product <key>`. A tracker that files by product (Azure Boards'
+`azure.products`) puts the idea in that product's area; the file store notes
+it and records nothing. Never ask for one unprompted, because an idea is meant
+to cost one step.
+
 **Never push.** On the file store the engine commits onto the base branch and
 prints the push instead of running it, because a push publishes the base
 branch and that is always the operator's call.

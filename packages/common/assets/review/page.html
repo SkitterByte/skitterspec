@@ -718,6 +718,13 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
   white-space: nowrap;
 }
 a.ticket:hover { border-color: var(--accent); }
+/* The product shares the title line with the ticket: one tracker project can
+   hold several, and the reader needs to know whose work this is. */
+.product {
+  font-size: .62em; font-weight: 600; vertical-align: middle;
+  color: var(--muted); padding: .12em .45em; border: 1px dashed var(--line);
+  border-radius: 999px; white-space: nowrap;
+}
 .context-more > summary { cursor: pointer; color: var(--muted); font-size: .85rem; margin-top: .6rem; }
 .copy-hint { font-size: .8rem; color: var(--muted); margin: .4rem 0 0; }
 .sent-cmd { display: flex; gap: .4rem; align-items: stretch; margin: .4rem 0 0; }
@@ -3270,6 +3277,17 @@ a.ticket:hover { border-color: var(--accent); }
     }
     node.className = 'ticket'
     node.textContent = tk.id
+    titleEl.appendChild(document.createTextNode(' '))
+    titleEl.appendChild(node)
+  })()
+  // The spec's product, beside the ticket. textContent: it comes from a spec file.
+  ;(function () {
+    var product = data.context && data.context.product
+    if (!product) return
+    var node = document.createElement('span')
+    node.className = 'product'
+    node.title = 'Product'
+    node.textContent = product
     titleEl.appendChild(document.createTextNode(' '))
     titleEl.appendChild(node)
   })()

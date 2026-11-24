@@ -39,6 +39,7 @@ product's work in front of its own stakeholders.
 - A spec with no `Product:` header uses `azure.areaPath`, exactly as today.
 - A `Product:` value that isn't in `azure.products` refuses that spec's push
   and names the configured products. Nothing is written.
+- The review page shows the spec's product beside its title.
 - `/spec-idea --product tendering` files the idea in the Tendering area.
   Without the flag the idea stays at the project root.
 - `/spec` asks which product when the project configures more than one, and
@@ -106,7 +107,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Product header, products config, area written on every push | ✅ | [01-product-area.md](01-product-area.md) |
-| 2 | Ask for it: /spec, /spec-idea, doctor, docs | ⬜ | [02-skills-ideas-docs.md](02-skills-ideas-docs.md) |
+| 2 | Ask for it: /spec, /spec-idea, doctor, docs | ✅ | [02-skills-ideas-docs.md](02-skills-ideas-docs.md) |
 
 ## Open questions
 
@@ -124,3 +125,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   `list` over every spec still work. With products configured, a linked spec
   that has no recorded area is sent one, so configuring products moves
   existing items into their default area.
+- 2026-11-24 — Added to phase 2 on request: the review page shows the spec's
+  product beside its title. It is read generically off the overview's header,
+  so it shows whatever provider is installed.
+- 2026-11-24 — Phase 2 built. `/spec` asks for the product in the Azure link
+  seam (before the first push, which files the item), so `/spec-bug` and
+  `/spec-hotfix` ask as well. The base `skitterspec idea` now parses
+  `--product`; the file store notes it as not recorded rather than writing it
+  into the idea's text.

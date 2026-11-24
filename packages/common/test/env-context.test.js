@@ -290,3 +290,15 @@ test('frontmatter without any identifier key stays silent', () => {
   assert.strictEqual(ctx.ticket, undefined)
   drop(dir)
 })
+
+test('the overview yields its Product header, for the page to show beside the title', () => {
+  const dir = tmpSpec({ '00-overview.md': '# T\n\n> **Type:** Feature\n> **Product:** `tendering`\n' })
+  assert.deepStrictEqual(readOverview(dir), { product: 'tendering' })
+  drop(dir)
+})
+
+test('STAYS SILENT: an overview without a Product header carries no product', () => {
+  const dir = tmpSpec({ '00-overview.md': OVERVIEW })
+  assert.ok(!('product' in readOverview(dir)))
+  drop(dir)
+})
