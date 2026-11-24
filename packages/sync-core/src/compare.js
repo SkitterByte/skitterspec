@@ -231,6 +231,18 @@ function stateNamesRecord(projection, previous, sent) {
   return out
 }
 
+/**
+ * The `placement` record for a snapshot: the place this push SENT, or the one
+ * the previous snapshot had when this push sent none, or undefined. The same
+ * rule as `stateNamesRecord` — recording a place nobody wrote would claim the
+ * tracker holds it.
+ */
+function placementRecord(projection, previous, sent) {
+  const p = projection || {}
+  if (sent && sent.placement && p.placement !== undefined) return p.placement
+  return previous && typeof previous.placement === 'string' ? previous.placement : undefined
+}
+
 // Has the state an unchanged item maps to moved under it — a state-map edit in
 // the config rather than a move of the spec? Only a RECORDED name can say: an
 // item with none is cannot-tell and plans nothing, so an upgrade or a config
@@ -304,9 +316,27 @@ function planChanges(projection, snapshot, { linked = false, epic = false } = {}
   // is above, and nothing is retired (spec feat-epic-migration, Decision 2).
   if (epic && unclaimed.length) subIssues.retire = unclaimed.slice()
 
+  // PLACEMENT: where the items belong (Azure's area path). Sent when the
+  // project places specs and the place differs from the one last sent. An
+  // unrecorded place on a linked spec is sent too: placement only comes into
+  // play when the project configures it, so that first push is the move the
+  // project asked for, not a guess about someone else's filing.
+  const place = p.placement
+  const moved = place !== undefined && snap.placement !== place
+  if (place !== undefined) for (const c of subIssues.create) c.placement = place
+  if (moved) {
+    for (const s of p.subIssues || []) {
+      if (s.id == null) continue
+      const existing = subIssues.update.find((u) => String(u.id) === String(s.id))
+      if (existing) existing.placement = place
+      else subIssues.update.push({ ref: s.ref, id: s.id, placement: place })
+    }
+  }
+
   const plan = { subIssues }
   if (unstamped.length) plan.unstamped = unstamped
-  const issue = issueChanges(p, snap, { linked })
+  let issue = issueChanges(p, snap, { linked })
+  if (moved) issue = { ...(issue || {}), placement: place }
   if (issue) plan.issue = issue
   return plan
 }
@@ -413,6 +443,7 @@ module.exports = {
   specIssueFieldHashes,
   snapshotOf,
   stateNamesRecord,
+  placementRecord,
   isEmptyPlan,
   hashField,
   stableStringify,

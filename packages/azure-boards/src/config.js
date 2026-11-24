@@ -17,7 +17,7 @@ const { readFileSync } = require('node:fs')
 const { join, basename } = require('node:path')
 
 const kitConfig = require('@skitterbyte/skitterspec-provider-kit/src/config.js')
-const { effectiveStates } = require('@skitterbyte/skitterspec-sync-core')
+const { effectiveStates, specHeaders } = require('@skitterbyte/skitterspec-sync-core')
 const { dialect, htmlToText, looksLikeHtml } = require('./dialect.js')
 
 const CONFIG_FILE = 'specs/.core/azure-boards.config.json'
@@ -35,7 +35,10 @@ const DEFAULT_CONFIG = Object.freeze({
   // `project` is where spec work items land. `workItemType`/`childType` name
   // the types this project's process uses for a spec and its phases; the
   // defaults are the Basic template's, and any process overrides them here.
-  // `areaPath` is optional — empty means the project default.
+  // `areaPath` is optional — empty means the project default. `products` maps
+  // a spec's `> **Product:**` key to the area path its items are filed in
+  // (`{ "tendering": { "areaPath": "LSC\\Tendering" } }`); with any product
+  // set, `areaPath` is where a spec without the header goes.
   azure: Object.freeze({
     orgUrl: '',
     project: '',
@@ -62,6 +65,7 @@ const DEFAULT_CONFIG = Object.freeze({
     // a write-only mapping would make `/spec-status` report every Bug as
     // edited. Empty means System.Description everywhere, as before.
     bodyFieldByType: Object.freeze({}),
+    products: Object.freeze({}),
   }),
   // A spec is a WORK ITEM; each phase a CHILD work item under a hierarchy
   // link. `tasks` selects how the phase's checkboxes reach that child's
@@ -235,6 +239,17 @@ function mergeConfig(base, parsed) {
       }
       base.azure.bodyFieldByType = byType
     }
+    if (isObject(parsed.azure.products)) {
+      // A product with no usable area path is dropped, never filed at the
+      // project root: a spec naming it is then refused as unknown, which says
+      // what is wrong where a silent root filing would not.
+      const products = {}
+      for (const [key, value] of Object.entries(parsed.azure.products)) {
+        const area = isObject(value) && typeof value.areaPath === 'string' ? value.areaPath.trim() : ''
+        if (String(key).trim() && area) products[String(key).trim()] = { areaPath: area }
+      }
+      base.azure.products = products
+    }
     // A trailing slash on the org would double up in every composed URL.
     if (base.azure.orgUrl) base.azure.orgUrl = base.azure.orgUrl.replace(/\/+$/, '')
   }
@@ -341,6 +356,30 @@ function stateNameFor(config, bucket, type) {
   return effectiveStates(config, config.statesByType, type)[bucket]
 }
 
+/**
+ * The area path a spec's items are filed in, from its `> **Product:**` key.
+ * `undefined` when the project places nothing — no `azure.products` and no
+ * header — which leaves every push exactly as it was before products existed.
+ *
+ * Throws (refusing the push) for a key `azure.products` does not have, or a
+ * header in a project with no products: filing it in the default area instead
+ * would mix one product's work into another's, the thing this exists to stop.
+ */
+function productArea(config, product) {
+  const products = (config.azure && config.azure.products) || {}
+  const keys = Object.keys(products)
+  if (product) {
+    if (!keys.length) {
+      throw new Error(`Product: ${product} — but ${CONFIG_FILE} sets no azure.products, so there is nowhere to file it`)
+    }
+    const key = keys.find((k) => k.toLowerCase() === String(product).toLowerCase())
+    if (!key) throw new Error(`unknown product "${product}" — ${CONFIG_FILE} azure.products has: ${keys.join(', ')}`)
+    return products[key].areaPath
+  }
+  if (!keys.length) return undefined
+  return config.azure.areaPath || undefined
+}
+
 // Attach the parts of the provider contract that are code, not JSON: the
 // markdown dialect, and the `provider` block. Azure identifiers all share the
 // constant `AB` prefix (`AB#123`), so unlike Jira's project key there is
@@ -359,6 +398,11 @@ function withRuntime(config) {
   // as markdown or HTML depending on the item's era. Each hook falls back to
   // the flat Linear-like shape, so a pre-reduced payload keeps working.
   config.remote = {
+    // Where this spec's items are filed: its product's area path (sync-core
+    // `placement`), so a header change plans a move like any other edit.
+    placement(snapshotDir) {
+      return productArea(config, specHeaders(snapshotDir, config).product)
+    },
     // The state name a push writes for this bucket, recorded in the snapshot
     // so a state-map change is visible to `plan` (sync-core `stateNames`).
     // Resolved exactly as the apply resolves it: the spec item by its kind's
@@ -453,4 +497,5 @@ module.exports = {
   DEFAULT_TOKEN_ENV,
   ENV_CONFIG_DEFAULTS,
   IDENTIFIER_FIELD,
+  productArea,
 }

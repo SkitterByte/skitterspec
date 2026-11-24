@@ -105,7 +105,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Product header, products config, area written on every push | ⬜ | [01-product-area.md](01-product-area.md) |
+| 1 | Product header, products config, area written on every push | ✅ | [01-product-area.md](01-product-area.md) |
 | 2 | Ask for it: /spec, /spec-idea, doctor, docs | ⬜ | [02-skills-ideas-docs.md](02-skills-ideas-docs.md) |
 
 ## Open questions
@@ -116,3 +116,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 - 2026-11-24 — Spec created. Requested from ereqs ahead of Tendering joining
   its DevOps project.
+- 2026-11-24 — Phase 1 built. The area travels as a generic sync-core
+  `placement`: a provider hook (`remote.placement`) resolves it, the snapshot
+  records the last one sent (as `stateNames` does), and a plan that finds it
+  changed updates the item and moves each phase item. A refused product is
+  carried on the projection and raised only by `plan`/`apply`, so `status` and
+  `list` over every spec still work. With products configured, a linked spec
+  that has no recorded area is sent one, so configuring products moves
+  existing items into their default area.

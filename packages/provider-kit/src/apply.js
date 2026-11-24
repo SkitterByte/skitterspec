@@ -138,6 +138,9 @@ async function applyInner({
   // state name for these and only these (`recordPush`). A held state counts:
   // run 2 sends it, and what run 2 records has to match what run 1 committed.
   const sent = { issue: !!heldState || !!(plan.issue && plan.issue.state != null), subIssues: new Set() }
+  // A place rides the plan's issue: on a create it is always written, on an
+  // update only when the plan carries it. Recorded only once written.
+  sent.placement = !!(plan.issue && plan.issue.placement !== undefined)
   // Handed out immediately, so a throw from anywhere below still reports what
   // had been stamped by the time it happened.
   if (progress) progress.result = result

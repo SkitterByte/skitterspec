@@ -436,7 +436,7 @@ function readSnapshot(snapshotDir, config) {
 }
 
 // The spec's own `> **Severity:**`, `> **Incident:**`, `> **Epic:**`,
-// `> **Waits on:**` and `> **Lanes:**` headers, off the overview's blockquote
+// `> **Waits on:**`, `> **Lanes:**` and `> **Product:**` headers, off the overview's blockquote
 // block. They are PUSH-TIME EXTRAS, deliberately not keys on `normalizeLocal`'s
 // field set: severity lands in a provider-specific home (a field, a label),
 // the incident and epic links as typed relations, and the waits and lanes are
@@ -448,7 +448,7 @@ function specHeaders(snapshotDir, config) {
   try {
     raw = fs.readFileSync(path.join(snapshotDir, overviewFile), 'utf-8')
   } catch {
-    return { severity: null, incident: null, epic: null, waitsOn: [], lanes: null }
+    return { severity: null, incident: null, epic: null, waitsOn: [], lanes: null, product: null }
   }
   const read = (name) => {
     const m = new RegExp(`^>\\s*\\*\\*${name}:\\*\\*\\s*(.+)$`, 'm').exec(raw)
@@ -460,6 +460,7 @@ function specHeaders(snapshotDir, config) {
     epic: unquote(read('Epic')) || null,
     waitsOn: parseWaitsOn(read('Waits on')),
     lanes: parseLanes(read('Lanes')),
+    product: unquote(read('Product')) || null,
   }
 }
 

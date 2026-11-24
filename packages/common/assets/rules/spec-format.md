@@ -75,6 +75,10 @@ Each spec has one of seven kinds, recorded twice: in the header
   the base branch.
 - `> **Lanes:**`: on an epic, optional: how many members may be in flight at
   once.
+- `> **Product:**`: optional: the product the spec belongs to, where one
+  tracker project holds several. A key from the provider's config, which
+  decides what it means there (Azure Boards: `azure.products` maps it to an
+  area path).
 - `> **Blocked on:**`: on a spec or a phase file: a wait outside the repo, in
   free text, optionally with `(until YYYY-MM-DD)`. Only a person can judge it
   met. `/spec-resume` clears it.

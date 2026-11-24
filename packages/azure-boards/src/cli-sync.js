@@ -349,7 +349,7 @@ function applyOps({ adapter, config, out, kind = 'feature', snapshotDir = null }
           description: issue && issue.description != null ? issue.description : undefined,
           assigneeId: issue && issue.assignee ? issue.assignee : undefined,
           workItemType: mintType,
-          areaPath: config.azure.areaPath || undefined,
+          areaPath: (issue && issue.placement) || config.azure.areaPath || undefined,
           severity: severity != null ? severity : undefined,
         },
         (input) => skippingRefusedSeverity(input, (i) => adapter.createIssue(i)),
@@ -365,6 +365,7 @@ function applyOps({ adapter, config, out, kind = 'feature', snapshotDir = null }
       // forwarded whenever the plan carries it, never truthiness-tested.
       if ('assignee' in issue) updates.assigneeId = issue.assignee ?? null
       if (severity != null) updates.severity = severity
+      if (issue.placement) updates.areaPath = issue.placement
       if (Object.keys(updates).length) {
         await skippingRefusedAssignee(updates, (input) =>
           skippingRefusedSeverity(input, (i) => adapter.updateIssue(apiId(existing.identifier), i)),
@@ -378,7 +379,7 @@ function applyOps({ adapter, config, out, kind = 'feature', snapshotDir = null }
         title: sub.name,
         description: sub.goal != null ? sub.goal : undefined,
         childType: config.azure.childType,
-        areaPath: config.azure.areaPath || undefined,
+        areaPath: sub.placement || config.azure.areaPath || undefined,
       })
       await settle(created.id, sub.state, config.azure.childType)
       return created
@@ -387,6 +388,7 @@ function applyOps({ adapter, config, out, kind = 'feature', snapshotDir = null }
       const updates = {}
       if (sub.name != null) updates.title = sub.name
       if (sub.goal != null) updates.description = sub.goal
+      if (sub.placement) updates.areaPath = sub.placement
       if (Object.keys(updates).length) await adapter.updateIssue(apiId(sub.id), updates)
       await settle(sub.id, sub.state, config.azure.childType, sub.stateResend)
     },
@@ -686,6 +688,17 @@ function specSyncNormalize(dir, config, specArg, out, err) {
   return 0
 }
 
+// `push`, with a spec whose product the config cannot place returned as a
+// refusal rather than thrown: it names a fix for the reader, not a crash.
+function planOrRefusal(args) {
+  try {
+    return push(args)
+  } catch (error) {
+    if (error && error.placementRefused) return { refused: error.message }
+    throw error
+  }
+}
+
 function specSyncPlan(dir, config, specArg, flags, out, err) {
   const snapshotDir = resolveOrExit(specArg, dir, out)
   if (!snapshotDir) return 1
@@ -696,7 +709,11 @@ function specSyncPlan(dir, config, specArg, flags, out, err) {
   }
   warnToErr(snapshotDir, config, err)
   const identifier = specIdentifier(snapshotDir, config)
-  const r = push({ dir, snapshotDir, identifier, config })
+  const r = planOrRefusal({ dir, snapshotDir, identifier, config })
+  if (r.refused) {
+    out.write(`${PROGRAM} plan: refusing — ${r.refused}\n`)
+    return 1
+  }
   if (flags.json || !out.isTTY) {
     out.write(JSON.stringify(r.plan, null, 2) + '\n')
     return 0
@@ -817,7 +834,12 @@ async function specSyncApply(dir, config, specArg, flags, out, err) {
     for (const spec of specs) {
       const snapshotDir = resolveSnapshotDir(spec.spec, dir)
       const identifier = specIdentifier(snapshotDir, config)
-      const r = push({ dir, snapshotDir, identifier, config })
+      const r = planOrRefusal({ dir, snapshotDir, identifier, config })
+      if (r.refused) {
+        failed++
+        out.write(`${PROGRAM} apply: ${spec.spec}\n  !! ${r.refused}\n`)
+        continue
+      }
       if (r.empty) continue
       out.write(`${PROGRAM} apply: ${spec.spec}\n`)
       try {
@@ -842,7 +864,12 @@ async function specSyncApply(dir, config, specArg, flags, out, err) {
   if (!flags.plan) {
     // --send-held computes its own. After the merge it is normally empty, and
     // that empty plan is what tells apply that run 1 held the state.
-    plan = push({ dir, snapshotDir, identifier: specIdentifier(snapshotDir, config), config }).plan
+    const r = planOrRefusal({ dir, snapshotDir, identifier: specIdentifier(snapshotDir, config), config })
+    if (r.refused) {
+      out.write(`${PROGRAM} apply: refusing — ${r.refused}\n`)
+      return 1
+    }
+    plan = r.plan
   } else {
     try {
       plan = JSON.parse(fs.readFileSync(flags.plan, 'utf-8'))
@@ -971,8 +998,9 @@ function specSyncStatus(dir, config, specArg, flags, out, err) {
     lines.push('  states: every configured state exists in the project')
   }
 
-  const r = push({ dir, snapshotDir, identifier, config })
-  if (r.empty) lines.push('  push: in sync — nothing would push')
+  const r = planOrRefusal({ dir, snapshotDir, identifier, config })
+  if (r.refused) lines.push(`  push: refused — ${r.refused}`)
+  else if (r.empty) lines.push('  push: in sync — nothing would push')
   else {
     const c = r.plan.subIssues.create.length
     const u = r.plan.subIssues.update.length

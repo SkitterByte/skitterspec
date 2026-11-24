@@ -20,7 +20,7 @@ const path = require('node:path')
 const { normalizeLocal, phasesWithheld, phaseModeFor, ownershipOf, readSnapshot } = require('./normalize.js')
 const { descriptionMode } = require('./summary.js')
 const { fieldsOf } = require('./fields.js')
-const { planChanges, snapshotOf, stateNamesRecord, isEmptyPlan } = require('./compare.js')
+const { planChanges, snapshotOf, stateNamesRecord, placementRecord, isEmptyPlan } = require('./compare.js')
 const { readBase, writeBase } = require('./base.js')
 const { detectLegacyMirror } = require('./legacy.js')
 
@@ -58,7 +58,32 @@ function projectionOf(snapshotDir, config) {
   // pulled, and read by name, so it can never reach a hash.
   if (ownershipOf(config, 'workflowState') === 'pull') projection.statePulled = true
   attachStateNames(projection, snapshotDir, config)
+  attachPlacement(projection, snapshotDir, config)
   return projection
+}
+
+// Where on the tracker this spec's items belong — Azure's area path, from the
+// provider's `config.remote.placement(snapshotDir)` hook: a string when the
+// project places specs, `undefined` when it does not (no hook, or the hook
+// says the feature is not in play). Read by name, so it never reaches a hash:
+// recorded beside them as `placement`, it is what lets a plan see a spec move
+// that no field hash covers. A hook that throws REFUSES the plan — a spec
+// naming a place the project does not have must not be filed somewhere else —
+// but only the plan: the error is carried, not raised, so a status or a list
+// over every spec is not taken down by one spec's bad header.
+function attachPlacement(projection, snapshotDir, config) {
+  const hook = config && config.remote && config.remote.placement
+  if (typeof hook !== 'function') return
+  let value
+  try {
+    value = hook(snapshotDir)
+  } catch (error) {
+    // Tagged, so a caller can relay it as the refusal it is rather than a crash.
+    if (error && typeof error === 'object') error.placementRefused = true
+    Object.defineProperty(projection, 'placementError', { value: error, enumerable: false })
+    return
+  }
+  if (typeof value === 'string' && value) projection.placement = value
 }
 
 // The tracker state NAME each bucket resolves to today, from the provider's
@@ -103,6 +128,7 @@ function isLinked(snapshotDir, config) {
 
 function push({ dir, snapshotDir, identifier, config }) {
   const projection = projectionOf(snapshotDir, config)
+  if (projection.placementError) throw projection.placementError
   const snapshot = readBase(dir, identifier, config)
   const epic = path.basename(String(snapshotDir || '')).startsWith('epic-')
   const plan = planChanges(projection, snapshot, { linked: isLinked(snapshotDir, config), epic })
@@ -150,6 +176,8 @@ function recordPush({ dir, snapshotDir, identifier, config, sent = null, keepSub
   }
   const names = stateNamesRecord(projection, before, sent)
   if (names) snapshot.stateNames = names
+  const placement = placementRecord(projection, before, sent)
+  if (placement !== undefined) snapshot.placement = placement
   return writeBase(dir, identifier, config, snapshot)
 }
 

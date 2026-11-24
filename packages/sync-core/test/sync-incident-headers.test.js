@@ -48,6 +48,7 @@ test('specHeaders reads Severity and Incident off the overview', () => {
     epic: null,
     waitsOn: [],
     lanes: null,
+    product: null,
   })
 })
 
@@ -61,6 +62,7 @@ test('a spec without the headers projects exactly as before', () => {
     epic: null,
     waitsOn: [],
     lanes: null,
+    product: null,
   })
   const { description } = normalizeLocal(dir, neutralConfig())
   assert.ok(!/Related incident/.test(description))
