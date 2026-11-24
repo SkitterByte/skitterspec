@@ -20,7 +20,7 @@ if (!existsSync(join(__dirname, '..', 'src'))) {
   process.exit(1)
 }
 
-const { run } = require('../src/cli.js')
+const { run, PROVIDER_COMMANDS } = require('../src/cli.js')
 
 // The check above asks whether src/ exists, which is inert in a workspace source
 // package — src/ is committed there. That is exactly where the other half of the
@@ -39,6 +39,16 @@ if (argv[0] === 'init' || (argv[0] === 'update' && !argv.includes('--all'))) {
     process.exit(1)
   }
 }
+
+// A verb this base does not ship (spec-sync) goes to the configured provider's
+// own bin, which makes its own registrations — so this runs before ours.
+const forwarded = require('../src/provider.js').forwardProviderCommand({
+  cwd: process.cwd(),
+  argv,
+  commands: Object.keys(PROVIDER_COMMANDS),
+  warn: (line) => console.error(line),
+})
+if (forwarded !== null) process.exit(forwarded)
 
 // Every skill's engine call runs this bin, providers included (#278), so pick
 // up the provider the project configured before anything reads the config.

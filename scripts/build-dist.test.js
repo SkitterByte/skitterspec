@@ -145,8 +145,9 @@ test('base build is tracker-free, self-contained, and installs the base skill se
   const core = fs.readdirSync(path.join(proj, 'specs', '.core'))
   assert.ok(!core.some((f) => f.startsWith('linear.config')), 'no linear.config in base .core')
 
-  // the base CLI does not know spec-sync
-  const sync = spawnSync('node', [bin, 'spec-sync', 'status'], { encoding: 'utf8' })
+  // the base CLI does not know spec-sync — asked from the fresh project, which
+  // configures no provider for it to hand the verb to
+  const sync = spawnSync('node', [bin, 'spec-sync', 'status'], { cwd: proj, encoding: 'utf8' })
   assert.notStrictEqual(sync.status, 0, 'base spec-sync should error')
   assert.match(sync.stderr + sync.stdout, /unknown command: spec-sync/)
 })

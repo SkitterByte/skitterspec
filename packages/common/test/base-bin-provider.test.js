@@ -177,3 +177,68 @@ test('registerConfiguredProvider: outside any project does nothing (stays-silent
   })
   assert.deepStrictEqual(warned, [])
 })
+
+// --- provider verbs through the bare bin -------------------------------------
+//
+// The skills and seams still call `skitterspec spec-sync …`, and since #278
+// that name runs the base, which does not ship spec-sync. With a provider
+// configured and installed beside it, the base hands the verb to that
+// provider's own bin, so both names give the same answer.
+
+const PKGS = path.join(__dirname, '..', '..')
+
+function providerBin(name) {
+  return path.join(PKGS, name, 'bin', `skitterspec-${name}.js`)
+}
+
+function runBin(bin, cwd, args) {
+  const r = spawnSync(process.execPath, [bin, ...args], { cwd, encoding: 'utf8' })
+  return { status: r.status, stdout: r.stdout, stderr: r.stderr }
+}
+
+for (const name of ['github', 'jira', 'linear', 'azure-boards']) {
+  test(`base bin: spec-sync answers as skitterspec-${name} where ${name} is configured`, (t) => {
+    const dir = bareProject([`${name}.config.json`])
+    t.after(() => fs.rmSync(dir, { recursive: true, force: true }))
+    git(dir, 'init', '-q', '-b', 'main')
+
+    const args = ['spec-sync', 'ref', 'no-such-spec']
+    const base = runBin(BASE_BIN, dir, args)
+    assert.doesNotMatch(base.stderr, /unknown command/)
+    assert.deepStrictEqual(base, runBin(providerBin(name), dir, args))
+  })
+}
+
+test('base bin: spec-sync with no provider configured is still refused, naming the providers (stays-silent)', (t) => {
+  const dir = bareProject([])
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }))
+
+  const r = runBin(BASE_BIN, dir, ['spec-sync', 'ref'])
+  assert.strictEqual(r.status, 1)
+  assert.match(r.stderr, /unknown command: spec-sync — this is the base distribution, which does not ship it/)
+})
+
+test('base bin: spec-sync with the provider configured but not installed names the package to install', (t) => {
+  const dir = bareProject(['azure-boards.config.json'])
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }))
+
+  const { forwardProviderCommand } = require('../src/provider.js')
+  const err = []
+  const status = forwardProviderCommand({
+    cwd: dir,
+    argv: ['spec-sync', 'ref'],
+    commands: ['spec-sync'],
+    resolve: () => null,
+    warn: (l) => err.push(l),
+  })
+  assert.strictEqual(status, 1)
+  assert.match(err.join('\n'), /spec-sync needs @skitterbyte\/skitterspec-azure-boards installed beside this one/)
+})
+
+test('forwardProviderCommand: a verb the base ships is never forwarded (stays-silent)', (t) => {
+  const dir = bareProject(['github.config.json'])
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }))
+
+  const { forwardProviderCommand } = require('../src/provider.js')
+  assert.strictEqual(forwardProviderCommand({ cwd: dir, argv: ['spec-env', 'resolve'], commands: ['spec-sync'] }), null)
+})

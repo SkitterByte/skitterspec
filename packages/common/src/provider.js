@@ -9,6 +9,7 @@
 // provider's `src/register.js` from where it is installed, and hands it the
 // base's own engine modules to register on.
 
+const { spawnSync } = require('node:child_process')
 const { existsSync } = require('node:fs')
 const { dirname, join } = require('node:path')
 
@@ -89,4 +90,48 @@ function registerConfiguredProvider({ cwd, envConfig, idea, resolve = resolvePac
   return { provider: p.name, registered: 'config' }
 }
 
-module.exports = { registerConfiguredProvider, PROVIDERS }
+/**
+ * Run a verb the base does not ship (`commands`, e.g. `spec-sync`) on the
+ * provider configured in the project at or above `cwd`, through that
+ * provider's own bin, so `skitterspec spec-sync …` answers exactly as
+ * `skitterspec-<provider> spec-sync …` does — the skills call the bare name.
+ *
+ * Returns the exit status to use, or `null` when there is nothing to forward
+ * and the base should carry on as it would have: a verb it ships, no project,
+ * no provider configured, or two of them (registerConfiguredProvider warns).
+ *
+ * WHAT WOULD FOOL THIS: a provider installed where Node's resolution cannot
+ * see it from the base or the project reads as not installed, and the verb is
+ * refused naming the package — never run on a guessed provider.
+ */
+function forwardProviderCommand({
+  cwd,
+  argv,
+  commands,
+  resolve = resolvePackage,
+  warn = () => {},
+  spawn = spawnSync,
+}) {
+  const [cmd] = argv
+  if (!commands.includes(cmd)) return null
+  const dir = projectDir(cwd)
+  if (!dir) return null
+  const configured = PROVIDERS.filter((p) => existsSync(join(dir, p.configFile)))
+  if (configured.length !== 1) return null
+  const p = configured[0]
+  const bin = join('bin', `skitterspec-${p.name}.js`)
+  for (const [pkg] of p.candidates) {
+    const root = resolve(pkg, [__dirname, dir])
+    if (root && existsSync(join(root, bin))) {
+      const r = spawn(process.execPath, [join(root, bin), ...argv], { cwd, stdio: 'inherit' })
+      return r.status ?? 1
+    }
+  }
+  warn(
+    `skitterspec: ${cmd} needs @skitterbyte/skitterspec-${p.name} installed beside this one — ` +
+      `${p.configFile} is here but it is not. Install it alongside @skitterbyte/skitterspec, at the latest of each.`,
+  )
+  return 1
+}
+
+module.exports = { registerConfiguredProvider, forwardProviderCommand, PROVIDERS }

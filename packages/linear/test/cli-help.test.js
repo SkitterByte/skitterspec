@@ -111,8 +111,12 @@ test('every spec-sync subcommand it routes is named in its usage', async () => {
 
 // --- the base distribution's half -------------------------------------------
 
-test('the base names the distribution that ships a provider command', () => {
-  const { stderr, status } = run(BASE_BIN, ['spec-sync', 'status', 'x'])
+test('the base names the distribution that ships a provider command', (t) => {
+  // Outside any project: inside one with a provider configured, the base hands
+  // spec-sync to that provider instead of refusing it.
+  const away = fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-noproject-'))
+  t.after(() => fs.rmSync(away, { recursive: true, force: true }))
+  const { stderr, status } = run(BASE_BIN, ['spec-sync', 'status', 'x'], away)
   assert.notStrictEqual(status, 0, 'still an error')
   assert.match(stderr, /unknown command: spec-sync/, 'still says unknown')
   assert.match(stderr, /@skitterbyte\/skitterspec-linear/, 'names the distribution')

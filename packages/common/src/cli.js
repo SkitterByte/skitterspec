@@ -9006,6 +9006,7 @@ module.exports = {
   run,
   parse,
   HELP,
+  PROVIDER_COMMANDS,
   unknownCommand,
   rankLanAddresses,
   offerableLanAddresses,
