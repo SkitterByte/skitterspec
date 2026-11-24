@@ -5,6 +5,11 @@ What's new for users of skitterspec. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 23.24.4 — 24 Nov 2026
+
+### Update
+- **Fixed** — Running skitterspec update or init in a project with a tracker set up now installs that tracker's skills and docs, instead of silently replacing them with the base set.
+
 ## 23.24.3 — 24 Nov 2026
 
 ### Spec Next
