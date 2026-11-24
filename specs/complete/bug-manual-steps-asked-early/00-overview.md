@@ -108,3 +108,4 @@ a served re-render (`env-serve-buttons.test.js`). Run
 - 2026-11-24 — Fixed: §3 ends the turn at the stop with a `manual` page and a
   `/commit, then /spec-live` Next; `live take` refusals lead with NOT LIVE;
   tests green
+- 2026-11-24 — Completed; all phases done, tests green.
