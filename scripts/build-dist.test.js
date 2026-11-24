@@ -675,3 +675,35 @@ test('an install that already chose its own keys is left alone', () => {
     assert.deepStrictEqual(JSON.parse(fs.readFileSync(cfgPath, 'utf8')), chosen, `${argv[0]} rewrote it`)
   }
 })
+
+// --- parked distributions on install -----------------------------------------
+//
+// A parked distribution keeps its `prepare` script, and pnpm runs `prepare` for
+// every workspace package on `pnpm install` — which `pnpm test` triggers on its
+// own when package.json changed (a release bump does). Throwing there broke every
+// install in the repo and CI's on every tag (bug-parked-prepare-breaks-install).
+// `prepare` skips a parked dist; `prepack` still refuses, so it never publishes.
+{
+  const { PARKED } = require('./parked.js')
+  const SCRIPT = path.join(__dirname, 'build-dist.js')
+  const runAs = (event, dist) =>
+    spawnSync(process.execPath, [SCRIPT, dist], {
+      encoding: 'utf8',
+      env: { ...process.env, npm_lifecycle_event: event },
+    })
+
+  for (const dist of PARKED.dists) {
+    test(`a parked ${dist} skips its build on prepare, exiting 0`, () => {
+      const r = runAs('prepare', dist)
+      assert.strictEqual(r.status, 0, r.stderr)
+      assert.match(r.stdout, /parked/)
+      assert.doesNotMatch(r.stdout, /^built /m)
+    })
+
+    test(`a parked ${dist} still refuses on prepack, so it never publishes`, () => {
+      const r = runAs('prepack', dist)
+      assert.strictEqual(r.status, 1)
+      assert.match(r.stderr, /is parked/)
+    })
+  }
+}

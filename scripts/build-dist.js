@@ -299,6 +299,13 @@ module.exports = {
 // CLI: node scripts/build-dist.js [skitterspec|skitterspec-linear|all]
 if (require.main === module) {
   const which = process.argv[2] || 'all'
+  // pnpm runs every workspace package's `prepare` on install, a parked one's
+  // too, so refusing there breaks every install in the repo. Skip it on
+  // `prepare` only: `prepack` still refuses, so a parked dist never packs.
+  if (isParkedDist(which) && process.env.npm_lifecycle_event === 'prepare') {
+    console.log(`build-dist: skipped — ${parkedMessage(which)}`)
+    process.exit(0)
+  }
   const built = which === 'all' ? buildAll() : [buildDist(which)]
   for (const out of built) console.log(`built ${path.relative(ROOT, out)}`)
 }
