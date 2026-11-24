@@ -133,3 +133,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   `/spec-hotfix` ask as well. The base `skitterspec idea` now parses
   `--product`; the file store notes it as not recorded rather than writing it
   into the idea's text.
+- 2026-11-24 — Completed; all phases done, tests green.
