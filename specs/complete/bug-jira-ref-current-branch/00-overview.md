@@ -66,3 +66,4 @@ that reader (`packages/github/src/cli-sync.js:1074`); Jira never got it.
 - 2026-11-24 — Bug reproduced; failing tests added (red).
 - 2026-11-24 — Fixed: Jira's `ref` builds a git reader for `currentBranch`;
   tests green.
+- 2026-11-24 — Completed; fix done, tests green.
