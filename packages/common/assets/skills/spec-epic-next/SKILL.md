@@ -25,7 +25,10 @@ skitterspec epic status [<epic>] --json
 
 Pass the epic when the invocation names one. Bare, the engine resolves it from
 the worktree you are standing in — the epic's own, or a member's (its
-`> **Epic:**` header). When it resolves nothing (`epic: null`), stop with `⏸`
+`> **Epic:**` header). If neither applies, it falls back to the epic of the
+last member landed and torn down on this machine, while that epic still has
+open members, and answers `via: "last-completed-member"`. Say so in `Notes`.
+When it resolves nothing (`epic: null`), stop with `⏸`
 and name `/spec-epic-next <epic>` in `Next`, with the epics its `inFlight`
 lists as the candidates. **Never pick an epic from conversation**: a
 spec discussed is not the epic in hand, and the engine already knows where you

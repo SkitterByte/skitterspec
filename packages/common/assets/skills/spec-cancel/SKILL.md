@@ -110,6 +110,12 @@ a `Why`: that field is for a run that did not do what it set out to.
 worktree still stands — on a cancelled spec that worktree may hold the only copy
 of the work, so an unreclaimed one is worth a line rather than a silence.
 
+**An epic member's `Next` is `/spec-epic-next <epic>`**, with the epic named
+from the spec's `> **Epic:**` header, read before teardown. Never write a bare
+`/spec-epic-next`: it resolves its epic from the worktree you stand in, and
+teardown has removed it. A cancel records nothing for that bare form to fall
+back on, because only a landed member does.
+
 ## 7. Tear down the environment (opt-in, only if configured)
 
 **Only when `specs/.core/env.config.json` exists**, offer — don't force — to

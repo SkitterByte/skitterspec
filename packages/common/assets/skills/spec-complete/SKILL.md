@@ -223,9 +223,14 @@ about another spec followed from it. `Next` is one action for this spec, and
 
 **An epic member is the one exception to that `Next`.** When the spec carries
 `> **Epic:**`, its own work is done and the next thing for that work is its
-epic's: `Next` is **`/spec-epic-next`**, which names the member that can start
-now. Name the command and nothing else — which members are ready is that
-skill's to read, and listing them here is the survey this section forbids.
+epic's: `Next` is **`/spec-epic-next <epic>`**, with the epic named from that
+header, which names the member that can start now.
+**Read the header before step 7 tears the worktree down.** A bare `/spec-epic-next` resolves its epic
+from the worktree you stand in, and teardown has just removed it and moved the
+session to the primary checkout. Name the command and nothing else — which
+members are ready is that skill's to read, and listing them here is the survey
+this section forbids. An autonomous run that ends here reports this same
+`Next`.
 
 `Landed` says how, because the two ways differ: a fast-forward names the base
 and the commit, a hotfix names the release tag, whether it was pushed, and the

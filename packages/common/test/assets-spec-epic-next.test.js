@@ -14,6 +14,7 @@ const path = require('node:path')
 const SKILLS = path.join(__dirname, '..', 'assets', 'skills')
 const SKILL = fs.readFileSync(path.join(SKILLS, 'spec-epic-next', 'SKILL.md'), 'utf8')
 const COMPLETE = fs.readFileSync(path.join(SKILLS, 'spec-complete', 'SKILL.md'), 'utf8')
+const CANCEL = fs.readFileSync(path.join(SKILLS, 'spec-cancel', 'SKILL.md'), 'utf8')
 
 test('/spec-epic-next reads the engine rather than re-deriving what can start', () => {
   assert.match(SKILL, /skitterspec epic status \[<epic>\] --json/)
@@ -45,6 +46,15 @@ test('the refusals: no free lane, and nothing ready — an unreadable wait inclu
 })
 
 test('/spec-complete on an epic member names /spec-epic-next, and only that', () => {
-  assert.match(COMPLETE, /`> \*\*Epic:\*\*`[\s\S]{0,200}`Next` is \*\*`\/spec-epic-next`\*\*/)
+  assert.match(COMPLETE, /`> \*\*Epic:\*\*`[\s\S]{0,200}`Next` is \*\*`\/spec-epic-next <epic>`\*\*/)
   assert.match(COMPLETE, /Name the command and nothing else/)
+})
+
+// bug-epic-next-after-complete: teardown removes the worktree a bare
+// /spec-epic-next resolves from, so the hand-off must carry the epic's name.
+test('/spec-complete and /spec-cancel name the epic, read before teardown', () => {
+  assert.match(COMPLETE, /\*\*Read the header before step 7 tears the worktree down\.\*\*/)
+  assert.match(CANCEL, /An epic member's `Next` is `\/spec-epic-next <epic>`/)
+  assert.match(CANCEL, /Never write a bare\s+`\/spec-epic-next`/)
+  assert.match(SKILL, /last-completed-member/)
 })

@@ -137,6 +137,48 @@ function memberReaders({ dir, config, worktrees, linkFor = () => null, git }) {
   }
 }
 
+/**
+ * The epic of the last member landed and torn down on this checkout
+ * (bug-epic-next-after-complete). `/spec-complete` removes the member's
+ * worktree — the one thing a bare `epic status` resolved from — and then hands
+ * off to `/spec-epic-next`, so `spec-env down` leaves this behind for a bare
+ * status to fall back to. Beside `last-live.json`, and read the same way.
+ *
+ * WHAT WOULD FOOL THIS: the record is machine-local and gitignored, so a member
+ * completed on another machine, or in another clone, leaves nothing here and a
+ * bare status still names no epic. That is the old answer, not a wrong one.
+ */
+function lastCompletedMemberPath(rootDir, config) {
+  return path.resolve(rootDir, path.dirname(config.registry), 'last-completed-member.json')
+}
+
+function readLastCompletedMember(rootDir, config) {
+  try {
+    const record = JSON.parse(fs.readFileSync(lastCompletedMemberPath(rootDir, config), 'utf-8'))
+    return record && typeof record.epic === 'string' && record.epic ? record : null
+  } catch {
+    return null
+  }
+}
+
+function writeLastCompletedMember(rootDir, config, fields) {
+  const file = lastCompletedMemberPath(rootDir, config)
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  fs.writeFileSync(file, JSON.stringify(fields, null, 2) + '\n')
+}
+
+/**
+ * Is this epic still worth offering: on the base branch, in neither `complete/`
+ * nor `cancelled/`, with a member that is neither? Anything this cannot read
+ * answers false — the caller then names no epic, as it did before the record.
+ */
+function epicStillOpen(epic, inputs) {
+  const entry = inputs.index.get(epic)
+  if (!entry || entry.bucket === 'complete' || entry.bucket === 'cancelled') return false
+  const { members } = epicStatus({ epic, ...inputs })
+  return members.some((m) => m.bucket && m.bucket !== 'complete' && m.bucket !== 'cancelled')
+}
+
 /** The whole answer for one epic: `epicStatus` plus a row per member. */
 function epicAnswer(epic, inputs, readers) {
   const status = epicStatus({ epic, ...inputs })
@@ -144,4 +186,14 @@ function epicAnswer(epic, inputs, readers) {
   return { ...status, rows, next, ...epicPlan(status, { rows, next }) }
 }
 
-module.exports = { epicTree, workingTree, worktreeOverview, epicsInFlight, memberReaders, epicAnswer }
+module.exports = {
+  epicTree,
+  workingTree,
+  worktreeOverview,
+  epicsInFlight,
+  memberReaders,
+  epicAnswer,
+  readLastCompletedMember,
+  writeLastCompletedMember,
+  epicStillOpen,
+}

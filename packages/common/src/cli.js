@@ -232,7 +232,17 @@ const {
   waitsMetByRebase,
 } = require('./env/epic.js')
 const { nextAction, readNextInputs, actionText } = require('./env/nextaction.js')
-const { epicTree, workingTree, worktreeOverview, epicsInFlight, memberReaders, epicAnswer } = require('./env/epicread.js')
+const {
+  epicTree,
+  workingTree,
+  worktreeOverview,
+  epicsInFlight,
+  memberReaders,
+  epicAnswer,
+  readLastCompletedMember,
+  writeLastCompletedMember,
+  epicStillOpen,
+} = require('./env/epicread.js')
 const { planHotfixLand, planBranchHotfixLand, planBranchHotfixFinish, planHotfixFinish, shippedCandidates } = require('./env/hotfix.js')
 const { runHotfixLand, describeStep: describeHotfixStep } = require('./env/hotfixland.js')
 const { planDev } = require('./env/dev.js')
@@ -1185,7 +1195,17 @@ function epicStatusCommand(argv) {
   const inputs = here
     ? { ...based, ...here.tree, waitIndex: based.index, waitRead: based.readFile }
     : based
-  const epic = named || epicFromHere(inputs)
+  // The record is the last rung: a named epic and the tree you stand in both
+  // outrank it, and it is offered only while that epic still has work open.
+  let epic = named || epicFromHere(inputs)
+  let via = null
+  if (!epic && !here && inputs.config) {
+    const record = readLastCompletedMember(inputs.dir, inputs.config)
+    if (record && epicStillOpen(record.epic, inputs)) {
+      epic = record.epic
+      via = 'last-completed-member'
+    }
+  }
   if (!epic) {
     const flying = epicsInFlight(inputs.worktrees)
     const line = flying.length
@@ -1210,7 +1230,7 @@ function epicStatusCommand(argv) {
     // links are relative.
     linkFor: (spec) => memberPageLink(up, offerableLanAddresses(), spec),
   })
-  const answer = { ...epicAnswer(epic, inputs, readers), ...(here ? { here: here.label } : {}) }
+  const answer = { ...epicAnswer(epic, inputs, readers), ...(here ? { here: here.label } : {}), ...(via ? { via } : {}) }
   const page = epicPageTiers(inputs, up, epic)
   if (json) {
     process.stdout.write(JSON.stringify({ base: inputs.base, ...answer, page }, null, 2) + '\n')
@@ -1218,7 +1238,8 @@ function epicStatusCommand(argv) {
   }
   // No such epic is a plain answer; a page link for it would be a link to nothing.
   const found = answer.found || answer.members.length
-  process.stdout.write(formatEpicStatus(answer) + (found ? '\n' + epicPageLines(page) : ''))
+  const whence = via ? `(${epic}: the epic of the last completed member on this checkout)\n` : ''
+  process.stdout.write(formatEpicStatus(answer) + whence + (found ? '\n' + epicPageLines(page) : ''))
 }
 
 // A member's review page as `epic status` prints it: the network URL where the
@@ -2713,6 +2734,18 @@ function reviewServerNoticeFor(dir, config, folder) {
   return reviewServerNotice({ running: Boolean(pid && isAlive(pid)), othersServed })
 }
 
+// A landed epic member leaves its epic for a bare `epic status`, because this
+// teardown removes the worktree that status would otherwise resolve it from
+// (bug-epic-next-after-complete). An unlanded teardown is not a completion and
+// records nothing; a spec in no epic leaves an older record standing.
+function rememberLandedMember(dir, config, spec) {
+  const own =
+    worktreeOverview(spec.projectPath, spec.folder) ||
+    worktreeOverview(projectIn(dir, prefixOf(config)), spec.folder)
+  const epic = own ? epicHeaders(own.overview).epic : null
+  if (epic) writeLastCompletedMember(dir, config, { epic, spec: spec.folder })
+}
+
 function specEnvDown(dir, config, specArg, flags) {
   const spec = resolveSpecWithWorktree(dir, config, specArg)
 
@@ -2752,6 +2785,7 @@ function specEnvDown(dir, config, specArg, flags) {
       )
       return
     }
+    if (clanded) rememberLandedMember(dir, config, spec)
     const dout = [`spec-env down: ${spec.folder}`, '',
                   '  mode:      checkout (no worktree, no slot, no volumes)',
                   `  branch:    ${dplan.branch}`, '', '  run these:']
@@ -2835,6 +2869,7 @@ function specEnvDown(dir, config, specArg, flags) {
   // A torn-down spec is no longer anything a bare resolve should name.
   const last = readLastLive(dir, config)
   if (last && last.spec === spec.folder) clearLastLive(dir, config)
+  if (worktreeState.merged || worktreeState.reachableFromTag) rememberLandedMember(dir, config, spec)
 
   const out = []
   out.push(
