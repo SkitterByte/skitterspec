@@ -64,3 +64,4 @@ Stays-silent companions: `#1021`/`1021`/`XY#1020`/`AB-1020` refuse against an
 
 - 2026-11-25 — Bug reproduced; failing test added (red).
 - 2026-11-25 — Fixed: sameRef reads a tracker prefix and matches an unprefixed ref on its number; test green, 4595 pass.
+- 2026-11-25 — Completed; fix done, tests green. reference.html re-read and stamped.
