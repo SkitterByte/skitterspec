@@ -129,3 +129,5 @@ another epic's worktree.
 - 2026-11-25 — Fixed: `spec-env down` records a landed member's epic, and
   bare `epic status` falls back to it while the epic is open. spec-complete,
   spec-cancel and spec-epic-next name the epic. Tests green (4603 pass).
+- 2026-11-25 — Completed; fix done, tests green. index.html re-read
+  (docs impact) and stamped; no change needed.
