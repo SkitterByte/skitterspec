@@ -98,10 +98,19 @@ function frontmatterField(text, field) {
   return m ? m[1].trim().replace(/^["']|["']$/g, '') || null : null
 }
 
-// `#241`, `241` and `"#241"` are one ticket; `ABC-88` only ever matches itself.
+// `#241`, `241` and `"#241"` are one ticket, and so are `AB#241` and either of
+// them: a typed ref without the tracker's prefix is matched on its number. Two
+// different prefixes (`AB#241`, `XY#241`) never match, and `ABC-88` only ever
+// matches itself.
 function sameRef(a, b) {
-  const norm = (s) => String(s).trim().replace(/^#/, '').toLowerCase()
-  return Boolean(a) && Boolean(b) && norm(a) === norm(b)
+  if (!a || !b) return false
+  const parse = (s) => {
+    const m = /^([a-z]*)#(\d+)$/.exec(String(s).trim().toLowerCase())
+    return m ? { prefix: m[1], id: m[2] } : { prefix: '', id: String(s).trim().toLowerCase() }
+  }
+  const x = parse(a)
+  const y = parse(b)
+  return x.id === y.id && (!x.prefix || !y.prefix || x.prefix === y.prefix)
 }
 
 // Which copy speaks for a spec: its own worktree, then a branch (local before

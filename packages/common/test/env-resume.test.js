@@ -69,6 +69,31 @@ test('a ticket ref finds the spec linked to it, with or without the #', () => {
   assert.strictEqual(findTarget('999', copies, 'github_identifier').target.folder, 'feat-a')
 })
 
+test('an Azure Boards ref (AB#N) is found by #N, by bare N and by AB#N', () => {
+  const copies = [copy('chore-a', 'in-progress', 'here', { fm: 'azure_identifier: "AB#1020"' }), copy('feat-b', 'in-progress', 'here')]
+  for (const arg of ['#1020', '1020', 'AB#1020', 'ab#1020']) {
+    assert.strictEqual(findTarget(arg, copies, 'azure_identifier').target.folder, 'chore-a', arg)
+  }
+})
+
+// STAYS SILENT: the prefix is dropped only when one side has none — two
+// different trackers' prefixes on the same number are two tickets.
+test('#N matching no AB# spec refuses, and another prefix never matches AB#N', () => {
+  const copies = [copy('chore-a', 'in-progress', 'here', { fm: 'azure_identifier: "AB#1020"' })]
+  for (const arg of ['#1021', '1021', 'XY#1020', 'AB-1020']) {
+    const r = findTarget(arg, copies, 'azure_identifier')
+    assert.ok(r.refused && !r.target, arg)
+    assert.doesNotMatch(r.refused, /chore-a/)
+  }
+})
+
+test('a KEY-N ref still matches only itself', () => {
+  const copies = [copy('feat-a', 'in-progress', 'here', { fm: 'linear_identifier: "ABC-88"' })]
+  assert.strictEqual(findTarget('abc-88', copies, 'linear_identifier').target.folder, 'feat-a')
+  assert.ok(findTarget('#88', copies, 'linear_identifier').refused)
+  assert.ok(findTarget('88', copies, 'linear_identifier').refused)
+})
+
 // STAYS SILENT: an unknown ref must never fall back to "the only spec there is".
 test('a ref that matches nothing refuses and names no spec', () => {
   const copies = [copy('feat-only', 'in-progress', 'worktree')]
