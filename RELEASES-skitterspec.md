@@ -5,6 +5,11 @@ What's new for users of skitterspec. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 23.24.6 — 25 Nov 2026
+
+### Epic
+- **Fixed** — After you complete a member of an epic, the suggested /spec-epic-next now names the epic, and a bare epic status still finds it from the main checkout.
+
 ## 23.24.5 — 25 Nov 2026
 
 ### Resume
