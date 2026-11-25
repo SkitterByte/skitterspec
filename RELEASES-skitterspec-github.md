@@ -5,6 +5,11 @@ What's new for users of skitterspec-github. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 3.2.5 — 25 Nov 2026
+
+### Resume
+- **Fixed** — /spec-resume #N now finds a spec linked to Azure Boards (AB#N), as well as by bare N or AB#N.
+
 ## 3.2.4 — 24 Nov 2026
 
 ### Update
