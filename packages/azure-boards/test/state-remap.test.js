@@ -240,7 +240,7 @@ test('a remap of the parent bucket resends its state, guarded', async () => {
 
   writeConfig(dir, { states: { complete: 'Closed' } })
   const { plan } = await planAndApply(dir, adapter)
-  assert.deepStrictEqual(plan.issue, { state: 'complete', stateResend: 'remap' })
+  assert.deepStrictEqual(plan.issue, { state: 'complete', stateResend: 'remap', stateName: 'Closed' })
   assert.strictEqual(adapter.items.get(PARENT).state.name, 'Closed')
 })
 

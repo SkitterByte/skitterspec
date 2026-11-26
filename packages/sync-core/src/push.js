@@ -150,7 +150,34 @@ function push({ dir, snapshotDir, identifier, config }) {
   // apply that writes one over the whole description deletes the team's text.
   // The MCP path reads this to know it must splice (`spec-sync splice`).
   plan.descriptionMode = descriptionMode(config)
+  attachPlannedStateNames(plan, projection)
   return { ok: true, empty: isEmptyPlan(plan), plan, projection }
+}
+
+// THE NAME TO WRITE, ON THE PLAN, beside each bucket it sends. The API apply
+// resolves a bucket per item type (statesByType / statesByKind over `states`);
+// a plan applied by hand over MCP used to be told to map it "via
+// config.states", which skips those overrides — a done phase Task was written
+// the parent's state (bug-azure-phase-done-state). So the plan carries the
+// resolution the provider's `writtenStateName` hook made, and the hand apply
+// copies it rather than re-deriving it from the wrong table.
+//
+// Only where the item sends a state, and only where the hook answered: null
+// means "this bucket sends no state" and is carried as null; undefined
+// (no hook, a hook that threw) adds nothing, so the reader falls back as
+// before. Never read by `isEmptyPlan` or `snapshotOf`, which read named fields.
+function attachPlannedStateNames(plan, projection) {
+  if (plan.issue && plan.issue.state != null && projection.stateName !== undefined) {
+    plan.issue.stateName = projection.stateName
+  }
+  const byRef = new Map((projection.subIssues || []).map((s) => [s && s.ref, s]))
+  for (const list of [plan.subIssues && plan.subIssues.create, plan.subIssues && plan.subIssues.update]) {
+    for (const item of list || []) {
+      if (item.state == null) continue
+      const sub = byRef.get(item.ref)
+      if (sub && sub.stateName !== undefined) item.stateName = sub.stateName
+    }
+  }
 }
 
 /**

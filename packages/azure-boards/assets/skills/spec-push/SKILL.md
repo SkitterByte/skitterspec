@@ -98,8 +98,13 @@ The engine prints a JSON **plan** (no network, no remote read):
 An empty plan (no `issue`, no child create/update) means the mirror is up to
 date — say so and stop. The plan's `subIssues` key is where the children live.
 `state` values are local buckets
-(`backlog`/`in-progress`/`complete`/`cancelled`); map each to the Boards STATE
-name via `config.states` at apply time.
+(`backlog`/`in-progress`/`complete`/`cancelled`), and
+each planned item also carries **`stateName`**, the Boards STATE name the engine
+resolved for that item's own type (`statesByType` over `states`) —
+**write that name**, never a lookup of your own. `stateName: null` means the bucket sends no
+state for that type: leave the state alone. Only an item with no `stateName`
+(a plan from an older engine) falls back to `config.states`, and a phase there
+is where that fallback goes wrong when a per-type or per-kind map is set.
 
 A **`phasesDeferred`** field means `mapping.phases` is `"deferred"` and this spec
 has not started, so its phases are deliberately absent from the plan — the item
@@ -187,8 +192,7 @@ say, which includes every case the engine could not tell.
    **mints** it: create it with the write tool (`action: create`; work item type
    = `azure.workItemType`; title from the spec title; description from
    `plan.issue.description`, **as markdown** — set the markdown format where
-   the tool offers it), then set its state to the one `config.states` maps
-   `plan.issue.state` to. Keep the returned id and url for step 5 — don't
+   the tool offers it), then set its state to `plan.issue.stateName`. Keep the returned id and url for step 5 — don't
    hand-edit frontmatter. If it already exists and `plan.issue` is present,
    **update it by id**, and set the state only when it actually differs.
 2. **Children create** → for each, create with `action: add_child` under the

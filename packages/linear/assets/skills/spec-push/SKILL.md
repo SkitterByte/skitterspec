@@ -96,8 +96,13 @@ The engine prints a JSON **plan** (no network, no remote read):
 
 An empty plan (no `issue`, no sub-issue create/update) means the mirror is up to
 date — say so and stop. `state` values are local buckets
-(`backlog`/`in-progress`/`complete`/`cancelled`); map each to the Linear
-issue-state NAME via `config.states` at apply time.
+(`backlog`/`in-progress`/`complete`/`cancelled`), and
+each planned item also carries **`stateName`**, the Linear issue-state name the engine
+resolved for that item's own type (`statesByKind` over `states`) —
+**write that name**, never a lookup of your own. `stateName: null` means the bucket sends no
+state for that type: leave the state alone. Only an item with no `stateName`
+(a plan from an older engine) falls back to `config.states`, and a phase there
+is where that fallback goes wrong when a per-type or per-kind map is set.
 
 A **`phasesDeferred`** field means `mapping.phases` is `"deferred"` and this spec
 has not started, so its phases are deliberately absent from the plan — the issue
@@ -199,12 +204,12 @@ say, which includes every case the engine could not tell.
    **mints** it: run the picker in **Picking the Linear Project** below, then
    create it with `save_issue` (`team` = `linear.teamId`; `project` = the picked
    id; `title` from the spec title; `description` from `plan.issue.description`;
-   state from `plan.issue.state` via `config.states`). Keep the returned
+   state = `plan.issue.stateName`). Keep the returned
    identifier and url for step 5 — don't hand-edit frontmatter. If it already
    exists and `plan.issue` is present, **update it by id and send no `project`**
    — its placement is Linear's from then on.
 2. **Sub-issues create** → for each, `save_issue` with `parentId` = the spec
-   issue id (`name` → title, `goal` → description, `state` via `config.states`).
+   issue id (`name` → title, `goal` → description, state = its `stateName`).
    Keep each returned id against its `ref` (the phase-file basename).
 3. **Sub-issues update** → `save_issue` by `id` (title/description/state).
 4. **Put an epic member under its epic.** Only when the overview carries

@@ -98,8 +98,13 @@ The engine prints a JSON **plan** (no network, no remote read):
 An empty plan (no `issue`, no sub-issue create/update) means the mirror is up to
 date — say so and stop. The plan's `subIssues` key is where the sub-issues live.
 `state` values are local buckets
-(`backlog`/`in-progress`/`complete`/`cancelled`); map each to the GitHub STATUS
-name via `config.states` at apply time.
+(`backlog`/`in-progress`/`complete`/`cancelled`), and
+each planned item also carries **`stateName`**, the GitHub STATUS name the engine
+resolved for that item's own type (`statesByKind` over `states`) —
+**write that name**, never a lookup of your own. `stateName: null` means the bucket sends no
+state for that type: leave the state alone. Only an item with no `stateName`
+(a plan from an older engine) falls back to `config.states`, and a phase there
+is where that fallback goes wrong when a per-type or per-kind map is set.
 
 A **`phasesDeferred`** field means `mapping.phases` is `"deferred"` and this spec
 has not started, so its phases are deliberately absent from the plan — the issue
@@ -191,8 +196,7 @@ say, which includes every case the engine could not tell.
 1. **Spec issue** → if the overview has no `github_identifier`, this push
    **mints** it: create it with `issue_write` (title from the spec title; body
    from `plan.issue.description`; label `github.labels.spec`), then with
-   `projects_write` add it to the board and set its Status to the option
-   `config.states` maps `plan.issue.state` to. Keep the returned number and url
+   `projects_write` add it to the board and set its Status to `plan.issue.stateName`. Keep the returned number and url
    for step 5 — don't hand-edit frontmatter. If it already exists and
    `plan.issue` is present, **update it by number** with `issue_write`, and set
    the Status only when it actually differs.
