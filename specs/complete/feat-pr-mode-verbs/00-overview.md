@@ -182,3 +182,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   (`RENAMED_KEYS`). Parked distributions (Linear, Jira) are not built, so
   their `MIGRATION.md` copies are synced by hand. A guard test now fails if a
   retired name reappears in a shipped file or site page.
+- 2026-11-26 — Completed; all phases done, tests green.
