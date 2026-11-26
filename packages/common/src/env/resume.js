@@ -167,7 +167,9 @@ function findTarget(arg, copies, identifierField) {
  *
  * @param {object} target  the copy `findTarget` chose
  * @param {object} env     what the caller could see:
- *   `{ branch, worktreePath, worktreeExists, localBranch, remoteBranch, remote, identifierField }`
+ *   `{ branch, base, onBase, worktreePath, worktreeExists, localBranch, remoteBranch, remote, identifierField }`
+ *   — `onBase` is whether the checkout the command ran from stands on `base`;
+ *   anything but `true` is read as no.
  */
 function planResume(target, env) {
   const progress = phaseProgress((target.phases || []).map((p) => ({ content: p.text })))
@@ -205,6 +207,14 @@ function planResume(target, env) {
   // back an empty tree with the spec's work out of reach — that is a start,
   // and starting is /spec-start's. So: the local branch, else the remote's,
   // else a refusal.
+  //
+  // The one exception is a copy read off the base branch itself: then the
+  // base holds everything that copy describes, as it does for a re-open, and
+  // a branch at the base loses nothing. It is created without `-f`, so a
+  // branch that appeared since the plan is refused by git rather than reset.
+  // WHAT WOULD FOOL THIS: an unfetched remote. A branch pushed from another
+  // machine since the last fetch reads as absent, and the new local branch
+  // then diverges from it — a push is refused, nothing is lost.
   let commands
   if (env.localBranch) {
     commands = [`git worktree add ${shellPath(env.worktreePath)} ${env.branch}`]
@@ -213,6 +223,14 @@ function planResume(target, env) {
       `git fetch ${env.remote} ${env.branch}`,
       `git worktree add ${shellPath(env.worktreePath)} -b ${env.branch} --track ${env.remote}/${env.branch}`,
     ]
+  } else if (target.origin === 'here' && env.onBase === true && env.base) {
+    return {
+      ok: true,
+      ...base,
+      base: env.base,
+      commands: [`git branch ${env.branch} ${env.base}`, `skitterspec spec-env up ${target.folder}`],
+      then: [],
+    }
   } else {
     return {
       ok: false,
@@ -333,7 +351,9 @@ function resumeLines(r) {
     return lines
   }
   lines.push(`  worktree:  ${r.worktree.path}${r.worktree.present ? '' : '  (missing — provision below)'}`)
-  if (r.commands.length) {
+  if (r.commands.length && !r.then.length) {
+    lines.push('', `  to provision at ${r.base}, run (then run what \`up\` prints):`, ...r.commands.map((c) => `    ${c}`))
+  } else if (r.commands.length) {
     lines.push('', '  to provision, run:', ...r.commands.map((c) => `    ${c}`))
     lines.push('', '  then, run:', ...r.then.map((c) => `    ${c}`))
   }

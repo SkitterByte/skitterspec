@@ -5065,8 +5065,13 @@ function specEnvResume(dir, config, arg, flags = {}) {
     process.stdout.write(flags.json ? JSON.stringify(rr, null, 2) + '\n' : reopenLines(rr).join('\n') + '\n')
     return
   }
+  // A detached HEAD or a git error reads `HEAD` or null, never the base, so
+  // either refuses as before.
+  const head = git(['rev-parse', '--abbrev-ref', 'HEAD'])
   const r = planResume(target, {
     branch,
+    base,
+    onBase: Boolean(base) && head === base,
     worktreePath,
     worktreeExists: fs.existsSync(worktreePath),
     localBranch: git(['show-ref', '--verify', '--quiet', `refs/heads/${branch}`]) !== null,

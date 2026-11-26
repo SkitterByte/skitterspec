@@ -148,6 +148,45 @@ test('with no branch anywhere it refuses rather than starting one', () => {
   assert.match(r.refused, /nothing to resume from/)
 })
 
+// The copy on the base branch is the spec's only copy: its branch merged and
+// went, and its work is on the base. A branch at the base holds all of it.
+test('a base-branch copy with no branch anywhere re-attaches at the base, create-then-up', () => {
+  const r = planResume(copy('feat-x', 'in-progress', 'here'), { ...ENV, worktreeExists: false, base: 'main', onBase: true })
+  assert.strictEqual(r.ok, true)
+  assert.strictEqual(r.base, 'main')
+  assert.deepStrictEqual(r.commands, ['git branch feat/x main', 'skitterspec spec-env up feat-x'])
+  // Never -f: a branch that appeared since the plan is not reset.
+  for (const c of r.commands) assert.doesNotMatch(c, /-f\b/)
+  assert.match(resumeLines(r).join('\n'), /git branch feat\/x main/)
+})
+
+// STAYS SILENT: a copy read off another worktree or a branch is not proof the
+// base holds the work, so it keeps the old refusal, with nothing offered.
+test('a copy from anywhere but the base branch still refuses with no branch', () => {
+  const cases = [
+    [copy('feat-x', 'in-progress', 'here'), { onBase: false }],
+    [copy('feat-x', 'in-progress', 'here'), { onBase: null }],
+    [copy('feat-x', 'in-progress', 'worktree'), { onBase: true }],
+    [copy('feat-x', 'in-progress', 'branch'), { onBase: true }],
+    [copy('feat-x', 'in-progress', 'here'), { onBase: true, base: null }],
+  ]
+  for (const [c, extra] of cases) {
+    const r = planResume(c, { ...ENV, worktreeExists: false, base: 'main', ...extra })
+    assert.strictEqual(r.ok, false, JSON.stringify(extra))
+    assert.match(r.refused, /nothing to resume from/)
+    assert.strictEqual(r.offer, undefined)
+  }
+})
+
+// UNCHANGED: a leftover branch is attached as before, never re-created at the
+// base, even when the copy is on the base — it may hold commits the base lacks.
+test('a base-branch copy with its branch still present attaches that branch', () => {
+  const local = planResume(copy('feat-x', 'in-progress', 'here'), { ...ENV, worktreeExists: false, base: 'main', onBase: true, localBranch: true })
+  assert.deepStrictEqual(local.commands, ['git worktree add /wt/x feat/x'])
+  const remote = planResume(copy('feat-x', 'in-progress', 'here'), { ...ENV, worktreeExists: false, base: 'main', onBase: true, remoteBranch: true })
+  assert.deepStrictEqual(remote.commands, ['git fetch origin feat/x', 'git worktree add /wt/x -b feat/x --track origin/feat/x'])
+})
+
 test('the text report carries ticket, progress, each blocker and the plan', () => {
   const target = copy('feat-x', 'in-progress', 'branch', {
     fm: 'github_identifier: "#9"',

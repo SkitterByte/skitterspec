@@ -114,6 +114,15 @@ The commands attach the spec's own branch, local or tracked from the remote.
 **Never add a `-b` of your own.** A fresh fork would hand back an empty tree with
 the work out of reach, and the engine refused that case already.
 
+**One plan re-creates the branch, at the base.** When `source` is `here`, the
+checkout stands on the base branch and no branch exists locally or on the
+remote, the spec's only copy is the base's: its earlier branches merged and
+went, so the base holds all of its work. `commands` is then
+`git branch <branch> <base>` and `spec-env up <spec>`, and `then` is empty, as
+in **1b**: run both from the primary checkout, then the commands `up` prints,
+then its `then` line with the `cd` in front. A copy read from anywhere else
+still refuses, because there the work may really be out of reach.
+
 **When `commands` is empty, the worktree is there.** `cd` into `worktree.path`
 unless the session is already standing in it.
 

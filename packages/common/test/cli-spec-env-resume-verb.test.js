@@ -181,3 +181,27 @@ test('--reopen resets a merged leftover branch and refuses an unmerged one', asy
     cleanup(dir)
   }
 })
+
+// The ereqs shape: in-progress on main, its branch merged and deleted, its
+// work all on main. Standing on main, the plan re-attaches it at main; standing
+// anywhere else, the main copy is not this checkout's, and it still refuses.
+test('an in-progress spec whose only copy is on main re-attaches at main', async () => {
+  const { dir } = scaffold()
+  try {
+    git(dir, 'merge', '-q', '--ff-only', 'feat/x')
+    git(dir, 'branch', '-D', 'feat/x')
+    const { out, exit } = await runQuiet(['spec-env', 'resume', 'feat-x', '--dir', dir, '--json'])
+    const r = JSON.parse(out)
+    assert.strictEqual(exit, undefined)
+    assert.strictEqual(r.source, 'here')
+    assert.deepStrictEqual(r.commands, ['git branch feat/x main', 'skitterspec spec-env up feat-x'])
+
+    git(dir, 'switch', '-q', '--detach')
+    const off = await runQuiet(['spec-env', 'resume', 'feat-x', '--dir', dir, '--json'])
+    assert.strictEqual(off.exit, 1)
+    assert.match(JSON.parse(off.out).refused, /nothing to resume from/)
+    assert.strictEqual(JSON.parse(off.out).offer, undefined)
+  } finally {
+    cleanup(dir)
+  }
+})
