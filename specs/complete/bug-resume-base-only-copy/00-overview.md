@@ -89,3 +89,4 @@ anywhere re-attaches at the base, create-then-up*: expects `ok: true` and
   and is the attach the operator asked for. `CHANGELOG.md` is frozen, so the
   user-facing entry is the commit's `Release-Note:`.
 - 2026-11-26 — Fixed: base-only copy re-attaches at the base; test green.
+- 2026-11-26 — Completed; fix done, tests green.
