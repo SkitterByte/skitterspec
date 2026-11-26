@@ -134,6 +134,18 @@ skitterspec update --all
 
 Repeat both lines inside the VM.
 
+## `@skitterbyte/skitterspec-github` v3 → v4 (PR-mode verbs, no `main` in commands)
+
+The providers ship the base skills, so the renames apply here too. See
+[PR-mode verbs, and no command says `main`](#pr-mode-verbs-and-no-command-says-main-action-required).
+
+## `@skitterbyte/skitterspec-azure-boards` v3 → v4 (PR-mode verbs, no `main` in commands)
+
+The providers ship the base skills, so the renames apply here too. See
+[PR-mode verbs, and no command says `main`](#pr-mode-verbs-and-no-command-says-main-action-required).
+A push made without an API token now writes each phase Task its own type's
+state (`statesByType`), where it used to write the parent's.
+
 ## `@skitterbyte/skitterspec-github` v2 → v3 (the `skitterspec` bin moves to the base)
 
 Install `@skitterbyte/skitterspec` alongside. See
