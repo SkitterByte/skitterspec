@@ -76,3 +76,4 @@ _No external surface changes — internal refactor only._
   fixed here because the cause is the same.
 - 2026-11-26 — Fixed: CRLF-tolerant fences and an eol-preserving write; tests
   green (4642 passed).
+- 2026-11-26 — Completed; fix in, tests green (4642 passed).
