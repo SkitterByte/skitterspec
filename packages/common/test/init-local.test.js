@@ -424,7 +424,8 @@ test('localSeedFiles lists skill folders and the per-machine files, and nothing 
     assert.ok(seeds.includes('CLAUDE.local.md'))
     assert.ok(seeds.some((p) => p.startsWith('.claude/hooks/')))
     assert.ok(seeds.includes('specs/.core/.skitterspec-manifest.json'), 'the manifest, which records the scope')
-    assert.ok(!seeds.some((p) => p.startsWith('specs/') && !p.endsWith('.skitterspec-manifest.json')), 'specs are git-carried')
+    assert.ok(seeds.includes('specs/.core/env.config.md'), 'a managed template, which git does not carry')
+    assert.ok(!seeds.some((p) => p.startsWith('specs/') && !p.startsWith('specs/.core/')), 'specs are git-carried')
     await teamInit(team)
     assert.deepStrictEqual(localSeedFiles(team), [], 'stays silent for a team install')
   } finally {
@@ -550,6 +551,103 @@ test('an update of a team install never reads it as local', async () => {
     await quiet(() => resync(dir, { claudeMd: true }))
     assert.strictEqual(readManifest(dir).scope, 'team')
     assert.ok(!lastReport().skipped.some((l) => /kept local/.test(l)), 'stays silent for a team install')
+  } finally {
+    cleanup(dir)
+  }
+})
+
+// --- bug-local-install-templates --------------------------------------------
+// The specs/.core templates are managed files like any other, so a local
+// install keeps them out of git too. Before the fix they were dropped from the
+// exclude block and the seed list, and the first `update` after a template
+// changed upstream dirtied a tracked file in the consumer's repo.
+
+const { sha1 } = require('../src/init.js')
+const TEMPLATE = 'specs/.core/env.config.md'
+
+// Make one installed template look like an older release's pristine copy, so
+// the next `update` rewrites it — the upstream template change.
+function ageTemplate(dir, relPath = TEMPLATE) {
+  const old = '# an older release of this template\n'
+  fs.writeFileSync(path.join(dir, relPath), old)
+  const file = path.join(dir, 'specs', '.core', '.skitterspec-manifest.json')
+  const manifest = JSON.parse(fs.readFileSync(file, 'utf8'))
+  manifest.files[relPath] = sha1(old)
+  fs.writeFileSync(file, JSON.stringify(manifest, null, 2))
+}
+
+const untrackHint = (r) => r.warnings.filter((w) => /git rm --cached/.test(w))
+
+test('a local install update across a template change leaves git status clean', async () => {
+  const dir = repo()
+  try {
+    await localInit(dir)
+    ageTemplate(dir)
+    commitAll(dir, 'everything git can see')
+    await quiet(() => resync(dir, { claudeMd: true }))
+    assert.ok(lastReport().updated.includes(TEMPLATE), 'the template was rewritten')
+    assert.deepStrictEqual(visible(dir), [], 'git status is clean')
+    assert.ok(!index(dir).includes(TEMPLATE), 'the template never reached git')
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('every managed template is excluded and seeded; live configs never are', async () => {
+  const dir = repo()
+  try {
+    await localInit(dir)
+    const core = path.join(dir, 'specs', '.core')
+    const templates = fs.readdirSync(core).filter((f) => f.endsWith('.example') || f.endsWith('.md'))
+    assert.ok(templates.length >= 3, 'templates installed')
+    const exclude = fs.readFileSync(path.join(dir, '.git', 'info', 'exclude'), 'utf8')
+    const seeds = localSeedFiles(dir)
+    for (const f of templates) {
+      assert.ok(exclude.includes(`/specs/.core/${f}\n`), `${f} excluded`)
+      assert.ok(seeds.includes(`specs/.core/${f}`), `${f} seeded`)
+    }
+    for (const live of ['env.config.json', 'gating.config.json', 'github.config.json', 'azure-boards.config.json']) {
+      fs.writeFileSync(path.join(core, live), '{}\n')
+      assert.ok(!exclude.includes(`/specs/.core/${live}\n`), `${live} never excluded`)
+      assert.ok(!seeds.includes(`specs/.core/${live}`), `${live} never seeded`)
+    }
+    assert.ok(visible(dir).includes('specs/.core/env.config.json'), 'a live config stays visible to git')
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('an already tracked template is reported with the command, never untracked', async () => {
+  const dir = repo()
+  try {
+    await localInit(dir)
+    // An install from before the fix: git add specs/ took the templates.
+    git(dir, 'add', '-f', '--', ...fs.readdirSync(path.join(dir, 'specs', '.core')).filter((f) => f.endsWith('.md') || f.endsWith('.example')).map((f) => 'specs/.core/' + f))
+    git(dir, 'commit', '-q', '-m', 'templates tracked')
+    const before = index(dir)
+    await quiet(() => resync(dir, { claudeMd: true }))
+    assert.deepStrictEqual(index(dir), before, 'the index is untouched')
+    assert.deepStrictEqual(staged(dir), [], 'nothing staged')
+    const hint = untrackHint(lastReport())
+    assert.strictEqual(hint.length, 1, 'one warning, not one per file')
+    assert.ok(hint[0].includes(`git rm --cached -- `), 'names the command')
+    assert.ok(hint[0].includes(TEMPLATE), 'names the tracked template')
+    assert.ok(!hint[0].includes('.skitterspec-manifest.json'), 'the manifest is not a template')
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('stays silent: a team install update across a template change', async () => {
+  const dir = repo()
+  try {
+    await teamInit(dir)
+    ageTemplate(dir)
+    commitAll(dir, 'team install')
+    await quiet(() => resync(dir, { claudeMd: true }))
+    assert.ok(lastReport().updated.includes(TEMPLATE), 'the team gets the new template to commit')
+    assert.deepStrictEqual(untrackHint(lastReport()), [], 'no untrack advice for a team')
+    assert.ok(index(dir).includes(TEMPLATE), 'still tracked')
   } finally {
     cleanup(dir)
   }

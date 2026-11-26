@@ -324,7 +324,7 @@ Usage:
   skitterspec uninstall [dir] Take a local install (init --local) back off this
                               machine: managed files, hooks, the CLAUDE.local.md
                               block, the git excludes. Prints the plan; --yes
-                              acts. Edited files are kept; specs/ is untouched.
+                              acts. Edited files are kept; specs are untouched.
                               Refuses a team install, or while a spec is in flight.
   skitterspec disable [dir]   Switch a local install off for this machine's
                               Claude — skills, commands, rules, hooks, the

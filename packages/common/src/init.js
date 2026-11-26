@@ -1454,10 +1454,17 @@ function resolveScope(dir, local) {
   }
 }
 
-// The paths a local install keeps out of git: every managed file, the block's
-// file, the per-machine settings, the manifest and the review store. Listed per
-// PATH rather than per directory, so a teammate's own `.claude/skills/foo` is
-// untouched.
+// The paths a local install keeps out of git: every managed file — the
+// specs/.core templates included — the block's file, the per-machine settings,
+// the manifest and the review store. Listed per PATH rather than per directory,
+// so a teammate's own `.claude/skills/foo` is untouched, and so the LIVE configs
+// beside the templates (env.config.json, <provider>.config.json,
+// gating.config.json) stay visible: they are not managed, so never listed.
+//
+// The templates were once filtered out here, which left them out of both the
+// exclude block and the worktree seeds while the manifest still managed them,
+// and an `update` that changed one dirtied a tracked file
+// (bug-local-install-templates).
 //
 // A skill is listed as its DIRECTORY (no trailing slash), because a worktree
 // gets it seeded as one symlink — which git sees as a file at that path, and a
@@ -1465,7 +1472,6 @@ function resolveScope(dir, local) {
 function localManagedPaths(dir) {
   const paths = managedTargets(dir)
     .map((t) => t.relPath)
-    .filter((p) => !p.startsWith('specs/'))
     .map((p) => (p.startsWith('.claude/skills/') ? path.posix.dirname(p) : p))
   return [...new Set(paths)]
 }
@@ -1580,6 +1586,20 @@ function convertCommitted(dir) {
   } catch {
     return // not a git repo — writeLocalExcludes says so
   }
+  // A TRACKED specs/.core TEMPLATE IS REPORTED, NEVER UNTRACKED. specs/ is the
+  // part of a local install git carries, and a template sitting in it may be
+  // there on purpose — this cannot tell, so it names the command and leaves
+  // the index alone. Untracked, the exclude block hides it from then on.
+  const isTemplate = (p) => p.startsWith('specs/') && p !== MANIFEST_FILE.replace(/\\/g, '/')
+  const templates = tracked.filter(isTemplate)
+  if (templates.length) {
+    tracked = tracked.filter((p) => !templates.includes(p))
+    report.warnings.push(
+      `${templates.length} managed specs/.core template(s) still tracked by git, so an update that ` +
+        'changes one dirties git. To keep them on disk and out of git, run here and commit: ' +
+        `git rm --cached -- ${templates.join(' ')}`,
+    )
+  }
   let staged = tracked.length > 0
   if (tracked.length) {
     git('rm', '--cached', '-q', '--', ...tracked)
@@ -1642,7 +1662,10 @@ function convertCommitted(dir) {
     )
   }
 
-  for (const row of branchesCarryingInstall(dir, candidates)) {
+  // The templates are left out here for the reason they are never untracked
+  // above: on a branch they may be committed on purpose, so they are not what
+  // "still commits the install" means.
+  for (const row of branchesCarryingInstall(dir, candidates.filter((p) => !isTemplate(p)))) {
     if (row.cannotTell) {
       report.warnings.push(`${row.ref}: cannot tell whether it still commits the install — git could not read it`)
       continue
@@ -1939,7 +1962,7 @@ function uninstall(dir, { yes = false, inFlight = [], cannotTell = null, log = (
     return 1
   }
 
-  // The files: every managed target outside specs/, plus any manifest entry
+  // The files: every managed target, plus any manifest entry
   // the package no longer ships (a retired skill is still a skill on disk).
   const targets = new Map()
   for (const t of managedTargets(dir)) targets.set(t.relPath.split(path.sep).join('/'), t.bundled)
@@ -1956,8 +1979,24 @@ function uninstall(dir, { yes = false, inFlight = [], cannotTell = null, log = (
     for (let n = 2; fs.existsSync(target); n++) target = path.join(parkRoot, `${relPath}.${n}`)
     return target
   }
+  // The specs/.core templates are excluded like every managed file, so they go
+  // with the rest — but only those git does not track. A tracked one is the
+  // repo's (a team-era commit, or one kept on purpose) and stays. Git
+  // unreachable is cannot-tell, and keeps every template.
+  let untrackedTemplates = new Set()
+  try {
+    const templates = [...targets.keys()].filter((p) => p.startsWith('specs/.core/'))
+    const tracked = templates.length
+      ? execFileSync('git', ['-C', dir, 'ls-files', '--', ...templates], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+          .split('\n')
+          .filter(Boolean)
+      : []
+    untrackedTemplates = new Set(templates.filter((p) => !tracked.includes(p)))
+  } catch {
+    /* not a git repo — keep the templates */
+  }
   for (const [relPath, bundled] of [...targets].sort(([a], [b]) => a.localeCompare(b))) {
-    if (relPath.startsWith('specs/')) continue
+    if (relPath.startsWith('specs/') && !untrackedTemplates.has(relPath)) continue
     const state = managedState(dir, relPath, manifest, bundled)
     if (state === 'pristine') remove.push(relPath)
     else if (state !== 'missing') keep.push({ relPath, parked: parkRoot ? parkFor(relPath) : null })
