@@ -78,7 +78,7 @@ for (const name of RENDERS) {
 // described — or relayed — as measured from the base branch.
 test('/spec-hotfix says the range is measured from the base tag', () => {
   const text = skillText('spec-hotfix')
-  assert.match(text, /measured from the base tag, not from `main`/)
+  assert.match(text, /measured from the base tag, not from the base branch/)
   assert.match(text, /says `since <tag>`/)
   assert.match(text, /do not relay it as `since main`/)
 })

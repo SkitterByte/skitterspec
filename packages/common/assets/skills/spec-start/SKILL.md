@@ -30,8 +30,8 @@ its paths on both the `add` and the `commit`, so it cannot reach a file that is
 not this spec's. Work belonging to someone else is **reported and left alone**,
 never a refusal. Nothing is switched here and nothing is parked.
 
-**`checkout` mode — the workbench must be free**: on the base branch (`main`, or
-the configured `baseBranch`) and clean, since the branch is built right here and
+**`checkout` mode — the workbench must be free**: on the base branch (`main`, `master`,
+or the configured `baseBranch`) and clean, since the branch is built right here and
 this mode holds one spec at a time. If it isn't, relay what is in flight and
 stop — name the spec holding the checkout and the two ways out, then end your
 turn:
@@ -373,7 +373,7 @@ confirmation run `skitterspec spec-env dev up <name>`. With none configured this
 is a clean no-op.
 
 To reach the spec at your normal `localhost` URL afterwards, the **user** types
-**`/spec-connect <name>`** (`/spec-connect main` hands the ports back). Never
+**`/spec-connect <name>`** (`/spec-connect off` hands the ports back). Never
 invoke it yourself.
 
 ## 6. Build phase 1

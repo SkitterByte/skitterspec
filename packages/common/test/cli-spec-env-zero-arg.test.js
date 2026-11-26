@@ -287,13 +287,13 @@ test('`connect` with no spec resolves the sole provisioned spec', async () => {
   }
 })
 
-test('stays silent: `connect main` still hands the ports back', async () => {
+test('stays silent: `connect off` still hands the ports back', async () => {
   // The disconnect form did not move — it just has to be named now.
   const dir = scaffold()
   try {
     addSpec(dir, 'feat-alpha')
     addWorktree(dir, 'feat-alpha')
-    const out = await runQuiet(['spec-env', 'connect', 'main', '--dir', dir])
+    const out = await runQuiet(['spec-env', 'connect', 'off', '--dir', dir])
     assert.match(out, /nothing was connected|primary checkout already owns|disconnected/)
     assert.doesNotMatch(out, /feat-alpha/, 'did not seize the ports')
   } finally {
@@ -352,7 +352,7 @@ test('`connect` with no spec resolves the worktree you are standing in', async (
 
 test('stays silent: `connect <base>` disconnects where the base is not main', async () => {
   // The same courtesy `live` extends: the configured base branch is a disconnect
-  // word, and the literal `main` keeps working in either repo.
+  // word, and `off` works in either repo (the literal `main` was dropped).
   const dir = scaffold()
   try {
     fs.writeFileSync(
@@ -365,7 +365,7 @@ test('stays silent: `connect <base>` disconnects where the base is not main', as
     addSpec(dir, 'feat-alpha')
     addWorktree(dir, 'feat-alpha')
 
-    for (const word of ['trunk', 'main']) {
+    for (const word of ['trunk', 'off']) {
       const out = await runQuiet(['spec-env', 'connect', word, '--dir', dir])
       assert.match(out, /nothing was connected|primary checkout already owns|disconnected/, word)
       assert.doesNotMatch(out, /feat-alpha/, `${word} did not seize the ports`)

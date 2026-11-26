@@ -44,7 +44,7 @@ test('on — the primary checkout is on this spec\'s branch', () => {
   // — and the verb is what they need when they are in a terminal.
   assert.match(
     liveStateLine(live),
-    /^ {2}live: +on — running at http:\/\/localhost:3000; \/spec-live main to restore main$/,
+    /^ {2}live: +on — running at http:\/\/localhost:3000; \/spec-live off hands the root checkout back$/,
   )
 })
 
@@ -52,7 +52,7 @@ test('on with no canonical port names no URL rather than inventing one', () => {
   const live = liveStateFor(SPEC, { isolated: true, onBase: false, primaryBranch: 'feat/x' })
   assert.strictEqual(live.state, 'on')
   assert.strictEqual(live.url, null)
-  assert.strictEqual(liveStateLine(live), '  live:    on; /spec-live main to restore main')
+  assert.strictEqual(liveStateLine(live), '  live:    on; /spec-live off hands the root checkout back')
 })
 
 test('off — the workbench is free and the spec has a worktree to take', () => {

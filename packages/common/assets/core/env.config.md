@@ -265,7 +265,7 @@ through to a documented conservative default; see the field notes below.
   // Front-door proxy for `spec-env connect <spec>` — a small bundled Node
   // reverse proxy (no external install) that exposes ONE connected spec's
   // frontPort dev servers on the canonical ports. Exclusive: one target at a
-  // time. `connect main` stops it so the primary checkout owns the ports again.
+  // time. `connect off` stops it so the primary checkout owns the ports again.
   "proxy": {
     "enabled": true,        // false = the connect command is unavailable
     "host": "127.0.0.1"     // bind host for the canonical ports
@@ -398,7 +398,7 @@ through to a documented conservative default; see the field notes below.
   // skitterspec lifecycle command aimed at ANOTHER skitterspec project (a
   // checkout with specs/.core/); reads and every other program pass. The user
   // lifts it for one session with /allow-project <name>; false turns it off
-  // for this project. Its sibling `mainIsLandingZone` is the main guard's switch.
+  // for this project. Its sibling `baseIsLandingZone` is the main guard's switch.
   "guards": {
     "refuseTeardownIfDirty": true,
     "refuseTeardownIfUnpushed": true,

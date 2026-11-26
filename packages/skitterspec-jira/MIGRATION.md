@@ -1,5 +1,33 @@
 # Migration guide
 
+## PR-mode verbs, and no command says `main` (action required)
+
+Four names are gone, with no alias. `skitterspec update` retires the old skill
+and command files (a copy you edited is kept, with the usual warning):
+
+| Was | Now |
+|-----|-----|
+| `/spec-to-main` | **`/spec-land`** in trunk mode; it refuses in PR mode and names `/spec-pr` |
+| `/spec-live main`, `/spec-connect main` | **`/spec-live off`**, **`/spec-connect off`** (naming your base branch still works) |
+| `/allow-main` | **`/allow-base`** |
+| `guards.mainIsLandingZone` | **`guards.baseIsLandingZone`** |
+
+**Rename the config key by hand.** A config still setting
+`guards.mainIsLandingZone` is not read: the guard falls back to its default,
+which is **on**, and every `spec-env` command prints
+`unknown key "guards.mainIsLandingZone" is ignored; it was renamed "guards.baseIsLandingZone"`.
+
+**PR mode has its own verb now.** `/spec-pr` pushes the branch as a draft PR
+while phases remain, and once every phase is done it runs the disposition pass
+and readies the PR. `/spec-complete` runs **once, after the host merges** — it
+refuses before the merge and names the PR — and it recognises a squash or
+rebase merge by the host's answer, not by ancestry alone. A project that lands
+some features by PR and some directly passes `--strategy pr` to `/spec-pr`.
+
+**A branch live refuses names your route.** Set `live.refusedReach` to
+`worktree`, `pr` or `live-confirm` in `env.config.json` so a migrations branch
+is pointed at the way your team tests one; unset lists all three.
+
 ## Providers drop the `skitterspec` bin: install the base alongside (action required)
 
 Every provider used to answer to two names: its own (`skitterspec-github`)

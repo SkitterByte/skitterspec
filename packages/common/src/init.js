@@ -1957,7 +1957,7 @@ function uninstall(dir, { yes = false, inFlight = [], cannotTell = null, log = (
       'uninstall: refused — work is still in flight here, and its worktrees carry a copy of the install:\n' +
         inFlight.map((f) => `  ${f.spec}  ${f.where}\n`).join('') +
         '  Finish each with /spec-complete, drop it with /spec-cancel (or spec-env down <name>),\n' +
-        '  and hand a live spec back with /spec-live main. Nothing changed.\n',
+        '  and hand a live spec back with /spec-live off. Nothing changed.\n',
     )
     return 1
   }

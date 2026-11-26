@@ -48,7 +48,7 @@ the operator can run them.
 |---------|--------|
 | `/spec-connect` | Point the canonical `localhost` ports at one spec's stack |
 | `/spec-live` | Check one spec out in the primary checkout, so a running dev server reloads it |
-| `/allow-main` | Allow writes on the base branch for this session — yours to run, never Claude's |
+| `/allow-base` | Allow writes on the base branch for this session — yours to run, never Claude's |
 | `/allow-project` | Let this session work on another skitterspec project — yours to run, never Claude's |
 | `/spec-skip` | Move on from a phase without a verdict, reason recorded — yours to run, never Claude's |
 | `/spec-epic` | What every member of an epic needs next, in which tab, and the epic page |
@@ -287,14 +287,14 @@ Once adopted it's the **default policy**, not a per-spec chore:
 
 - **Worktree — automatic for every in-progress spec.** `/spec-start` gives each spec
   its own sibling git worktree on its own branch, so you never stash or rebuild to
-  switch specs and `main` stays free for hotfixes.
+  switch specs and the base branch stays free for hotfixes.
   **It builds the branch there and moves your session into it** — a plain `cd`, so
   nothing prompts and no window opens. It then offers phase 1: say yes and it
   carries on into a bare `/spec-next`; say no and you are already there, so
   `/spec-next` typed later does the same thing. Reading what a phase changed does
   not need a session there at all: `/spec-diff` renders the worktree's diff as a
   page from wherever you are. All housekeeping (the backlog→in-progress move,
-  header edits, the code) happens on that branch and lands in one PR; `main`
+  header edits, the code) happens on that branch and lands in one PR; the base branch
   changes only when it merges.
   **So how do you see them all?** `skitterspec status` lists every spec with a
   worktree, reading each one's bucket and phase progress from that worktree.
@@ -341,7 +341,7 @@ so services land in the spec's reserved block. Two adoption modes:
   automation.
 
 When a spec finishes, `/spec-complete` can **land the branch on your base branch**
-in one flow — it rebases the spec's worktree branch onto `main` (or the configured
+in one flow — it rebases the spec's worktree branch onto the base branch (or the configured
 `baseBranch`; auto-detected from `origin/HEAD` otherwise), fast-forwards, and
 re-runs the tests. A rebase conflict aborts and hands back; it never pushes. Once
 landed, teardown reclaims the worktree **and deletes the branch** without needing

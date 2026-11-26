@@ -1,6 +1,6 @@
 'use strict'
 
-// bug-live-release-forgets-spec: after `/spec-live main` the session stands in
+// bug-live-release-forgets-spec: after `/spec-live off` the session stands in
 // the primary checkout, and with several worktrees provisioned a bare resolve
 // could not say which spec had just been released — so `/spec-next` refused a
 // spec that was plainly in flight. `live release` now records the spec it

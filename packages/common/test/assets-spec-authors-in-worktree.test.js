@@ -148,7 +148,7 @@ test('/spec gains a ❌ verdict for a land that failed part-way', () => {
 // --- the rules follow the skill ---------------------------------------------
 
 test('spec-planning.md carries the landing-zone rule for authoring', () => {
-  assert.match(PLANNING, /`main` is where work lands,\s+not where it happens/)
+  assert.match(PLANNING, /The base branch is where work lands,\s+not where it happens/)
   assert.match(ISOLATION, /spec-env up <name> --docs/)
   assert.match(ISOLATION, /the base gains the spec as one commit/)
 })

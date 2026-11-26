@@ -258,15 +258,15 @@ const DEFAULT_CONFIG = Object.freeze({
   // ticketing provider configured and the key unset, `applyProviderSpecDocs`
   // makes it "branch", whatever the strategy.
   land: Object.freeze({ strategy: 'ff', remote: 'origin', draft: true, specDocs: 'trunk' }),
-  // `mainIsLandingZone` defaults ON wherever isolation is configured, matching
+  // `baseIsLandingZone` defaults ON wherever isolation is configured, matching
   // the review gate's precedent: the push toward not working on the base branch
   // is the normal path, and stepping off it is the deliberate act. That does
   // change behaviour for a project on upgrade, which is the honest cost — the
-  // refusal names both exits (`/no-spec` and `/allow-main`) and this key.
+  // refusal names both exits (`/no-spec` and `/allow-base`) and this key.
   guards: Object.freeze({
     refuseTeardownIfDirty: true,
     refuseTeardownIfUnpushed: true,
-    mainIsLandingZone: true,
+    baseIsLandingZone: true,
     // A session acts on the project it was started in: writes and lifecycle
     // commands aimed at another skitterspec project are refused
     // (`env/projectguard.js`). On by default, like the main guard.
@@ -426,6 +426,13 @@ function isObject(value) {
 // That tier is gone, and `remote` is the tailnet on `allowNetwork`'s switch
 // (feat-tailnet-remote-tier).
 const RETIRED_KEYS = new Set(['review.allowRemote'])
+
+// Keys RENAMED with no alias, old dotted path → new one. A config still setting
+// the old name is reported as unknown like any other — the old value is not
+// read, so the guard falls back to its default, which is ON — but the report
+// names the new key, because "unknown" alone would send the reader hunting a
+// typo (feat-pr-mode-verbs).
+const RENAMED_KEYS = Object.freeze({ 'guards.mainIsLandingZone': 'guards.baseIsLandingZone' })
 
 function collectUnknownKeys(parsed, known = DEFAULT_CONFIG, prefix = '') {
   if (!isObject(parsed)) return []
@@ -789,7 +796,7 @@ function mergeConfig(base, parsed) {
   if (isObject(parsed.guards)) {
     assign(base.guards, parsed.guards, 'refuseTeardownIfDirty', 'boolean')
     assign(base.guards, parsed.guards, 'refuseTeardownIfUnpushed', 'boolean')
-    assign(base.guards, parsed.guards, 'mainIsLandingZone', 'boolean')
+    assign(base.guards, parsed.guards, 'baseIsLandingZone', 'boolean')
     assign(base.guards, parsed.guards, 'projectBoundary', 'boolean')
   }
 
@@ -1075,6 +1082,7 @@ module.exports = {
   PORT_BASE,
   PORT_SPAN,
   collectUnknownKeys,
+  RENAMED_KEYS,
   collectBadReviewers,
   readReviewer,
   mergeConfig,

@@ -88,7 +88,7 @@ test('an Edit in the primary checkout on main is denied, with both exits named',
     const why = r.json.hookSpecificOutput.permissionDecisionReason
     assert.match(why, /landing zone/)
     assert.match(why, /\/no-spec <name>/)
-    assert.match(why, /the USER types \/allow-main/)
+    assert.match(why, /the USER types \/allow-base/)
   } finally {
     cleanup(dir)
   }
@@ -214,12 +214,12 @@ test('STAYS SILENT: a directory that is not a git repo at all', () => {
   }
 })
 
-test('STAYS SILENT: guards.mainIsLandingZone is false', () => {
+test('STAYS SILENT: guards.baseIsLandingZone is false', () => {
   const dir = repo()
   try {
     fs.writeFileSync(
       path.join(dir, 'specs', '.core', 'env.config.json'),
-      JSON.stringify({ baseBranch: 'main', guards: { mainIsLandingZone: false } }),
+      JSON.stringify({ baseBranch: 'main', guards: { baseIsLandingZone: false } }),
     )
     assert.strictEqual(fire(edit(dir)).out, '')
   } finally {
@@ -295,7 +295,7 @@ test('an allow for this session lets the write through; another session does not
   }
 })
 
-test('/allow-main off restores the guard', () => {
+test('/allow-base off restores the guard', () => {
   const dir = repo()
   try {
     execFileSync(process.execPath, [ENGINE, 'spec-env', 'main', 'allow', '--dir', dir, '--session', 'S1'], {

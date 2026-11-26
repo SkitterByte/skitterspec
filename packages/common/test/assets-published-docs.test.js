@@ -66,7 +66,7 @@ const REGION = /<!-- commands:start -->([\s\S]*?)<!-- commands:end -->/
 // these files and neither is a command reference.
 //
 // THE STEMS ARE NAMED, and the suffix is left open. Two shipped commands do not
-// begin `spec` — `no-spec` and `allow-main` — so each adds its stem here, while
+// begin `spec` — `no-spec` and `allow-base` — so each adds its stem here, while
 // `[a-z-]*` after it keeps the OTHER half of this test working: a removed
 // command or a typo (`/spec-redy`, `/allow-mian`) still matches, and is still
 // reported as documented-but-shipped-nowhere.
@@ -79,7 +79,7 @@ const REGION = /<!-- commands:start -->([\s\S]*?)<!-- commands:end -->/
 //
 // Longest stem first, or `spec` would win the alternation before `no-spec` is
 // tried.
-const TOKEN = /(?<![\w./-])\/((?:no-spec|allow-main|allow-project|epic|spec)[a-z-]*)\b(?!\.md)/g
+const TOKEN = /(?<![\w./-])\/((?:no-spec|allow-base|allow-project|epic|spec)[a-z-]*)\b(?!\.md)/g
 
 function documented(file) {
   const text = read(file)

@@ -152,7 +152,7 @@ directly (the old `/spec-env-down` skill is gone — teardown is folded in here)
    Silent when nothing is waiting, which is the usual case.
 
 1. If `.spec-env/connected` names this spec, run `skitterspec spec-env connect
-   main` first to free the canonical ports.
+   off` first to free the canonical ports.
 2. `skitterspec spec-env dev down <name>` — stop its host dev servers.
 **Standing in the worktree? Leave it before you tear it down.** If this session's
 cwd is inside the spec's own worktree — the normal case in `worktree` mode, since

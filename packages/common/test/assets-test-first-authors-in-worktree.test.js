@@ -50,7 +50,7 @@ test('the stub is no longer seeded on the base branch', () => {
 })
 
 test('it names the guard, so the next reader knows what moving it back would cost', () => {
-  assert.match(BUG, /`main` is where work \*\*lands\*\*, not where it\s*\n?happens/)
+  assert.match(BUG, /[Tt]he base branch is where work \*\*lands\*\*, not where it\s*\n?happens/)
   assert.match(BUG, /main-guard/)
 })
 
@@ -113,12 +113,12 @@ test('it says why the tag cannot come off the spec, as it does everywhere else',
   // Without this the flag reads as redundant with the header and gets dropped,
   // and a hotfix silently forks from main.
   assert.match(HOTFIX, /the spec that would carry it does not\s*\n?exist yet/)
-  assert.match(HOTFIX, /fork from `main`/)
+  assert.match(HOTFIX, /fork from the base branch/)
 })
 
 test('the hotfix stub is no longer seeded on the base branch either', () => {
   assert.doesNotMatch(HOTFIX, /From the base branch \(`main`\), create/)
-  assert.match(HOTFIX, /`main` is where work \*\*lands\*\*, not where it\s*\n?happens/)
+  assert.match(HOTFIX, /[Tt]he base branch is where work \*\*lands\*\*, not where it\s*\n?happens/)
 })
 
 test('the hand-move across is gone, and so is the hazard paragraph it needed', () => {

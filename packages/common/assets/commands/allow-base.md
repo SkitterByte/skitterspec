@@ -15,7 +15,7 @@ or have you lift the guard. Claude can take the first exit on its own and can
 never take the second — a guard the model can lift is decoration, which is the
 same line `/spec-reviewed` draws.
 
-**Give it a reason.** `/allow-main fixing the lockfile by hand` records why; bare
+**Give it a reason.** `/allow-base fixing the lockfile by hand` records why; bare
 records `none given`. The reason is the part a reviewer can argue with, exactly
 as with a `Gating:` header — and it is what you will read when you wonder later
 why the base branch has an uncommitted file on it.
@@ -23,10 +23,10 @@ why the base branch has an uncommitted file on it.
 **It lapses with the session where it can.** The allow is recorded against this
 session, so it ends when the session does. Where the harness exposes no session
 id it degrades to a repo-wide allow that outlives the session and is cleared only
-by `/allow-main off`; the engine says which kind you got, so do not read a bare
+by `/allow-base off`; the engine says which kind you got, so do not read a bare
 "allowed" as temporary.
 
 **It is machine-local and gitignored.** It writes nothing anyone else pulls: it is your decision about your checkout, not the
-project's policy. The project-wide switch is `guards.mainIsLandingZone` in
+project's policy. The project-wide switch is `guards.baseIsLandingZone` in
 `specs/.core/env.config.json`, and turning that off is a different, committed
 decision.

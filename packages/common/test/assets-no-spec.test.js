@@ -29,7 +29,7 @@ const PLANNING = fs.readFileSync(path.join(ASSETS, 'rules', 'spec-planning.md'),
 
 // --- it ships, and it ships invocable ---------------------------------------
 
-test('it is model-invocable, unlike /allow-main will be', () => {
+test('it is model-invocable, unlike /allow-base will be', () => {
   // The asymmetry is the design: Claude may move work OFF the base branch on
   // its own, and may never lift the guard ON it.
   assert.doesNotMatch(NOSPEC, /disable-model-invocation/)

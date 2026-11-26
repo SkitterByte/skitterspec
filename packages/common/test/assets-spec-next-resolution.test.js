@@ -108,7 +108,7 @@ test('/spec-start no longer promises something only this session can keep', () =
   assert.match(START, /nothing\s*\n?about rules 1 to 3 is loosened/i)
 })
 
-// bug-live-release-forgets-spec. After `/spec-live main` the session stands in
+// bug-live-release-forgets-spec. After `/spec-live off` the session stands in
 // the primary checkout; with several worktrees the old refusal said "no spec in
 // flight — run /spec-start", which is wrong for specs already started.
 test('the refusal tells "none" from "ambiguous", and names --worktree for the second', () => {
@@ -123,7 +123,7 @@ test('the refusal tells "none" from "ambiguous", and names --worktree for the se
 
 test('rung 4 includes the spec last released on this checkout', () => {
   assert.match(NEXT, /via: "last-live"/)
-  assert.match(NEXT, /\/spec-live main` last\s+released/)
+  assert.match(NEXT, /\/spec-live off` last\s+released/)
 })
 
 test('rung 1 reads the line the bare live report actually prints', () => {

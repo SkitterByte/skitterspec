@@ -12,9 +12,9 @@ description: Fix a production bug on the exact released version — fork a workt
 
 This is the **hotfix** counterpart to `/spec-bug`. Same test-first discipline
 (reproduce as a **failing test (RED)**, then drive to **GREEN**), but the base is
-a **release tag**, not `main`: prod is running a tagged version, so the fix must
+a **release tag**, not the base branch: prod is running a tagged version, so the fix must
 be built on **that** commit line, shipped as a **new patch tag** (your CI/CD
-deploys tags), and only then cherry-picked onto `main` for the next release.
+deploys tags), and only then cherry-picked onto the base branch for the next release.
 
 Spec type convention (see `.claude/rules/spec-format.md`):
 - Hotfix specs are named `hotfix-<kebab-name>`; every header carries
@@ -66,7 +66,7 @@ Hotfixes are concrete — confirm, don't over-grill. Establish:
 - **Repro:** exact steps / input that triggers it on the released version.
 - **Expected vs actual:** what *should* happen vs what does.
 - **Root cause:** read the code **at the base tag** and trace it to `file:line`.
-  The fix belongs on the tag's line, so reason about that code, not `main`'s.
+  The fix belongs on the tag's line, so reason about that code, not the base branch's.
 
 ### Watch for the other doors — incident, bug, or not a defect
 
@@ -77,8 +77,8 @@ This is the most specific defect door, so most mis-entries route *down*
   degraded **right now** → propose **`/spec-incident`**; the record comes
   first, and the fix returns here as a linked hotfix spec.
 - **Not on a released version** — §1 cannot name a deployed tag the defect is
-  on (it exists only on `main`, or prod runs something newer that is fine) →
-  propose **`/spec-bug`**; a hotfix branch for something `main` can carry is
+  on (it exists only on the base branch, or prod runs something newer that is fine) →
+  propose **`/spec-bug`**; a hotfix branch for something the base branch can carry is
   waste, not safety.
 - **Not a defect** — the ask is new or changed behaviour, not restoring
   intended behaviour → propose **`/spec`**.
@@ -104,7 +104,7 @@ skitterspec spec-env up hotfix-<name> --docs --from <tag>
 Everywhere else `up` forks a hotfix from the spec's own
 `> **Base version:**` line — but here the spec that would carry it does not
 exist yet, which is the whole of what this lane is for. Without the flag the
-branch would fork from `main`: the fix gets written against code prod is not
+branch would fork from the base branch: the fix gets written against code prod is not
 running, while the tag and the cherry-pick downstream go on believing it is on
 the release line, and nothing says otherwise until someone asks why the patch
 did not take. The engine refuses a ref git does not know rather than forking
@@ -113,7 +113,7 @@ through to `git worktree add`, which refuses far more loudly than a planner
 guessing from an absence.
 
 Run what it prints — the `git worktree add … -b hotfix/<slug> <tag>` is checked
-out **at the tag**, not at `main`, and the
+out **at the tag**, not at the base branch, and the
 `skitterspec spec-env bootstrap hotfix-<name> --docs` under `then, run:` where
 there is one — then move this session into the worktree
 with a plain `cd`; the Bash working directory persists between calls, so from
@@ -151,7 +151,7 @@ used to write `specs/in-progress/hotfix-<name>/00-overview.md` in the primary
 checkout for the engine to resolve, and then `mv` the folder across into a
 worktree checked out at a tag — a move with a hazard paragraph of its own, since
 `specs/in-progress/` is usually absent at an old release tag. Both halves are
-gone. `main` is where work **lands**, not where it happens: where the project
+gone. The base branch is where work **lands**, not where it happens: where the project
 installs `.claude/hooks/main-guard.cjs` that first write is refused outright,
 and a step whose documented opening the repo will not perform is not a step. The
 spec is written in the worktree at §5, on the branch it belongs to.
@@ -169,7 +169,7 @@ a header naming another is this whole bug again with the halves swapped.
 - **Do everything below in the worktree**, on the `hotfix/<slug>` branch — the red
   test, the fix, and the rest of the spec. The `cd` above is what makes that the
   default rather than something to remember; where a step has to reach out of
-  the tree, use an absolute path or `git -C <worktreePath>`. `main` changes
+  the tree, use an absolute path or `git -C <worktreePath>`. The base branch changes
   only at `/spec-complete` (via cherry-pick, not merge).
 
 ## 4. Write the failing test FIRST (RED) — mandatory
@@ -249,7 +249,7 @@ place of the table when the spec touches no external surface.>
 - [ ] Release cut at `/spec-complete` (`hotfix.releaseWith`, else the
       `hotfix.bump` tag) and pushed — branch, then tag — on your say-so, which
       triggers CI/CD.
-- [ ] Fix carried onto `main` without the version commit (and tagged onto any
+- [ ] Fix carried onto the base branch without the version commit (and tagged onto any
       `--also` release lines).
 - [ ] Deploy confirmed, then `/spec-complete` again to run `hotfix finish`.
 
@@ -301,7 +301,7 @@ config is absent.
 same tag need to deploy together, rebase one onto the other and land the top
 one: its release holds both fixes. Then `/spec-complete` the other. Its land
 sees its fix already in that release (`release: already shipped in <tag>`),
-cuts nothing, and carries only its completion to `main`.
+cuts nothing, and carries only its completion to the base branch.
 
 **Then refresh the mirror (only if a provider is installed).** The Fix tasks are
 ticked, so the repo is now the truth about this fix — and this skill can take a
@@ -397,7 +397,7 @@ address) it falls back to the `file://` URL with its marker.
 - **Never fatal.** A failed render — no worktree, a git error — is one line, and
   the fix is still done. The page is a convenience; the repo is the record.
 
-**The range is measured from the base tag, not from `main`.** A hotfix forks its
+**The range is measured from the base tag, not from the base branch.** A hotfix forks its
 worktree from its `> **Base version:**` tag, and the engine reads that header, so
 the header line says `since <tag>` — do not relay it as `since main`, and do not
 reach for a branch view expecting the base branch.
@@ -414,7 +414,7 @@ prod is theirs to trigger. The spec stays in `in-progress`.
   release — `hotfix.releaseWith` (e.g. skittership's
   `node scripts/release-hotfix.cjs --json`) or the built-in tagger's `hotfix.bump`
   tag — asks before pushing the branch and then the tag, and carries the fix onto
-  `main` without the version commit. The worktree stays until the deploy is
+  The base branch without the version commit. The worktree stays until the deploy is
   confirmed; a second `/spec-complete` then runs `spec-env hotfix finish`. Add
   `--also <tag>` at completion to also tag other release lines (test/demo,
   tag-only).

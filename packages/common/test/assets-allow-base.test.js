@@ -1,7 +1,7 @@
 'use strict'
 
 /**
- * `/allow-main` — the guard's exit, and the one command whose user-only marking
+ * `/allow-base` — the guard's exit, and the one command whose user-only marking
  * is a security property rather than a convenience.
  *
  * `/spec-connect`, `/spec-live` and `/spec-remote-review` are marked
@@ -21,7 +21,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 
 const ASSETS = path.join(__dirname, '..', 'assets')
-const COMMAND = path.join(ASSETS, 'commands', 'allow-main.md')
+const COMMAND = path.join(ASSETS, 'commands', 'allow-base.md')
 const TEXT = fs.readFileSync(COMMAND, 'utf8')
 const NOSPEC = fs.readFileSync(path.join(ASSETS, 'skills', 'no-spec', 'SKILL.md'), 'utf8')
 const PLANNING = fs.readFileSync(path.join(ASSETS, 'rules', 'spec-planning.md'), 'utf8')
@@ -69,7 +69,7 @@ test('it says this writes nothing anyone else pulls', () => {
   assert.match(TEXT, /machine-local and gitignored/)
   assert.match(TEXT, /It writes nothing anyone else pulls/)
   assert.doesNotMatch(TEXT, /spec-remote-review/)
-  assert.match(TEXT, /guards\.mainIsLandingZone/)
+  assert.match(TEXT, /guards\.baseIsLandingZone/)
   assert.match(TEXT, /a different, committed\ndecision/)
 })
 
@@ -107,7 +107,7 @@ test('spec-planning.md carries the guard, its signal and its exits', () => {
   assert.match(PLANNING, /\*\*primary checkout on the base branch\*\*/)
   assert.match(PLANNING, /Every guard fails \*\*open\*\* on a cannot-tell/)
   assert.match(PLANNING, /skitterspec spec-env main <check\|allow\|status>/)
-  assert.match(PLANNING, /guards\.mainIsLandingZone/)
+  assert.match(PLANNING, /guards\.baseIsLandingZone/)
 })
 
 test('spec-planning.md says there is no allowlist', () => {
@@ -116,6 +116,6 @@ test('spec-planning.md says there is no allowlist', () => {
 
 test('spec-planning.md states the two exits and that they are not equal', () => {
   assert.match(PLANNING, /which Claude may take on its own/)
-  assert.match(PLANNING, /Only a person can type `\/allow-main`/)
+  assert.match(PLANNING, /Only a person can type `\/allow-base`/)
   assert.match(PLANNING, /Claude must never be able to lift a guard aimed at Claude/)
 })

@@ -57,7 +57,7 @@ Each spec has one of seven kinds, recorded twice: in the header
 - **Bug**: a defect, test-first. `fix` commits.
 - **Hotfix**: a bug fixed against a **released tag**. It carries
   `> **Base version:** <tag>`, forks from that tag, and lands by tagging a patch
-  and cherry-picking onto `main`. `/spec-live` refuses it.
+  and cherry-picking onto the base branch. `/spec-live` refuses it.
 - **Incident**: a live outage, recorded while it happens. It carries
   `> **Severity:**` and a `## Timeline`. Its fixes are separate specs carrying
   `> **Incident:** incident-<name>`, never its phases.

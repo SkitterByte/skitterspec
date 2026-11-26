@@ -58,7 +58,7 @@ function scaffold({ config = { baseBranchPattern: '20??/Q?' }, spec = true } = {
   fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
   fs.writeFileSync(
     path.join(dir, 'specs', '.core', 'env.config.json'),
-    JSON.stringify({ docker: { enabled: false }, guards: { mainIsLandingZone: false }, ...config }, null, 2),
+    JSON.stringify({ docker: { enabled: false }, guards: { baseIsLandingZone: false }, ...config }, null, 2),
   )
   fs.writeFileSync(path.join(dir, '.gitignore'), '/.spec-env/\n')
   writeSpec(dir, 'in-progress', 'feat-thing')
@@ -297,7 +297,7 @@ test('a checkout left on the old rc is no longer "on base"; the new rc is', () =
 test('main-guard: refuses on the new rc, and fails open when no rc resolves', () => {
   const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-roll-guard-')))
   try {
-    const config = { baseBranchPattern: '20??/Q?', guards: { mainIsLandingZone: true } }
+    const config = { baseBranchPattern: '20??/Q?', guards: { baseIsLandingZone: true } }
     const base = { 'rev-parse --git-common-dir': '.git', 'symbolic-ref --short HEAD': '2027/Q1' }
     const fires = checkMainWrite(dir, config, fakeGit({ ...base, [MATCHES]: 'refs/remotes/origin/2027/Q1' }), {
       present: true,

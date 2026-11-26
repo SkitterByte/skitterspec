@@ -42,7 +42,7 @@ are **slash commands that only a person can run**:
 
 - `/spec-connect` and `/spec-live` each pre-run one `spec-env` verb.
 - `/spec-epic` pre-runs `skitterspec epic status`.
-- `/allow-main`, `/allow-project` and `/spec-skip` lift guards aimed at Claude.
+- `/allow-base`, `/allow-project` and `/spec-skip` lift guards aimed at Claude.
   **Claude must never be able to lift a guard aimed at Claude.**
 
 `/spec-reviewed`, `/spec-land`, `/spec-status` and `/spec-sync` are skills,
@@ -52,12 +52,12 @@ never runs it itself. Every other skill is model-invocable.
 ## Guards
 
 - **The main guard** (`.claude/hooks/main-guard.cjs`) refuses an Edit or Write
-  in the **primary checkout on the base branch**. `main` is where work lands,
+  in the **primary checkout on the base branch**. The base branch is where work lands,
   not where it happens. There is **no allowlist**. Move the work instead:
   `/spec-start <name>` or `/no-spec <name>`, which Claude may take on its own.
-  Only a person can type `/allow-main`. The engine is
+  Only a person can type `/allow-base`. The engine is
   `skitterspec spec-env main <check|allow|status>`, and
-  `guards.mainIsLandingZone` turns the guard off.
+  `guards.baseIsLandingZone` turns the guard off.
 - **The project guard** (`.claude/hooks/project-guard.cjs`) refuses writes, git
   changes and `skitterspec` lifecycle commands aimed at **another** skitterspec
   project. Reads pass. A session works on the project it started in. Reports

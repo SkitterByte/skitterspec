@@ -134,7 +134,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | `/spec-pr`, and `/spec-complete` as the post-merge finish | ✅ | [01-spec-pr.md](01-spec-pr.md) |
 | 2 | `/spec-land` replaces `/spec-to-main` in ff mode | ✅ | [02-spec-land.md](02-spec-land.md) |
 | 3 | `live.refusedReach` for manual-steps stops | ✅ | [03-refused-reach.md](03-refused-reach.md) |
-| 4 | Vocabulary: base, root checkout, live; docs | ⬜ | [04-vocabulary.md](04-vocabulary.md) |
+| 4 | Vocabulary: base, root checkout, live; docs | ✅ | [04-vocabulary.md](04-vocabulary.md) |
 
 ## Open questions
 
@@ -173,3 +173,12 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   would dirty it. An unknown `refusedReach` reads as unset, never as the
   bypass. Phase 4 note: the loader already reports unknown keys, so the
   retired `guards.mainIsLandingZone` warns with no new mechanism.
+- 2026-11-26 — Phase 4: `connect main` became `connect off` too, so the
+  family has one word; naming the base branch still works for both, but the
+  literal `main` no longer releases on a repo whose base is not `main`. The
+  engine verb `spec-env main` and the `main-guard` hook keep their names —
+  internal plumbing nobody types, and renaming the hook would break every
+  installed `settings.json`. The old config key's warning names the new key
+  (`RENAMED_KEYS`). Parked distributions (Linear, Jira) are not built, so
+  their `MIGRATION.md` copies are synced by hand. A guard test now fails if a
+  retired name reappears in a shipped file or site page.

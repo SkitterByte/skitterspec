@@ -91,7 +91,7 @@ test('source missing in main: no-op with a printed note (not an error)', () => {
   const { wt } = scaffold({ '.env': 'SECRET=1\n' })
   const out = runSeed(wt, '.local-secrets.jsonc', 'symlink')
   assert.ok(!fs.existsSync(path.join(wt, '.local-secrets.jsonc')), 'nothing created')
-  assert.match(out, /not in main — skipped/)
+  assert.match(out, /not in the root checkout — skipped/)
 })
 
 test('target exists: idempotent — leaves it untouched and reports skipped', () => {

@@ -42,7 +42,7 @@ function scaffold() {
   fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
   fs.writeFileSync(
     path.join(dir, 'specs', '.core', 'env.config.json'),
-    JSON.stringify({ docker: { enabled: false }, guards: { mainIsLandingZone: false } }, null, 2),
+    JSON.stringify({ docker: { enabled: false }, guards: { baseIsLandingZone: false } }, null, 2),
   )
   fs.writeFileSync(path.join(dir, '.gitignore'), '/.spec-env/\n')
   for (const folder of ['feat-live', 'feat-next']) {

@@ -248,7 +248,7 @@ this section forbids. An autonomous run that ends here reports this same
 
 `Landed` says how, because the ways differ: in PR mode it names the merged PR
 and the base it reached, a fast-forward names the base and the commit, a hotfix names the release tag, whether it was pushed, and the
-`main` carry — and a release tag that has not been pushed is a `⚠️`, not a `✅`. `Worktree` says
+The base branch carry — and a release tag that has not been pushed is a `⚠️`, not a `✅`. `Worktree` says
 what was reclaimed, including any orphaned volumes swept, or that teardown was
 declined and the worktree still stands.
 
@@ -265,7 +265,7 @@ destination in one flow. **How it lands depends on the spec type:**
 
 ### 6-hotfix. `Type: Hotfix` — release, push, carry (not fast-forward)
 
-A hotfix is built on an old release **tag**, so it can't fast-forward onto `main`.
+A hotfix is built on an old release **tag**, so it can't fast-forward onto the base branch.
 The engine runs its landing itself — `hotfix land` releases, pushes and carries,
 in that order, and stops at the first step that fails:
 
@@ -293,9 +293,9 @@ in that order, and stops at the first step that fails:
    - **pushes** the branch, then the tag, to `origin` — only with `--push`. Without
      it the run **holds** here, exit 0, printing both push commands; a re-run after
      the operator pushes by hand finds the tag on the remote and carries on;
-   - **carries** the fix onto `main`: the branch's commits minus the version commit
-     and minus anything `main` already has, so the spec's completion commits arrive
-     and `main`'s version line does not move. In place when `main` is checked out
+   - **carries** the fix onto the base branch: the branch's commits minus the version commit
+     and minus anything the base branch already has, so the spec's completion commits arrive
+     and the base branch's version line does not move. In place when the base branch is checked out
      and clean, through a throwaway worktree when it is not checked out, and
      **refused** — with the command to run later — when it is checked out and
      dirty.
@@ -308,8 +308,8 @@ in that order, and stops at the first step that fails:
 4. **Run the after-land commands** when the run ends with a
    `then, in the primary checkout (<path>), run:` section — exactly as step 3
    of 6-feature/bug below says. `hotfix land` prints it only when the carry moved
-   `main`, so a held, prod-only or already-carried land has none.
-5. **Re-test on `main`** after the carry — it must be **green**.
+   The base branch, so a held, prod-only or already-carried land has none.
+5. **Re-test on the base branch** after the carry — it must be **green**.
 6. **Report** — `Landed` names the release tag and whether it was **pushed**, and
    what the carry did. A tag cut but not pushed is a `⚠️`, not a `✅`.
    **Then stop: the worktree is kept** (step 7). The branch is what the next
@@ -346,8 +346,8 @@ confirmed, naming every check that is not.
 
 ### 6-feature/bug. `Type: Feature` / `Type: Bug` — rebase + fast-forward
 
-Land the finished branch on the base branch so the work reaches `main` (or your
-configured `baseBranch`) in one flow. (Need the work on `main` *before* the spec
+Land the finished branch so the work reaches the base branch (`main`,
+`master`, or your configured `baseBranch`) in one flow. (Need the work on the base branch *before* the spec
 is finished — e.g. to run a later phase in CI or a shared test env? Use
 **`/spec-land`**: same rebase + fast-forward, but it leaves the spec
 `In Progress` and the worktree standing, and it's repeatable.)
@@ -360,7 +360,7 @@ is finished — e.g. to run a later phase in CI or a shared test env? Use
    back to base, re-isolates it into its worktree, clears the receipt), then prints
    the normal landing plan. Commit any live fixes to the branch first; it refuses
    if the primary checkout is dirty, or if a *different* spec holds it (release that
-   one by typing `/spec-live main`). Teardown (step 7) is unchanged.
+   one by typing `/spec-live off`). Teardown (step 7) is unchanged.
    **Work-loss abort.** Before it ends the live session, `integrate` checks the
    work is actually landable and **aborts loudly** rather than finalize a spec
    having landed nothing. Two cases, both leaving the live session intact:
@@ -523,7 +523,7 @@ worktree and branch are being kept, and go straight to sub-step 4. Mention
    Silent when nothing is waiting, which is the usual case.
 
 1. **Disconnect the proxy if this spec is connected.** If `.spec-env/connected`
-   names this spec, run `skitterspec spec-env connect main` first so the
+   names this spec, run `skitterspec spec-env connect off` first so the
    canonical ports go back to the primary checkout.
 2. **Stop its host dev servers:** `skitterspec spec-env dev down <name>` (a
    no-op when none are running / configured).

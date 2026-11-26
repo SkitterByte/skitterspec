@@ -11,7 +11,7 @@ const {
   removeReleaseTooling,
   releaseToolingNotice,
 } = require('./deprecate.js')
-const { loadEnvConfig, resolveServePort, servePortReason } = require('./env/config.js')
+const { loadEnvConfig, resolveServePort, servePortReason, RENAMED_KEYS } = require('./env/config.js')
 
 // Named once so the advisory below and any future caller agree on the wording.
 const ENV_CONFIG_LABEL = 'env.config.json'
@@ -351,7 +351,7 @@ Usage:
                                                   (/no-spec work) and print its plan
                                 main <check|allow|status>
                                                   the main guard — is a write about to land
-                                                  on the base branch? (/allow-main lifts it)
+                                                  on the base branch? (/allow-base lifts it)
                                 project <check|allow|status>
                                                   the project guard — is a write or a lifecycle
                                                   command aimed at another skitterspec project?
@@ -1713,7 +1713,7 @@ function specEnvUpCheckout(dir, config, spec) {
  * refused, exit 0 and say nothing otherwise. Every cannot-tell is an exit 0.
  *
  * `allow` and `status` are for a person. `allow` is reached only through
- * `/allow-main`, which is user-only — a guard the model can lift is decoration.
+ * `/allow-base`, which is user-only — a guard the model can lift is decoration.
  */
 /**
  * `spec-env project <check|allow|status>` — the project guard's engine
@@ -1825,7 +1825,7 @@ function specEnvMain(dir, config, positional, flags = {}, present = true, invoke
   }
 
   if (action === 'allow') {
-    // The primary checkout owns the allow file, so an `/allow-main` typed from a
+    // The primary checkout owns the allow file, so an `/allow-base` typed from a
     // worktree still lands where the guard reads it.
     const root = dir
 
@@ -1848,7 +1848,7 @@ function specEnvMain(dir, config, positional, flags = {}, present = true, invoke
     const scope =
       value.scope === 'session'
         ? 'this session only — it lapses when the session ends'
-        : 'this repo until cleared — no session id available, so `/allow-main off` is what ends it'
+        : 'this repo until cleared — no session id available, so `/allow-base off` is what ends it'
     process.stdout.write(
       `spec-env main: writes to the base branch are allowed (${scope}).\n` +
         (reason ? `  reason: ${reason}\n` : '  reason: none given\n'),
@@ -1868,14 +1868,14 @@ function specEnvMain(dir, config, positional, flags = {}, present = true, invoke
     }
     if (st.state === 'off') {
       process.stdout.write(
-        'spec-env main: off for this project (guards.mainIsLandingZone is false).\n',
+        'spec-env main: off for this project (guards.baseIsLandingZone is false).\n',
       )
       return
     }
     if (st.state === 'allowed') {
       process.stdout.write(
         `spec-env main: allowed (${st.scope})\n  reason: ${st.reason || 'none given'}\n` +
-          '  /allow-main off ends it\n',
+          '  /allow-base off ends it\n',
       )
       return
     }
@@ -2117,7 +2117,7 @@ function specEnvUp(dir, config, specArg, flags = {}) {
   if (!primaryUp.onBase && primaryUp.branch === spec.branch) {
     process.stdout.write(
       `spec-env up: ${spec.folder} is live in the primary checkout — work there directly ` +
-        '(its branch is checked out), or run `/spec-live main` first to re-isolate its worktree.\n',
+        '(its branch is checked out), or run `/spec-live off` first to re-isolate its worktree.\n',
     )
     return
   }
@@ -3440,7 +3440,7 @@ function specEnvIntegrate(dir, config, specArg, flags = {}) {
     if (primary.branch !== spec.branch) {
       process.stdout.write(
         `spec-env integrate: blocked — another spec (${primary.branch}) holds the ` +
-          'primary checkout; release it with `/spec-live main` first.\n',
+          'primary checkout; release it with `/spec-live off` first.\n',
       )
       return
     }
@@ -8127,7 +8127,7 @@ function serveUrl(hostname, { port, token }) {
 }
 
 // Connect the canonical origin to ONE spec (exclusive model): (re)start the
-// bundled proxy pointing at that spec's warm dev servers. `connect main` stops
+// bundled proxy pointing at that spec's warm dev servers. `connect off` stops
 // the proxy so the primary checkout owns the canonical ports again.
 async function specEnvConnect(dir, config, specArg) {
   // Both verbs exist to route around the work living somewhere other than the
@@ -8154,11 +8154,12 @@ async function specEnvConnect(dir, config, specArg) {
   //
   // This reverses `feat-script-only-commands` Decision 8, deliberately and as
   // the whole point of the change rather than as a side effect of one — see
-  // `feat-bare-argument-parity`. The literal `main` is honoured even where the
-  // base branch is called something else, matching `live main`, so the muscle
-  // memory works in either repo.
+  // `feat-bare-argument-parity`. `off` hands the ports back whatever the base
+  // branch is called, matching `live off` — the word names the act, not a
+  // branch, so it reads true on a `master` or `2026/Q4` repo. Naming the base
+  // branch itself still works (feat-pr-mode-verbs dropped the literal `main`).
   const base = resolveBaseBranch(config, gitReader(dir))
-  if (specArg === 'main' || specArg === base) {
+  if (specArg === 'off' || specArg === base) {
     const res = await stopProcess(proxyProc, { rootDir: dir })
     for (const f of [connectedFile, routesFile]) {
       try {
@@ -8204,8 +8205,8 @@ async function specEnvConnect(dir, config, specArg) {
   const busy = await portsHeld(routes.map((r) => r.frontPort), config.proxy.host)
   if (busy.length) {
     process.stdout.write(
-      `spec-connect: canonical port(s) ${busy.join(', ')} are in use (your main dev server?).\n` +
-        'Stop main on those ports, then re-run spec-connect.\n',
+      `spec-connect: canonical port(s) ${busy.join(', ')} are in use (your root checkout's dev server?).\n` +
+        'Stop it on those ports, then re-run spec-connect.\n',
     )
     return
   }
@@ -8230,7 +8231,7 @@ async function specEnvConnect(dir, config, specArg) {
     )
   }
   out.push('')
-  out.push('  Disconnect with: skitterspec spec-env connect main')
+  out.push('  Disconnect with: skitterspec spec-env connect off')
   process.stdout.write(out.join('\n') + '\n')
 }
 
@@ -8304,7 +8305,7 @@ async function specEnvLive(dir, config, positional, flags) {
       break
     default:
       process.stdout.write(
-        'Usage: skitterspec spec-env live <spec>|<base branch>|<take|release|abort|status> [spec]\n' +
+        'Usage: skitterspec spec-env live <spec>|off|<take|release|abort|status> [spec]\n' +
           '       live take <spec> --allow-migrations   (live.refusedReach: "live-confirm" only)\n' +
           '       live take <spec> --offered            spend the migrations bypass offer\n',
       )
@@ -8313,25 +8314,26 @@ async function specEnvLive(dir, config, positional, flags) {
 
 const LIVE_VERBS = new Set(['status', 'take', 'release', 'abort'])
 
-// The two front doors every doc names — `/spec-live <spec>` and `/spec-live main`
+// The two front doors every doc names — `/spec-live <spec>` and `/spec-live off`
 // — translated to verbs. They live here rather than in the command because
 // `.claude/commands/spec-live.md` relays `$ARGUMENTS` untranslated (it is a
 // pre-executed script, with no model turn to rewrite them); the skill this
 // replaced did the translation itself, which is how these forms came to be
 // documented but unimplemented. `connect` needs no equivalent — its argument was
-// always spec-shaped (`specArg || 'main'`).
+// always spec-shaped.
 //
 // VERB PRECEDENCE IS DELIBERATE, and so is the order below: the four verbs and
 // the base branch are matched BEFORE the spec-name fallback, so a spec folder
 // that happens to be called `status` cannot silently branch-switch the primary
-// checkout. Such a spec is still reachable — as `live take status`. The literal
-// `main` is honoured even where the base branch is named something else,
-// matching `connect main`, so the muscle memory works in either repo.
+// checkout. Such a spec is still reachable — as `live take status`. `off`
+// releases whatever the base branch is called, matching `connect off`; naming
+// the base branch itself still works. The literal `main` was dropped with no
+// alias (feat-pr-mode-verbs): it named a branch most rc-flow repos lack.
 function liveGrammar(dir, config, positional) {
   const [first, second] = positional
   if (!first) return bareLive(dir, config)
   if (LIVE_VERBS.has(first)) return { action: first, specArg: second }
-  if (first === 'main' || first === resolveBaseBranch(config, gitReader(dir))) {
+  if (first === 'off' || first === resolveBaseBranch(config, gitReader(dir))) {
     return { action: 'release', specArg: undefined }
   }
   return { action: 'take', specArg: first }
@@ -8598,13 +8600,13 @@ async function specEnvLiveTake(dir, config, specArg, flags = {}) {
   out.push(...runAfterSwitch(plan.afterSwitch).lines)
   for (const w of plan.warnings) out.push(`  ! ${w}`)
   out.push('')
-  out.push('  Test at your canonical URL; release with: /spec-live main')
+  out.push('  Test at your canonical URL; release with: /spec-live off')
   process.stdout.write(out.join('\n') + '\n')
 }
 
 // Release the running instance: hand the primary checkout back to base and
 // re-isolate the spec's branch into its worktree. With no spec arg, the live spec
-// is read from the receipt (this is what `/spec-live main` runs).
+// is read from the receipt (this is what `/spec-live off` runs).
 async function specEnvLiveRelease(dir, config, specArg) {
   const receipt = readReceipt(dir, config)
   const target = specArg || (receipt && receipt.spec)
@@ -8978,7 +8980,11 @@ async function specEnv(rest) {
   // STDERR, deliberately: `--json` subcommands write their payload to stdout, and
   // an advisory line on stdout would make it unparseable.
   for (const key of unknown || []) {
-    process.stderr.write(`spec-env: ${ENV_CONFIG_LABEL} — unknown key "${key}" is ignored.\n`)
+    const renamed = RENAMED_KEYS[key]
+    process.stderr.write(
+      `spec-env: ${ENV_CONFIG_LABEL} — unknown key "${key}" is ignored` +
+        (renamed ? `; it was renamed "${renamed}".\n` : '.\n'),
+    )
   }
 
   // The same advisory, for the one place the check above structurally cannot
@@ -9170,7 +9176,7 @@ async function specEnvDispatch(sub, dir, config, positional, flags, present, inv
           '  in is used, else the sole provisioned spec (several -> it lists them).\n' +
           '  A bare `live` takes that spec when the workbench is free, and prints the\n' +
           '  status report when it cannot tell. `live status` still reports on the\n' +
-          '  whole repo. `live main` / `connect main` (or your base branch) hand the\n' +
+          '  whole repo. `live off` / `connect off` (or your base branch) hand the\n' +
           '  instance and the ports back.\n',
       )
   }

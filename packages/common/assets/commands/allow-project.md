@@ -13,7 +13,7 @@ refuses a write, a `git` change or a `skitterspec` lifecycle command aimed at a
 skitterspec project other than the one this session was started in. Its refusal
 names two exits: open a session in that project and do the work there, or have
 you lift the guard. Claude can take the first and can never take the second — a
-guard the model can lift is decoration, which is the line `/allow-main` draws.
+guard the model can lift is decoration, which is the line `/allow-base` draws.
 
 **Name the project the refusal named.** `/allow-project ereqs` lifts it for that
 folder name; a path (`/allow-project ../ereqs`) pins it to that exact repo.

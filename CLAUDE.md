@@ -23,7 +23,7 @@ the day and plan the next one across projects.
   `Next`.
 - **Guards**: work never happens in the primary checkout on the base branch,
   and a session works only on its own project. Only a person can lift either
-  guard (`/allow-main`, `/allow-project`).
+  guard (`/allow-base`, `/allow-project`).
 
 The rules are in `.claude/rules/spec-planning.md` (lifecycle and guards),
 `.claude/rules/spec-reports.md` (the report block) and

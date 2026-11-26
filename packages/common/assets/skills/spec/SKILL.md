@@ -231,16 +231,16 @@ provisioning a worktree to write markdown in is a `git worktree add` and nothing
 else. `/spec-start` re-runs `up` over the same worktree without the flag, and the
 setup runs then, at the first moment the tree is used for code.
 
-**Why the base branch is no longer where this happens.** `main` is where work
+**Why the base branch is no longer where this happens.** the base branch is where work
 **lands**, not where it happens. Authoring on it meant the spec sat uncommitted
 there for as long as Phase C2's page went unanswered — which is unbounded by
 design, because a reader walking away from a diff is the normal case — and a
 release could not be cut through it. The verdict lands the spec instead, so
-`main` gains it as one commit and is never dirty on the way.
+The base branch gains it as one commit and is never dirty on the way.
 
 **A spec written in ANOTHER spec's worktree is still the mistake it always was**,
 and this section does not soften that. It physically lives on that branch: not on
-`main` until that spec lands, invisible to anyone listing `specs/backlog/`
+The base branch until that spec lands, invisible to anyone listing `specs/backlog/`
 meanwhile, and cancelled along with its host. Committing it there also mis-stamps
 the ticket trailer, which is resolved from the branch (see
 `.claude/rules/commit-trailers.md`, installed with a ticketing provider). The

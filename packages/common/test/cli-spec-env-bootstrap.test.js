@@ -73,7 +73,7 @@ test('one call seeds the worktree and runs setup in it', async () => {
     const { out, code } = await runQuiet(['spec-env', 'bootstrap', env.folder, '--dir', env.dir])
     assert.strictEqual(code, 0, out)
     assert.ok(fs.lstatSync(path.join(env.wt, 'packages/api/.env')).isSymbolicLink())
-    assert.match(out, /seed apps\/web\/\.env: not in main — skipped/)
+    assert.match(out, /seed apps\/web\/\.env: not in the root checkout — skipped/)
     assert.ok(fs.existsSync(path.join(env.wt, 'setup-ran')), 'setup ran with the worktree as cwd')
     assert.ok(!fs.existsSync(path.join(env.dir, 'setup-ran')), 'and not in the primary checkout')
     assert.match(out, /feat-x ready \(3 steps\)/)

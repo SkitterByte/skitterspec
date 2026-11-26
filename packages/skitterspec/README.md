@@ -38,7 +38,7 @@ demand, host dev servers on reserved ports — and everything below.
 | `/spec-init` | Bootstrap or repair the workflow in a project |
 | `/spec-connect` | Point your canonical `localhost` ports at one spec's stack |
 | `/spec-live` | Check one spec out in the primary checkout, so your running server reloads it |
-| `/allow-main` | Allow writes on the base branch for this session — yours to run, never Claude's |
+| `/allow-base` | Allow writes on the base branch for this session — yours to run, never Claude's |
 | `/allow-project` | Let this session work on another skitterspec project — yours to run, never Claude's |
 | `/spec-skip` | Move on from a phase without a verdict, reason recorded — yours to run, never Claude's |
 | `/spec-epic` | What every member of an epic needs next, in which tab, and the epic page |
@@ -112,13 +112,13 @@ Install exactly one — the superset is a strict superset of this package.
 
 ## Testing UI/API worktrees — `/spec-connect`
 
-When your app runs from `main` on `localhost`, a worktree's changes are
+When your app runs from the root checkout on `localhost`, a worktree's changes are
 unreachable. Add a `dev` block to `specs/.core/env.config.json` listing your host
 dev servers (each `{ name, command, portVar, health?, frontPort? }`); `/spec-start`
 starts them on the spec's reserved ports, and **`/spec-connect <name>`** points
 your canonical `localhost` ports at that spec (via a small bundled reverse proxy —
 no external install), so you test at the exact URL you always use.
-`/spec-connect main` hands the ports back. Exclusive: one spec at a time. See
+`/spec-connect off` hands the ports back. Exclusive: one spec at a time. See
 `specs/.core/env.config.md` for the `dev`/`proxy` config.
 
 ## Reading the diff — `/spec-diff`
@@ -300,11 +300,10 @@ what followed from the run you just watched.
 
 ## Production hotfixes — `/spec-hotfix`
 
-When prod is on a tagged release, a fix must be built on **that** version, not
-`main`. `/spec-hotfix <tag> <name>` forks a worktree from the tag, then works
+When prod is on a tagged release, a fix must be built on **that** version, not the base branch. `/spec-hotfix <tag> <name>` forks a worktree from the tag, then works
 test-first like `/spec-bug`. `/spec-complete` lands it by patch-bumping the tag
 and tagging the branch (your CI/CD deploys the tag — you push it) and
-cherry-picking the fix onto `main`; `--also <tag>` patches extra release lines
+cherry-picking the fix onto the base branch; `--also <tag>` patches extra release lines
 (test/demo). Hotfixes refuse `/spec-live` (their old-tag branch could break the
 running instance) — test them with `/spec-connect`. Tune the `hotfix` block in
 `specs/.core/env.config.md`.

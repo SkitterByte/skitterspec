@@ -53,7 +53,7 @@ test('/spec-diff records that allow-remote is absent on purpose', () => {
 test('/spec-diff records that live-off is absent on purpose', () => {
   const sec = DIFF.slice(DIFF.indexOf('## 2b.'), DIFF.indexOf('## 3. Gate it on nothing'))
   assert.match(sec, /\*\*THERE IS NO `live-off`, and its absence is deliberate\.\*\*/)
-  assert.match(sec, /`\/spec-live main` for it/)
+  assert.match(sec, /`\/spec-live off` for it/)
 })
 
 // THE CLAIM THIS FILE EXISTS FOR. The gate is discharged by a committing verdict

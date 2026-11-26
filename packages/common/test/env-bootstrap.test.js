@@ -149,7 +149,7 @@ test('a seed missing from the primary checkout is skipped and the run carries on
     spawn,
   )
   assert.strictEqual(r.ok, true)
-  assert.match(r.lines[0], /seed apps\/web\/\.env: not in main — skipped/)
+  assert.match(r.lines[0], /seed apps\/web\/\.env: not in the root checkout — skipped/)
   assert.strictEqual(fs.existsSync(path.join(env.wt, 'apps')), false, 'no directory made')
   assert.strictEqual(calls.length, 1, 'setup still ran')
 })

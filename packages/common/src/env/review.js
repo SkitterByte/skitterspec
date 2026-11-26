@@ -621,7 +621,7 @@ const DEFAULT_VERDICT = 'discuss'
  * live is about the diff on screen; handing the whole instance back to `main` is
  * a workspace decision with nothing to do with this review, and a control for it
  * on a review page invites the reader to make it while thinking about something
- * else. The `live:` line names `/spec-live main` instead, which is what a person
+ * else. The `live:` line names `/spec-live off` instead, which is what a person
  * types.
  *
  * Three consequences follow from that, and all three are structural rather than
@@ -721,7 +721,7 @@ function surfacesFor({ live, tiers, buttons = null }) {
       // never left knowing what they want and not what to type. Mid-run that is
       // `/spec-live` itself, since the press is withheld above.
       command:
-        live.state === 'on' ? '/spec-live main' : live.state === 'off' && !canCommit ? '/spec-live' : null,
+        live.state === 'on' ? '/spec-live off' : live.state === 'off' && !canCommit ? '/spec-live' : null,
     })
   }
 

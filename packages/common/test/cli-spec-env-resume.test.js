@@ -32,7 +32,7 @@ function scaffold({ remote: withRemote = true, published = true } = {}) {
   fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
   fs.writeFileSync(
     path.join(dir, 'specs', '.core', 'env.config.json'),
-    JSON.stringify({ docker: { enabled: false }, guards: { mainIsLandingZone: false } }, null, 2),
+    JSON.stringify({ docker: { enabled: false }, guards: { baseIsLandingZone: false } }, null, 2),
   )
   fs.writeFileSync(path.join(dir, '.gitignore'), '/.spec-env/\n')
   fs.mkdirSync(path.join(dir, 'specs', 'backlog', 'feat-thing'), { recursive: true })

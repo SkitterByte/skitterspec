@@ -625,7 +625,7 @@ test('/spec-next does not provision — that is /spec-start', () => {
 // One checkout holds one spec in flight. The gate is what makes that true, and
 // it is a REFUSAL rather than an auto-park because every way past it moves
 // somebody's unfinished work: stashing hides it, committing decides for them,
-// `/spec-live main` rebases a branch they were mid-thought on. The refusal costs
+// `/spec-live off` rebases a branch they were mid-thought on. The refusal costs
 // one command; guessing wrong costs an afternoon.
 test('/spec-start gates on a free workbench before anything else', () => {
   const text = skillText('spec-start')

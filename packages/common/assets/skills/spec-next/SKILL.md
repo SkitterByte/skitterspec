@@ -79,7 +79,7 @@ Otherwise resolve **in this order**, and stop at the first that answers:
    Take its `spec` **only when it names exactly one spec** (`ok: true`); `via`
    says which rung answered.
 
-   From the primary checkout that includes the spec `/spec-live main` last
+   From the primary checkout that includes the spec `/spec-live off` last
    released here (`via: "last-live"`): releasing leaves the session standing
    in the primary checkout, which says nothing on its own, so the engine
    remembers the spec it handed back — for as long as that spec's worktree

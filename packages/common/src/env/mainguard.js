@@ -141,7 +141,7 @@ function judgeMainWrite(ctx) {
       '  /no-spec <name>      a one-off with no spec — its own branch, worktree and review page\n' +
       '  /spec-start <name>   a spec that is ready to be built\n' +
       '  /spec                a change that wants grilling first\n\n' +
-      'If this really does belong on the base branch, the USER types /allow-main — ' +
+      'If this really does belong on the base branch, the USER types /allow-base — ' +
       'it is theirs to run, not yours.',
   }
 }
@@ -208,7 +208,7 @@ function checkMainWrite(dir, config, git, opts = {}) {
   // from a configured one that happens to match the defaults, so asking the
   // config object would answer the wrong question.
   const configured = opts.present === true
-  const enabled = !(config && config.guards && config.guards.mainIsLandingZone === false)
+  const enabled = !(config && config.guards && config.guards.baseIsLandingZone === false)
 
   // IS THIS THE PRIMARY CHECKOUT? A worktree is somebody's spec branch and none
   // of this guard's business, so the question is asked positively rather than by
@@ -284,7 +284,7 @@ function recordAllow(rootDir, config, { sessionId = null, reason = null, at = nu
  */
 function mainGuardStatus(rootDir, config, opts = {}) {
   if (opts.present !== true) return { state: 'unconfigured' }
-  if (config && config.guards && config.guards.mainIsLandingZone === false) {
+  if (config && config.guards && config.guards.baseIsLandingZone === false) {
     return { state: 'off' }
   }
   const allow = readAllow(rootDir, config)
@@ -293,7 +293,7 @@ function mainGuardStatus(rootDir, config, opts = {}) {
   }
   // A session allow belonging to ANOTHER session is reported rather than hidden:
   // the operator asked for one somewhere, and a bare "guarded" would send them
-  // hunting for why their /allow-main did nothing.
+  // hunting for why their /allow-base did nothing.
   if (allow && allow.scope === 'session') {
     return { state: 'guarded', otherSession: true }
   }

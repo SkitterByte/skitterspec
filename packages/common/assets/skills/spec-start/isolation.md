@@ -6,7 +6,7 @@ works in the checkout it is standing in.
 ## Workspace modes (`mode` in `env.config.json`)
 
 - **`worktree`** (the default): each spec gets its own checkout, so several can
-  be in flight and `main` stays free. `/spec-start` builds the branch there,
+  be in flight and the base branch stays free. `/spec-start` builds the branch there,
   moves the session in with a plain `cd`, and asks whether to build phase 1. The
   primary checkout stays on the base branch, so the base branch still shows an
   in-flight spec under `backlog`. `skitterspec status` reads each worktree's own
@@ -26,7 +26,7 @@ per-spec escalation: `> **Stack:** worktree` (the default) or
 `/spec-start` brings up a namespaced stack only for the latter, and starts the
 host **dev servers** (`dev` in `env.config.json`) on the spec's ports.
 `/spec-connect <name>` maps that spec onto your normal `localhost` ports, and
-`/spec-connect main` hands them back. Teardown is part of `/spec-complete` and
+`/spec-connect off` hands them back. Teardown is part of `/spec-complete` and
 `/spec-cancel`, which drop the spec's test-DB volume and offer to prune orphans
 first.
 
@@ -36,9 +36,9 @@ The engine is `skitterspec spec-env
 the gitignored files, the env file, `setup` and the stack. Never reconstruct
 those steps as shell commands.
 
-A **hotfix** is the one spec that does not fork from `main`. `/spec-hotfix` forks
+A **hotfix** is the one spec that does not fork from the base branch. `/spec-hotfix` forks
 from a release tag, and `/spec-complete` lands it through `spec-env hotfix land`
-(release, push on consent, carry to `main` without the version commit). Its
+(release, push on consent, carry to the base branch without the version commit). Its
 worktree stays until the deploy is out and a second `/spec-complete` runs
 `spec-env hotfix finish`.
 
@@ -49,7 +49,7 @@ dev server you already have running. `/spec-live <spec>`, or a bare
 `/spec-live`, rebases the branch onto the base (the fetched remote base under PR
 landing), frees it from its worktree, and checks it out
 **in the primary checkout**, so the running server hot-reloads it. The checked-out branch is the
-lock, so only one spec is live at a time. `/spec-live main` hands the checkout
+lock, so only one spec is live at a time. `/spec-live off` hands the checkout
 back. Fixes made while live commit straight onto the branch, and
 `/spec-complete` knows about live specs and lands them.
 

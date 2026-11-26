@@ -40,7 +40,7 @@ before the failing test is written, while nothing is on disk
 
 - **On a released version** — the defect is on what is deployed ("in prod",
   "since v2.1") → propose **`/spec-hotfix`**. This is the escalation that must
-  not be missed: a fix built here lands on `main` and never reaches the
+  not be missed: a fix built here lands on the base branch and never reaches the
   running version.
 - **Live outage** — a service down or degraded **right now** → propose
   **`/spec-incident`**; the record comes first, and the fix returns as a
@@ -72,10 +72,10 @@ current branch.
 **Opt-out:** if the user passes `--no-worktree` (or explicitly asks to work in
 place), skip this whole section and fix on the current branch — same as when
 isolation is off. Warn that the fix will land wherever you currently are (usually
-`main`); reserve it for a trivial one-liner or an explicit request.
+The base branch); reserve it for a trivial one-liner or an explicit request.
 
 A bug fix changes real source, so — exactly like `/spec-start` — it belongs on the
-bug's **own branch**, never directly on `main`. Provision the worktree **now**,
+bug's **own branch**, never directly on the base branch. Provision the worktree **now**,
 before the failing test, so the test, the fix, and the spec all land together and
 arrive as one reviewable PR.
 
@@ -91,7 +91,7 @@ skitterspec spec-env up bug-<name> --docs
 **The spec does not exist yet, and that is the lane.** `up` opens its authoring
 branch on exactly three signals — a spec it could not find, `--docs`, and a name
 shaped `bug-<something>` — records the branch so the name resolves from here on,
-and prints a `git worktree add … -b bug/<name>` forked from `main`. Run it, and
+and prints a `git worktree add … -b bug/<name>` forked from the base branch. Run it, and
 the `skitterspec spec-env bootstrap bug-<name> --docs` under `then, run:` where
 there is one, then move this session into the worktree with a plain `cd`; the Bash
 working directory persists between calls, so from here on the test, the fix and
@@ -125,7 +125,7 @@ never faithful, and a project's secrets hook refused every rewrite that named a
 
 **Why the stub is no longer seeded on the base branch.** This step used to open
 by writing `specs/in-progress/bug-<name>/00-overview.md` in the primary checkout
-for the engine to resolve, and `main` is where work **lands**, not where it
+for the engine to resolve, and the base branch is where work **lands**, not where it
 happens: where the project installs `.claude/hooks/main-guard.cjs` that write is
 refused, and the skill's documented first instruction becomes the one thing the
 repo will not do. Nothing is seeded and nothing is moved now — the spec is
@@ -135,7 +135,7 @@ written in the worktree, at §4, on the branch it belongs to.
 - **Do everything below in the worktree**, on the branch — the red test, the fix,
   and the rest of the spec. The `cd` above is what makes that the default rather
   than something to remember; where a step has to reach out of the tree, use an
-  absolute path or `git -C <worktreePath>`. `main` changes only when the branch
+  absolute path or `git -C <worktreePath>`. The base branch changes only when the branch
   merges (at `/spec-complete`).
 
 ## 3. Write the failing test FIRST (RED) — mandatory
@@ -393,7 +393,7 @@ Do **not** `git commit` unless the user asks. The spec stays in `in-progress`;
 `/spec-complete` §2 refuses on pre-existing uncommitted changes, so naming only
 the second half sends the reader into a refusal. `/spec-complete` then verifies
 and archives it (**when isolated**, the fix lives on the bug's branch, and it
-merges that back to `main`).
+merges that back to the base branch).
 
 End with the block defined in `.claude/rules/spec-reports.md`. That file carries
 the shape; this section carries only what is specific here.

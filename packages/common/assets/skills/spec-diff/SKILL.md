@@ -399,9 +399,9 @@ claude.ai artifact, and that tier was retired (feat-tailnet-remote-tier):
 turns both on.
 
 **THERE IS NO `live-off`, and its absence is deliberate.** Putting *this* change
-live is about the diff on screen; handing the whole instance back to `main` is a
+live is about the diff on screen; handing the whole instance back to the base branch is a
 workspace decision with nothing to do with this review. The `live:` line names
-`/spec-live main` for it — a command the operator types, which is also why no
+`/spec-live off` for it — a command the operator types, which is also why no
 skill runs it.
 
 **AN ACTION IS NOT A VERDICT, and the gate is untouched by both.** A phase

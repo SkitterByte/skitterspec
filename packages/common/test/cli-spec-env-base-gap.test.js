@@ -64,7 +64,7 @@ function scaffold({ config = { baseBranchPattern: '2028/Q?' } } = {}) {
     JSON.stringify(
       {
         docker: { enabled: false },
-        guards: { mainIsLandingZone: false },
+        guards: { baseIsLandingZone: false },
         review: { reader: 'local', serve: 'never' },
         ...config,
       },
@@ -214,7 +214,7 @@ test('a release branch appearing retires the pin on the next command, whatever i
 // --- the main guard: cannot-tell until a pick, then it guards the fallback ---
 
 test('main guard fails open in the gap, and refuses on main once pinned', async () => {
-  const fx = scaffold({ config: { baseBranchPattern: '2028/Q?', guards: { mainIsLandingZone: true } } })
+  const fx = scaffold({ config: { baseBranchPattern: '2028/Q?', guards: { baseIsLandingZone: true } } })
   try {
     const reader = (cwd) => (args) => {
       try {

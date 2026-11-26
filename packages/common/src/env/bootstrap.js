@@ -65,7 +65,7 @@ function runSeed(step, { cwd, mainRoot, fs, platform = process.platform }) {
   const src = path.join(mainRoot, step.file)
   const dst = path.join(cwd, step.file)
   if (!fs.existsSync(src)) {
-    return { outcome: 'skipped', line: `seed ${step.file}: not in main — skipped` }
+    return { outcome: 'skipped', line: `seed ${step.file}: not in the root checkout — skipped` }
   }
   if (lstatOrNull(fs, dst)) {
     return { outcome: 'skipped', line: `seed ${step.file}: exists — skipped` }

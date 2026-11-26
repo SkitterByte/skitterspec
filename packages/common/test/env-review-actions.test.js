@@ -43,7 +43,7 @@ const blob = (extra) => ({ version: 1, spec: 'feat-x', ...extra })
 // the diff on screen, while handing the whole instance back to `main` is a
 // workspace decision with nothing to do with this review — and a control for it
 // on a review page invites the reader to make it while thinking about something
-// else. The `live:` line names `/spec-live main` for it instead.
+// else. The `live:` line names `/spec-live off` for it instead.
 test('the two actions, and none of them is a verdict', () => {
   assert.deepStrictEqual(ACTIONS, ['live-on', 'allow-network'])
   assert.ok(!ACTIONS.includes('allow-remote'), 'there is no published tier to permit')
@@ -144,7 +144,7 @@ test('a free workbench offers the press; a live one offers the command', () => {
   ])
   const on = surfacesFor({ live: { state: 'on', url: 'http://127.0.0.1:3000' }, tiers: [] })
   assert.strictEqual(on[0].action, null, 'no press for handing main back')
-  assert.strictEqual(on[0].command, '/spec-live main')
+  assert.strictEqual(on[0].command, '/spec-live off')
   assert.strictEqual(on[0].url, 'http://127.0.0.1:3000')
 })
 

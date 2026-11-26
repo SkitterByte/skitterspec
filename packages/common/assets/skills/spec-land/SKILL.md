@@ -17,9 +17,9 @@ verifies every phase, flips the status to Complete, `git mv`s the spec to
 **`/spec-land` stops after the land**: the worktree stays, the spec stays
 `In Progress`, and you can land again as you add commits.
 
-Use it when a later phase can only be done *after* the current work is on `main` —
+Use it when a later phase can only be done *after* the current work is on the base branch —
 e.g. it needs to run in CI, a deploy pipeline, or a shared test environment that
-builds from `main`. Land what you have, run that step, then come back and finish
+builds from the base branch. Land what you have, run that step, then come back and finish
 the remaining phases with `/spec-next` and eventually `/spec-complete`.
 
 It reuses the **same engine** as `/spec-complete`'s landing (`spec-env integrate`
@@ -42,11 +42,11 @@ pushes the branch as a draft PR.
 - **Isolation must be on** (`specs/.core/env.config.json` exists **and** the spec
   was provisioned by `/spec-start` — a worktree, or its branch in the checkout under
   `mode: checkout`). If isolation is absent, there is nothing to land — the spec
-  is authored directly on `main` already. Say so and stop. `spec-env integrate`
+  is authored directly on the base branch already. Say so and stop. `spec-env integrate`
   reads `mode` and emits the matching plan; in checkout mode it rebases in place,
   switches to base and fast-forwards, all in the one repo.
 - **Feature / Bug specs only.** A **Hotfix** (`Type: Hotfix`) is built on a
-  release *tag* and cannot fast-forward onto `main` — refuse it and point the user
+  release *tag* and cannot fast-forward onto the base branch — refuse it and point the user
   at `/spec-complete` (it lands a hotfix via tag + cherry-pick). Check the header
   `> **Type:**` before proceeding.
 
@@ -68,17 +68,17 @@ uncommitted changes, offer `/commit` and **stop**; don't auto-commit.
 back to base, re-isolates it into its worktree, clears the receipt), then prints
 the landing plan. Commit any live fixes to the branch first; it refuses if the
 primary checkout is dirty, or if a *different* spec holds it (release that one with
-`/spec-live main`, which the user types).
+`/spec-live off`, which the user types).
 
 ## 3. Tests must be green before landing
 
-Don't push red to `main`. Run the project's typecheck and test commands
+Don't push red to the base branch. Run the project's typecheck and test commands
 **in the worktree**; the suite must be **green**. For a **Bug** spec, confirm
 the originally-failing test now passes. If anything is red, stop and report —
-landing broken code onto `main` defeats the purpose.
+landing broken code onto the base branch defeats the purpose.
 
 (Note this is the *worktree* suite. The whole point of this skill is often to run
-a *further* check that only exists on `main` / in CI — that one runs **after** the
+a *further* check that only exists on the base branch / in CI — that one runs **after** the
 land, in step 5.)
 
 ## 4. Land — rebase + fast-forward

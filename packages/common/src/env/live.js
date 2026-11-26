@@ -218,7 +218,7 @@ function liveStateLine(live) {
   if (live.state === 'on') {
     return (
       `${label}on${live.url ? ` — running at ${live.url}` : ''}` +
-      '; /spec-live main to restore main'
+      '; /spec-live off hands the root checkout back'
     )
   }
   if (live.state === 'held') return `${label}held — ${live.reason}`
@@ -420,13 +420,13 @@ function planTake(spec, config, ctx) {
     // Name the SPEC, not just the branch, and name every way out. `/spec-start`
     // relays this refusal verbatim as its gate, so whatever is missing here is
     // missing from the operator's only explanation of why they are stuck —
-    // "release it with /spec-live main" alone reads as the sole option when
+    // "release it with /spec-live off" alone reads as the sole option when
     // completing or cancelling the held spec are usually the ones they want.
     const held = c.inFlight ? `${c.inFlight} (branch ${on})` : on
     return block(
       `primary checkout is on ${on}, not ${base} — ${held} already holds it. ` +
         'Free the workbench first: `/spec-complete` if it is finished, ' +
-        '`/spec-cancel` if it is not wanted, or `/spec-live main` to park it',
+        '`/spec-cancel` if it is not wanted, or `/spec-live off` to park it',
     )
   }
   // 2. Never switch a dirty tree — the checkout is reset back to base on release.

@@ -256,7 +256,7 @@ test('live release hands the instance back to base and re-isolates the branch', 
   const { dir, worktree } = scaffoldRepoWithSpecWorktree()
   try {
     await runQuiet(['spec-env', 'live', 'take', 'feat-x', '--dir', dir]) // now live on feat/x
-    // No spec arg → resolves the live spec from the receipt. `/spec-live main`
+    // No spec arg → resolves the live spec from the receipt. `/spec-live off`
     // reaches this through the alias arm (covered below).
     const out = await runQuiet(['spec-env', 'live', 'release', '--dir', dir])
     assert.match(out, /feat-x released — primary back on main/)
@@ -329,7 +329,7 @@ test('live abort recovers a crashed session; refuses to discard dirty work', asy
 
 // --- front-door grammar ----------------------------------------------------
 //
-// Every doc says to type `/spec-live <spec>` and `/spec-live main`, and the
+// Every doc says to type `/spec-live <spec>` and `/spec-live off`, and the
 // command relays its arguments to `spec-env live` untranslated — so the engine
 // must accept the spec-name and base-branch forms, not verbs alone.
 
@@ -345,11 +345,11 @@ test('live <spec> means take', async () => {
   }
 })
 
-test('live main means release', async () => {
+test('live off means release', async () => {
   const { dir, worktree } = scaffoldRepoWithSpecWorktree()
   try {
     await runQuiet(['spec-env', 'live', 'take', 'feat-x', '--dir', dir])
-    const out = await runQuiet(['spec-env', 'live', 'main', '--dir', dir])
+    const out = await runQuiet(['spec-env', 'live', 'off', '--dir', dir])
     assert.match(out, /feat-x released — primary back on main/)
     assert.strictEqual(git(dir, 'symbolic-ref', '--short', 'HEAD'), 'main')
     assert.strictEqual(git(worktree, 'symbolic-ref', '--short', 'HEAD'), 'feat/x')
@@ -530,11 +530,18 @@ test('live <base branch> releases where the base is not named main', async () =>
     assert.match(byBase, /feat-x released — primary back on trunk/)
     assert.strictEqual(git(dir, 'symbolic-ref', '--short', 'HEAD'), 'trunk')
 
-    // The literal `main` still means release, even though no such branch exists.
+    // `off` means release whatever the base is called.
     await runQuiet(['spec-env', 'live', 'feat-x', '--dir', dir])
-    const byLiteral = await runQuiet(['spec-env', 'live', 'main', '--dir', dir])
-    assert.match(byLiteral, /feat-x released — primary back on trunk/)
+    const byOff = await runQuiet(['spec-env', 'live', 'off', '--dir', dir])
+    assert.match(byOff, /feat-x released — primary back on trunk/)
     assert.strictEqual(git(worktree, 'symbolic-ref', '--short', 'HEAD'), 'feat/x')
+
+    // The literal `main` was dropped with no alias (feat-pr-mode-verbs): on a
+    // repo with no `main` branch it is a spec name like any other, so it no
+    // longer releases anything.
+    await runQuiet(['spec-env', 'live', 'feat-x', '--dir', dir])
+    await assert.rejects(runQuiet(['spec-env', 'live', 'main', '--dir', dir]), /spec not found under specs\/\*\*: main/)
+    assert.strictEqual(git(dir, 'symbolic-ref', '--short', 'HEAD'), 'feat/x', 'nothing was released')
   } finally {
     cleanup(dir)
   }
@@ -586,7 +593,7 @@ test('a clean worktree still passes, so the new guard is not a blanket refusal',
 //
 // `/spec-start` relays this text verbatim as its gate, so anything missing here
 // is missing from the operator's sole account of why they are stuck. It used to
-// name only the branch and only `/spec-live main` — which reads as the one way
+// name only the branch and only `/spec-live off` — which reads as the one way
 // out when completing or cancelling the held spec are usually what they want.
 
 test('the off-base refusal names the spec in flight, not just the branch', () => {
@@ -611,7 +618,7 @@ test('the refusal names all three ways to free the workbench', () => {
     base: 'main', clean: true, worktreeClean: true, worktreeExists: true,
     serverUp: null, migrationsHit: false, inFlight: 'feat-old',
   })
-  for (const way of ['/spec-complete', '/spec-cancel', '/spec-live main']) {
+  for (const way of ['/spec-complete', '/spec-cancel', '/spec-live off']) {
     assert.ok(plan.reason.includes(way), `offers ${way}`)
   }
 })

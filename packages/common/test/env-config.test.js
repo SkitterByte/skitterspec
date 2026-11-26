@@ -118,6 +118,25 @@ test('nested guards merge field-by-field', () => {
   assert.strictEqual(config.guards.refuseTeardownIfDirty, true)
 })
 
+// feat-pr-mode-verbs: guards.mainIsLandingZone was renamed with no alias. The
+// old key is not read (so the guard stays on), and the report names the new one.
+test('guards.mainIsLandingZone is reported unknown and names its rename', () => {
+  const { collectUnknownKeys, RENAMED_KEYS } = require('../src/env/config.js')
+  assert.deepStrictEqual(collectUnknownKeys({ guards: { mainIsLandingZone: true } }), ['guards.mainIsLandingZone'])
+  assert.strictEqual(RENAMED_KEYS['guards.mainIsLandingZone'], 'guards.baseIsLandingZone')
+  const dir = tmpDir()
+  writeEnvConfig(dir, { guards: { mainIsLandingZone: false } })
+  assert.strictEqual(loadEnvConfig(dir).config.guards.baseIsLandingZone, true, 'the old key is not read: the guard stays on')
+})
+
+test('STAYS SILENT: guards.baseIsLandingZone is a known key', () => {
+  const { collectUnknownKeys } = require('../src/env/config.js')
+  assert.deepStrictEqual(collectUnknownKeys({ guards: { baseIsLandingZone: true } }), [])
+  const dir = tmpDir()
+  writeEnvConfig(dir, { guards: { baseIsLandingZone: false } })
+  assert.strictEqual(loadEnvConfig(dir).config.guards.baseIsLandingZone, false)
+})
+
 test('ignores unknown keys for forward-compat', () => {
   const dir = tmpDir()
   writeEnvConfig(dir, { wibble: true, docker: { unknown: 'x', portBase: 5000 } })

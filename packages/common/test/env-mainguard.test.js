@@ -55,7 +55,7 @@ test('the refusal names both exits, and says which one is the user’s', () => {
   const { reason } = judgeMainWrite(FIRES)
   assert.match(reason, /\/no-spec <name>/)
   assert.match(reason, /\/spec-start <name>/)
-  assert.match(reason, /the USER types \/allow-main/)
+  assert.match(reason, /the USER types \/allow-base/)
   assert.match(reason, /it is theirs to run, not yours/)
 })
 
@@ -181,7 +181,7 @@ test('status names the state, and which kind of allow is in force', () => {
 })
 
 test('an allow belonging to another session is reported, not hidden', () => {
-  // A bare "guarded" would send someone hunting for why their /allow-main did
+  // A bare "guarded" would send someone hunting for why their /allow-base did
   // nothing — the answer is that it belongs to a different conversation.
   const dir = tmpDir()
   recordAllow(dir, CONFIG, { sessionId: 'S1', at: 'T' })
@@ -199,7 +199,7 @@ test('status distinguishes off from unconfigured', () => {
     state: 'unconfigured',
   })
   assert.deepStrictEqual(
-    mainGuardStatus(dir, { ...CONFIG, guards: { mainIsLandingZone: false } }, { present: true }),
+    mainGuardStatus(dir, { ...CONFIG, guards: { baseIsLandingZone: false } }, { present: true }),
     { state: 'off' },
   )
 })
@@ -208,7 +208,7 @@ test('status distinguishes off from unconfigured', () => {
 
 test('the guard is on by default wherever isolation is configured', () => {
   const { DEFAULT_CONFIG } = require('../src/env/config.js')
-  assert.strictEqual(DEFAULT_CONFIG.guards.mainIsLandingZone, true)
+  assert.strictEqual(DEFAULT_CONFIG.guards.baseIsLandingZone, true)
 })
 
 test('a project can switch it off, and only with a boolean', () => {
@@ -218,14 +218,14 @@ test('a project can switch it off, and only with a boolean', () => {
   const write = (v) =>
     fs.writeFileSync(
       path.join(dir, 'specs', '.core', 'env.config.json'),
-      JSON.stringify({ guards: { mainIsLandingZone: v } }),
+      JSON.stringify({ guards: { baseIsLandingZone: v } }),
     )
 
   write(false)
-  assert.strictEqual(loadEnvConfig(dir).config.guards.mainIsLandingZone, false)
+  assert.strictEqual(loadEnvConfig(dir).config.guards.baseIsLandingZone, false)
   // A string is not a boolean, and the merge drops it rather than coercing —
   // so a mistyped `"false"` leaves the guard ON, which is the safe way to be
   // wrong about a value nobody can see.
   write('false')
-  assert.strictEqual(loadEnvConfig(dir).config.guards.mainIsLandingZone, true)
+  assert.strictEqual(loadEnvConfig(dir).config.guards.baseIsLandingZone, true)
 })

@@ -31,7 +31,7 @@ const PLANNING = fs.readFileSync(path.join(ASSETS, 'rules', 'spec-planning.md'),
 
 // --- the marking -------------------------------------------------------------
 
-test('it is user-only, for the same reason /allow-main is', () => {
+test('it is user-only, for the same reason /allow-base is', () => {
   assert.match(TEXT, /^disable-model-invocation: true$/m)
   assert.match(TEXT, /lifts a guard aimed at Claude/)
 })

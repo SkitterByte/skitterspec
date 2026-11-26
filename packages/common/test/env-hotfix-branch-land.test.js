@@ -333,7 +333,7 @@ function scaffold(hotfix = { releaseBranch: 'master' }, extra = {}) {
   fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
   fs.writeFileSync(
     path.join(dir, 'specs', '.core', 'env.config.json'),
-    JSON.stringify({ worktree: { root: '../{repo}-wt', folderPattern: '{slug}' }, docker: { enabled: false }, guards: { mainIsLandingZone: false }, hotfix, ...extra }, null, 2),
+    JSON.stringify({ worktree: { root: '../{repo}-wt', folderPattern: '{slug}' }, docker: { enabled: false }, guards: { baseIsLandingZone: false }, hotfix, ...extra }, null, 2),
   )
   fs.writeFileSync(path.join(dir, '.gitignore'), '/.spec-env/\n')
   commit(dir, 'app.js', 'release')
