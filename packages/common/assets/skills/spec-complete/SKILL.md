@@ -20,6 +20,19 @@ description: Finish a spec — verify all phases are genuinely done, update prog
 - **A hotfix already in `specs/complete/` whose worktree still stands** is a
   hotfix waiting on its deploy. That run is the teardown only: go straight to
   step 7's hotfix paragraph, and do not re-verify, re-move or re-land it.
+- **PR mode — the merge comes first.** Where `land.strategy` is `"pr"` (or the
+  run was given `--strategy pr`, passed on to every `integrate`) and the spec
+  is not a Hotfix, run `skitterspec spec-env integrate <name>`
+  **before touching anything** and read its first line:
+  - `already landed … — finish what the merge deferred` → the host merged.
+    Carry on; §6-pr is the finish.
+  - a `(pr)` plan → **not merged yet**. Stop `⏸`, changing nothing. `Why`
+    names the PR from the plan's `pr:` line (or `no PR yet`), and `Next` is
+    `/spec-pr` to open or ready it — or, where it is already ready, *merge PR
+    #N on the host, then `/spec-complete`*. If you believe it has merged, the
+    plan's own `git fetch` is what makes the next run see it.
+  The refusal is the harmless branch of a cannot-tell: an unfetched base or an
+  unreachable host reads as not merged, never as merged.
 
 ## 2. Double-check progress — don't rubber-stamp
 
@@ -233,8 +246,8 @@ members are ready is that skill's to read, and listing them here is the survey
 this section forbids. An autonomous run that ends here reports this same
 `Next`.
 
-`Landed` says how, because the two ways differ: a fast-forward names the base
-and the commit, a hotfix names the release tag, whether it was pushed, and the
+`Landed` says how, because the ways differ: in PR mode it names the merged PR
+and the base it reached, a fast-forward names the base and the commit, a hotfix names the release tag, whether it was pushed, and the
 `main` carry — and a release tag that has not been pushed is a `⚠️`, not a `✅`. `Worktree` says
 what was reclaimed, including any orphaned volumes swept, or that teardown was
 declined and the worktree still stands.
@@ -412,76 +425,39 @@ is finished — e.g. to run a later phase in CI or a shared test env? Use
 5. **Report** the landing (base branch, fast-forward result). It **never pushes** —
    mention the user can `git push` the base branch themselves.
 
-### 6-pr. PR mode (`land.strategy: "pr"`) — dispose, push, ready; finish after the merge
+### 6-pr. PR mode (`land.strategy: "pr"`) — finish after the merge
 
-Completion is **two runs** here, the `hotfix land`/`finish` shape: the merge is
-the host's act and may be days away, so the run that readies the PR cannot also
-finalise. Which run this is, the engine says: `spec-env integrate <name>`
-printing a `(pr)` plan is run 1; printing
-`already landed … — finish what the merge deferred` is run 2.
+**`/spec-complete` runs once here, after the host merged.** Readying the PR —
+the disposition pass, the consent, the push — is **`/spec-pr`**'s ready path,
+and §1's PR-mode gate has already refused this run if the merge has not
+happened. So this section is only the finish.
 
-**Run 1 — the last control point.** Once the PR is ready, anyone can merge from
-the host UI and the tracker's automations act — so everything that needs a
-person happens before the ready, in this order:
+`integrate` recognises the landed branch — by ancestry, or by the host saying
+the PR merged carrying this exact HEAD, which is how a squash or rebase merge
+is seen — and prints the finish: catch local base up, and the deferred
+`afterLand` with the land's own range. Run those in order (stop at the first
+non-zero `afterLand` exit, as 6-feature/bug step 3 says), then do what the
+merge deferred:
 
-1. **Disposition pass — mandatory, before anything is pushed.** Run
-   `skitterspec spec-env disposition <name> --json`. For every unticked task,
-   non-✅ phase and surfaced follow-up it lists, the user disposes it:
-   **tick** (it was done — tick it, naming the evidence) · **spin off** (a
-   follow-on ticket minted now, linked to this one — offer `/spec` or the
-   provider's mint) · **drop** (a dated Changelog line with the reason, the
-   `none: <reason>` grammar). Batch the asking; never decide for them, and
-   never auto-create. **Refuse to ready the PR while anything is undisposed**
-   — you asked the enumeration, so it cannot also be fine. `clean` proceeds
-   with nothing asked.
-2. **Consent, naming the target.** Ask once, plainly:
-   *"push `<branch>` and open the PR into `<base>` on `<remote>`, ready for
-   merge?"* — the base branch is named so a spec that outlived a release roll
-   is caught by the person reading a stale rc name. On a no, stop with the
-   held commands relayed.
-   **An autonomous run that ends on `pr` has already consented**: the
-   operator named `pr` by flag, config or the final page's `Open PR` button.
-   Say the target in the report's `Landed` row instead of asking.
-3. **Run the plan.** `skitterspec spec-env integrate <name> --push` and run
-   what it prints: fetch, rebase onto `<remote>/<base>`, the push, and the PR
-   create — or, where a draft already exists, the flip-to-ready. A rebase
-   conflict aborts and stops exactly as 6-feature/bug step 2.
-   **Where `skitterspec spec-env run status <name> --json` returns a record**,
-   the spec was built by an autonomous run. Add one line per phase to the PR
-   body: the phase number, its title from the phase index, and its commit from
-   the record. Use the host's PR-edit command (`gh pr edit <n> --body-file`,
-   or `az repos pr update --description`). The PR's commit list is already one
-   commit per phase, and this names them.
-4. **Defer the finalise.** §4's bucket move follows the spec documents'
-   `land.specDocs` lane: under `trunk` leave the spec in `specs/in-progress/`
-   — run 2 moves it on base after the merge; under `branch` commit the move on
-   the branch *before* step 3 so it rides the PR. Either way
-   **the tracker's Done waits for run 2**: a ready PR is not a merged one.
-   Under `branch` the §4 tracker step still runs here, but holding the state
-   (`--hold-state`, as the step says), so the snapshot run 2 would write is in
-   the commit that rides the PR. Otherwise run 2 leaves it modified on the base
-   branch, where nothing is left to commit it to.
-5. **Stop, keeping the worktree.** Report
-   `Landed: PR #N opened — finish after merge` (or `ready`), spec
-   `In Progress`, worktree standing. No afterLand runs — the plan deferred it
-   — and no teardown. The merge is what un-blocks run 2; nothing here waits on
-   it.
+- **Under `land.specDocs: "trunk"`** — §3 and §4 here: the ticks, the move to
+  `specs/complete/` and its commit, on the caught-up base. Where `/spec-pr`
+  already ticked and ✅'d everything, §3 finds nothing to change.
+- **Under `"branch"`** — the move already rode the PR, so the tree has nothing
+  to commit; send the held tracker state alone (`--send-held`, which writes
+  nothing to the tree). Where it reports that nothing was held — a PR readied
+  before the hold existed — it has sent the whole plan, and its line names the
+  snapshot it left modified on base: put that in `Notes`, because only the
+  operator can choose where that file goes.
 
-**Run 2 — after the host merges.** `integrate` recognises the landed branch
-(ancestry or the host's answer) and prints the finish: catch local base up and
-the deferred `afterLand` with the land's own range. Run those, then do what run
-1 deferred — the §4 move (trunk lane) with its State log row and commit, or
-under `branch` the held state alone (`--send-held`, which writes nothing to the
-tree), the §5 report — then **§7 teardown runs as normal**:
-a host-merged branch counts as landed (squash and rebase
-merges included), and a host that auto-deleted the branch makes the remote
-delete an already-gone no-op, never a failure. Re-test on base before calling
-it done, exactly as 6-feature/bug step 4.
+**A PR readied by hand** (flipped in the host UI, or merged from a draft)
+reaches here with phases never verified. Where the phase index is not all ✅,
+run §2 and §3 now, before §4, and say so in `Notes` — the merge happened
+without the last control point, which is worth knowing.
 
-Where `--send-held` reports that nothing was held — a run 1 from before the
-hold existed — it has sent the whole plan, and its line names the snapshot it
-left modified on base. Put that in the report's `Notes`: only the operator can
-choose where that file goes.
+Re-test on base before calling it done, exactly as 6-feature/bug step 4, then
+**§7 teardown runs as normal**: a host-merged branch counts as landed (squash
+and rebase merges included), and a host that auto-deleted the branch makes the
+remote delete an already-gone no-op, never a failure.
 
 ## 7. Tear down the environment (opt-in, only if configured)
 

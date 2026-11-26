@@ -18,6 +18,7 @@ const AUTO = read('spec-next', 'autonomous.md')
 const START = read('spec-start', 'SKILL.md')
 const DIFF = read('spec-diff', 'SKILL.md')
 const COMPLETE = read('spec-complete', 'SKILL.md')
+const PR = read('spec-pr', 'SKILL.md')
 const SPEC = read('spec', 'SKILL.md')
 
 test('/spec-next asks the engine which mode, and hands an auto run to autonomous.md', () => {
@@ -47,7 +48,7 @@ test('the four stop conditions are named, and the run stays active across a stop
 test('the three endings, each ending the run on the record', () => {
   assert.match(AUTO, /spec-env review <spec> --final --run-reviewers/)
   assert.match(AUTO, /spec-env integrate <spec> --push/)
-  assert.match(AUTO, /Hand off to \*\*`\/spec-complete`\*\*/)
+  assert.match(AUTO, /Hand off to \*\*`\/spec-pr`\*\*/)
   assert.match(AUTO, /spec-env run end <spec> --outcome <ending>/)
   assert.match(AUTO, /\*\*is\*\* the operator's consent to push for this run/)
 })
@@ -67,9 +68,9 @@ test('/spec-diff routes the final page’s three endings', () => {
   assert.match(DIFF, /run end <spec> --outcome <verdict>/)
 })
 
-test('/spec-complete lists each phase in the PR body and takes the run’s consent', () => {
-  assert.match(COMPLETE, /spec-env run status <name> --json/)
-  assert.match(COMPLETE, /\*\*An autonomous run that ends on `pr` has already consented\*\*/)
+test('/spec-pr lists each phase in the PR body and takes the run’s consent', () => {
+  assert.match(PR, /spec-env run status <name> --json/)
+  assert.match(PR, /\*\*An autonomous run that ends on `pr` has already consented\*\*/)
 })
 
 test('/spec asks the Run: question only as a difference from the default', () => {

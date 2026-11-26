@@ -340,6 +340,31 @@ test('pr mode: plans fetch + rebase onto the remote base and holds the push', as
   }
 })
 
+// feat-pr-mode-verbs: the LSC shape — PR landing, spec docs riding the branch,
+// a rolling release-candidate base. /spec-pr's ready path runs this plan, so
+// it must publish the branch (held for consent) and rebase onto the rc's
+// remote image, never fast-forward anything locally.
+test('pr mode: the LSC shape (specDocs branch + rolling rc base) plans the publish', async () => {
+  const { dir, worktree } = scaffoldRepoWithWorktree({
+    baseBranch: '',
+    land: { strategy: 'pr', specDocs: 'branch' },
+    baseBranchPattern: '20??/Q?',
+  })
+  try {
+    // The rc is matched from remote-tracking refs, as a fetch would leave it.
+    git(dir, 'update-ref', 'refs/remotes/origin/2026/Q4', 'main')
+    const out = await runQuiet(['spec-env', 'integrate', 'feat-x', '--dir', dir])
+    assert.match(out, /spec-env integrate: feat-x \(pr\)/)
+    assert.match(out, new RegExp(`git -C ${cmdPath(worktree)} rebase origin/2026/Q4`))
+    assert.match(out, /with your consent/)
+    assert.match(out, new RegExp(`push --force-with-lease -u origin feat/x`))
+    assert.doesNotMatch(out, /merge --ff-only/)
+    assert.doesNotMatch(out, /already landed/)
+  } finally {
+    cleanup(dir)
+  }
+})
+
 test('pr mode: --push folds the push and PR line into the run list', async () => {
   const { dir, worktree } = scaffoldRepoWithWorktree({ land: { strategy: 'pr' } })
   try {

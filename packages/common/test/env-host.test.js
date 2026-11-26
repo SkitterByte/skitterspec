@@ -8,6 +8,7 @@ const {
   prFor,
   githubPrState,
   azurePrState,
+  mergedAtHead,
   prCreateCommand,
   prReadyCommand,
   prAbandonCommand,
@@ -85,6 +86,33 @@ test('azurePrState: empty list is a positive none; the newest PR wins', () => {
   assert.strictEqual(r.state, 'draft')
   assert.strictEqual(r.id, '9')
   assert.strictEqual(azurePrState('{"not":"a list"}').state, 'cannot-tell')
+})
+
+// --- merged at HEAD: the squash-merge landed signal ----------------------------
+
+test('githubPrState and azurePrState carry the merged head commit', () => {
+  assert.strictEqual(githubPrState('{"state":"MERGED","number":7,"headRefOid":"abc"}').head, 'abc')
+  const az = azurePrState(JSON.stringify([
+    { pullRequestId: 4, status: 'completed', lastMergeSourceCommit: { commitId: 'def' } },
+  ]))
+  assert.strictEqual(az.state, 'merged')
+  assert.strictEqual(az.head, 'def')
+})
+
+test('mergedAtHead: merged carrying exactly HEAD is landed', () => {
+  assert.strictEqual(mergedAtHead({ state: 'merged', head: 'abc' }, 'abc'), true)
+})
+
+// Stays silent: every one of these is a healthy state that must NOT read as
+// landed — new commits after a merge need a new PR, and a payload without a
+// head commit is a cannot-tell that falls back to ancestry.
+test('mergedAtHead stays false on new commits, open PRs, missing heads and cannot-tell', () => {
+  assert.strictEqual(mergedAtHead({ state: 'merged', head: 'abc' }, 'later'), false)
+  assert.strictEqual(mergedAtHead({ state: 'merged', head: null }, 'abc'), false)
+  assert.strictEqual(mergedAtHead({ state: 'open', head: 'abc' }, 'abc'), false)
+  assert.strictEqual(mergedAtHead({ state: 'cannot-tell' }, 'abc'), false)
+  assert.strictEqual(mergedAtHead({ state: 'merged', head: 'abc' }, null), false)
+  assert.strictEqual(mergedAtHead(null, 'abc'), false)
 })
 
 // --- prFor with an injected exec ----------------------------------------------

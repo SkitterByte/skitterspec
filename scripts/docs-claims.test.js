@@ -675,6 +675,7 @@ test('the retired-skill guard stays silent on documenting the removal', () => {
 const NUMBER_WORDS = {
   seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, thirteen: 13,
   fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19, twenty: 20,
+  'twenty-one': 21, 'twenty-two': 22,
 }
 
 test('spec-init names exactly the lifecycle skills it ships', () => {
@@ -686,7 +687,7 @@ test('spec-init names exactly the lifecycle skills it ships', () => {
     .sort()
 
   const text = fs.readFileSync(path.join(skillsDir, 'spec-init/SKILL.md'), 'utf8')
-  const m = text.match(/The system is \*\*(\w+) skills\*\*:([\s\S]*?)\n\n/)
+  const m = text.match(/The system is \*\*([\w-]+) skills\*\*:([\s\S]*?)\n\n/)
   assert.ok(m, 'spec-init should carry a "The system is **N skills**:" enumeration')
 
   const [, countWord, enumeration] = m

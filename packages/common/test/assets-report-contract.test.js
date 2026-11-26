@@ -32,6 +32,7 @@ const SKILLS = {
     'spec-start',
     'spec-next',
     'spec-to-main',
+    'spec-pr',
     'spec-complete',
     'spec-cancel',
     'spec-review',
@@ -127,7 +128,7 @@ test('the rule is readable, or every guard below is vacuous', () => {
   assert.ok(VOCABULARY.includes('Follow-ups'), `vocabulary: ${VOCABULARY}`)
   assert.ok(VOCABULARY.includes('Why'), `vocabulary: ${VOCABULARY}`)
   assert.strictEqual(VERDICTS.length, 4, `verdicts: ${VERDICTS}`)
-  assert.strictEqual(entries().length, 26, 'all 26 skills are covered')
+  assert.strictEqual(entries().length, 27, 'all 27 skills are covered')
 })
 
 // --- the banner ------------------------------------------------------------

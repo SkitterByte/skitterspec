@@ -219,7 +219,7 @@ const { planPrune, liveSlugsForSpecs, reconcileRegistry } = require('./env/prune
 const { planIntegrate, planIntegrateCheckout, planIntegratePr, planIntegrateDocs } = require('./env/integrate.js')
 const { specBranchDocs, preferBranches } = require('./env/specbranches.js')
 const { findTarget, planResume, planReopen, resumeLines, reopenLines, blockingNext } = require('./env/resume.js')
-const { parseRemote, prFor, prPlanCommand, prAbandonCommand, preferRemoteBase } = require('./env/host.js')
+const { parseRemote, prFor, prPlanCommand, prAbandonCommand, preferRemoteBase, mergedAtHead } = require('./env/host.js')
 const { collectDisposition } = require('./env/disposition.js')
 const { planHandoff } = require('./env/handoff.js')
 const { collectInFlight, detailOf, formatInFlight, isInFlight } = require('./env/inflight.js')
@@ -3771,11 +3771,6 @@ function specEnvIntegratePr(dir, config, spec, base, flags, retarget = null) {
   const git = gitReader(treePath)
   const status = git(['status', '--porcelain'])
   const dirty = status !== null && status.length > 0
-  // Measured against the REMOTE image of base — local base is allowed to go
-  // stale in PR mode. null = no such ref here yet (never fetched): unknown, so
-  // the planner plans rather than claiming landed.
-  const aheadRaw = git(['rev-list', '--count', `${remote}/${base}..HEAD`])
-  const aheadOfRemoteBase = aheadRaw === null ? null : Number(aheadRaw) > 0
   // A branch already on the remote at this exact HEAD is the positive signal
   // that the operator published it — the consent the hold otherwise waits for.
   const headSha = git(['rev-parse', 'HEAD'])
@@ -3785,12 +3780,23 @@ function specEnvIntegratePr(dir, config, spec, base, flags, retarget = null) {
   // The host's answer decides what the PR step says — `prPlanCommand` owns the
   // mapping (create · the-push-updates-it · flip-a-draft-ready · null for
   // cannot-tell, which keeps the planner's degraded placeholder). `--draft` is
-  // the mid-spec form (/spec-to-main's PR-mode descendant): a draft cannot be
+  // the mid-spec form (/spec-pr before every phase is done): a draft cannot be
   // merged, so nothing downstream can close a ticket early. Plain integrate is
   // the landing verb, so a draft met without the flag is flipped ready.
   const draft = flags.draft === true
   const remoteInfo = parseRemote(git(['config', '--get', `remote.${remote}.url`]))
   const pr = remoteInfo.host ? hostPrFor(treePath, remote, spec.branch) : { state: 'cannot-tell', id: null, url: null }
+
+  // Landed is asked two ways, and either positive answer is enough. Ancestry,
+  // measured against the REMOTE image of base (local base may go stale in PR
+  // mode), sees a fast-forward or merge commit; the host's merged-at-HEAD sees a
+  // squash or rebase merge, which ancestry never can. null = the remote ref is
+  // not here (never fetched): unknown, so the planner plans rather than
+  // claiming landed — and /spec-complete reads that as not merged yet.
+  const aheadRaw = git(['rev-list', '--count', `${remote}/${base}..HEAD`])
+  const aheadOfRemoteBase = mergedAtHead(pr, headSha)
+    ? false
+    : aheadRaw === null ? null : Number(aheadRaw) > 0
 
   const plan = planIntegratePr(spec, config, {
     prCreateCommand: prPlanCommand(remoteInfo, pr, { branch: spec.branch, base, draft }),

@@ -368,9 +368,10 @@ branch, and each one ends the run with
   and tears down exactly as if typed.
 - **`push`**: `skitterspec spec-env integrate <spec> --push`, and run what it
   plans. The press is the push consent. The spec stays in flight.
-- **`pr`**: carry on into **`/spec-complete`** under PR landing
-  (`--strategy pr` where `land.strategy` is not already `pr`). Its PR body lists
-  each phase with its commit.
+- **`pr`**: carry on into **`/spec-pr`**, whose ready path opens the PR
+  (it passes `--strategy pr` where `land.strategy` is not already `pr`). The
+  press is the consent. Its PR body lists each phase with its commit, and
+  `/spec-complete` follows the host's merge.
 
 A failure stops there, exactly as a failed commit ends `commit-continue`. Say
 where it broke, and leave the run active so the page can be answered again.

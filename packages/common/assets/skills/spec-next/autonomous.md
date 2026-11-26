@@ -98,9 +98,10 @@ worse than one that waits.
   `Request changes` and `Discuss`. `/spec-diff` §2a routes them.
 - **`push`.** `skitterspec spec-env integrate <spec> --push`, and run what it
   plans. The spec stays in flight.
-- **`pr`.** Hand off to **`/spec-complete`**, whose PR-mode first run verifies
-  every phase, pushes, and opens the PR. Its body lists each phase with its
-  commit, from `run status --json`.
+- **`pr`.** Hand off to **`/spec-pr`**, whose ready path verifies every
+  phase, runs the disposition pass, pushes, and opens the PR ready. Its body
+  lists each phase with its commit, from `run status --json`.
+  `/spec-complete` follows the merge, not this run.
 
 Then `skitterspec spec-env run end <spec> --outcome <ending>`, and write one
 dated Changelog line on the spec: the phases built, the ending, and the

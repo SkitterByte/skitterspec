@@ -29,6 +29,7 @@ demand, host dev servers on reserved ports — and everything below.
 | `/spec-resume` | Go back into a spec in flight, by name or ticket, and act on a message |
 | `/spec-park` | Record what a spec in flight is waiting on: a deploy, a release, a soak |
 | `/spec-to-main` | Land the branch mid-spec, without finishing it |
+| `/spec-pr` | Push the branch as a draft PR mid-spec, or a ready PR once every phase is done |
 | `/spec-complete` | Verify, land, tear down |
 | `/spec-cancel` | Record why, stamp the header, tear down |
 | `/spec-tada` | A ta-da list: what you did today, by project and by spec, plus a standup |

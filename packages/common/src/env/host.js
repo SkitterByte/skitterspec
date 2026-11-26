@@ -102,7 +102,7 @@ function prFor(remoteInfo, branch, exec, cwd) {
 
   if (remoteInfo.host === 'github') {
     // Run in the repo (gh resolves owner/repo from the git remotes there).
-    const r = exec('gh', ['pr', 'view', branch, '--json', 'state,isDraft,number,url'], { cwd })
+    const r = exec('gh', ['pr', 'view', branch, '--json', 'state,isDraft,number,url,headRefOid'], { cwd })
     if (!r.ok) {
       // gh exits 1 both for "no PR" and for real failures; only the former is
       // an answer.
@@ -129,8 +129,10 @@ function prFor(remoteInfo, branch, exec, cwd) {
   return azurePrState(r.stdout)
 }
 
-// Map `gh pr view --json state,isDraft,number,url` output. Unparseable JSON is
-// a cannot-tell, never a guess.
+// Map `gh pr view --json state,isDraft,number,url,headRefOid` output.
+// Unparseable JSON is a cannot-tell, never a guess. `head` is the commit the PR
+// carried — what `mergedAtHead` compares, because a squash or rebase merge
+// leaves the branch's own commits outside base for good.
 function githubPrState(stdout) {
   let pr
   try {
@@ -140,7 +142,7 @@ function githubPrState(stdout) {
   }
   const id = pr.number != null ? String(pr.number) : null
   const url = pr.url || null
-  if (pr.state === 'MERGED') return { state: 'merged', id, url }
+  if (pr.state === 'MERGED') return { state: 'merged', id, url, head: pr.headRefOid || null }
   if (pr.state === 'OPEN') return { state: pr.isDraft ? 'draft' : 'open', id, url }
   if (pr.state === 'CLOSED') return { state: 'none', id, url }
   return { state: 'cannot-tell', id, url }
@@ -161,7 +163,10 @@ function azurePrState(stdout) {
   const pr = list.reduce((a, b) => ((a.pullRequestId || 0) >= (b.pullRequestId || 0) ? a : b))
   const id = pr.pullRequestId != null ? String(pr.pullRequestId) : null
   const url = null // az's list payload carries no stable web URL; callers compose nothing
-  if (pr.status === 'completed') return { state: 'merged', id, url }
+  if (pr.status === 'completed') {
+    const head = (pr.lastMergeSourceCommit && pr.lastMergeSourceCommit.commitId) || null
+    return { state: 'merged', id, url, head }
+  }
   if (pr.status === 'active') return { state: pr.isDraft ? 'draft' : 'open', id, url }
   if (pr.status === 'abandoned') return { state: 'none', id, url }
   return { state: 'cannot-tell', id, url }
@@ -198,6 +203,22 @@ function prAbandonCommand(remoteInfo, { branch, id }) {
   if (remoteInfo.host === 'github') return `gh pr close ${branch}`
   if (!id) return null
   return `az repos pr update --organization ${remoteInfo.orgUrl} --id ${id} --status abandoned`
+}
+
+/**
+ * True only when the host says the branch's PR MERGED carrying exactly this
+ * commit — the positive signal that a squash or rebase merge landed the work,
+ * where ancestry never can (the merged commit is a new one on base).
+ *
+ * WHAT WOULD FOOL THIS: a host payload with no head commit (an older `gh`, an
+ * Azure PR completed without one recorded) reads as not-landed, never landed —
+ * the caller then falls back to ancestry, and the worst case is a completion
+ * that refuses until base is fetched, never one that finalises unmerged work.
+ * New commits after the merge make the heads differ, which is correct: they
+ * need a new PR.
+ */
+function mergedAtHead(pr, headSha) {
+  return Boolean(pr && pr.state === 'merged' && pr.head && headSha && pr.head === headSha)
 }
 
 /**
@@ -259,4 +280,5 @@ module.exports = {
   prReadyCommand,
   prAbandonCommand,
   prPlanCommand,
+  mergedAtHead,
 }

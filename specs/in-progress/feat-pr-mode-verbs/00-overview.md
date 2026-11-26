@@ -42,9 +42,9 @@ LSC did not push or open the PR at all; the cause is not known.
   PR ready (or opens it ready).
 - In PR mode, `/spec-complete` before the merge refuses `⏸`, naming the PR and
   `/spec-pr`; after the merge it finalises and tears down in one run.
-- In ff mode, `/spec-land` does what `/spec-to-main` did; `/spec-pr` refuses
-  there naming `/spec-land`, and `/spec-land` refuses in PR mode naming
-  `/spec-pr`.
+- In ff mode, `/spec-land` does what `/spec-to-main` did, and refuses in PR
+  mode naming `/spec-pr`. `/spec-pr` works under any configured strategy,
+  passing `--strategy pr` where the config is not PR mode.
 - A manual-steps stop whose branch live refuses never names `/spec-to-main`:
   it follows `live.refusedReach`, or with the key unset relays live's refusal
   and lists the three reaches.
@@ -69,8 +69,9 @@ LSC did not push or open the PR at all; the cause is not known.
 3. **`/spec-complete` in PR mode is today's run 2 only.** Not merged →
    `⏸`, no edits. The bucket move under `specDocs: "branch"` already rides
    the PR via run 1; it moves to `/spec-pr`'s ready path with the rest.
-4. **`/spec-to-main` becomes `/spec-land` for ff mode.** Each verb refuses in
-   the other mode and names the right one, rather than one mode-neutral verb
+4. **`/spec-to-main` becomes `/spec-land` for ff mode.** `/spec-land` refuses
+   in PR mode naming `/spec-pr`; `/spec-pr` is the explicit PR route in any
+   mode (amended 2026-11-26), rather than one mode-neutral verb
    (`/spec-integrate` was rejected — a command whose effect depends on config
    is the murk this spec removes).
 5. **How a refused branch is reached is a project setting:
@@ -130,7 +131,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | `/spec-pr`, and `/spec-complete` as the post-merge finish | ⬜ | [01-spec-pr.md](01-spec-pr.md) |
+| 1 | `/spec-pr`, and `/spec-complete` as the post-merge finish | ✅ | [01-spec-pr.md](01-spec-pr.md) |
 | 2 | `/spec-land` replaces `/spec-to-main` in ff mode | ⬜ | [02-spec-land.md](02-spec-land.md) |
 | 3 | `live.refusedReach` for manual-steps stops | ⬜ | [03-refused-reach.md](03-refused-reach.md) |
 | 4 | Vocabulary: base, root checkout, live; docs | ⬜ | [04-vocabulary.md](04-vocabulary.md) |
@@ -142,3 +143,15 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-11-26 — Spec created, from a sense-check of PR mode on LSC.
+- 2026-11-26 — Phase 1: `integrate` now counts a PR the host merged at this
+  HEAD as landed. A squash or rebase merge never satisfies ancestry, so the
+  post-merge `/spec-complete` would have planned a new PR instead of the
+  finish. Added to phase 1 as a task.
+- 2026-11-26 — Phase 1: LSC's "spec-complete did not push" is not in the
+  engine — the PR plan for the LSC shape (specDocs branch, `20??/Q?` base) is
+  correct and now pinned by a test. Likeliest cause: the old two-run skill
+  put the push after the report section. `/spec-pr` makes the push its job.
+- 2026-11-26 — Decision 4 amended: `/spec-pr` no longer refuses outside PR
+  mode; it passes `--strategy pr`, because LSC lands some features by PR and
+  some directly. It is model-invocable (the autonomous `pr` ending hands off
+  to it); the push stays behind its consent ask.
