@@ -342,7 +342,7 @@ place of the table when the spec touches no external surface.>
 ## Phases
 
 Each phase lives in its own file in this folder. Status: ⬜ not started ·
-🔄 in progress · ✅ done.
+🔄 in progress · ✅ done · ➖ cancelled.
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
@@ -421,7 +421,7 @@ Rules for the spec body:
   task into each phase — never a separate "testing phase" at the end only.
 - **Tasks are checkboxes** (`- [ ]`), clear, verb-first, and granular enough to
   finish in one session. They live in the **phase files**, not the overview. Use
-  `⬜`/`🔄`/`✅` on each phase-file heading and mirror it in the `00-overview.md`
+  `⬜`/`🔄`/`✅`/`➖` on each phase-file heading and mirror it in the `00-overview.md`
   phase index.
 - **Honour project conventions** when writing tasks — reference the relevant
   `.claude/rules/*.md` rather than re-explaining them.

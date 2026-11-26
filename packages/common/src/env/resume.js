@@ -83,7 +83,8 @@ function blockingNext(copy) {
   const all = blockers(copy)
   const phases = ((copy && copy.phases) || []).filter((p) => p && typeof p.text === 'string')
   const heading = (t) => (t.split('\n').find((l) => /^#\s/.test(l)) || '').trim()
-  const next = [...phases].sort((a, b) => a.n - b.n).find((p) => !heading(p.text).endsWith('✅'))
+  // A cancelled phase (➖) is settled: `/spec-next` skips it, so its blocker holds nothing.
+  const next = [...phases].sort((a, b) => a.n - b.n).find((p) => !/[✅➖]$/u.test(heading(p.text)))
   if (!next) return null
   return all.find((b) => b.where === 'spec') || all.find((b) => b.where === next.n) || null
 }

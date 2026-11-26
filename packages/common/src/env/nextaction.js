@@ -19,7 +19,7 @@
 const fs = require('node:fs')
 const path = require('node:path')
 
-const { phaseIsDone } = require('./resolve.js')
+const { phaseIsDone, phaseIsCancelled } = require('./resolve.js')
 const { readGate, readPending, gateState } = require('./review.js')
 const { dirtyPaths } = require('./classify.js')
 
@@ -53,7 +53,7 @@ function backlogAction(spec, { waits = [], freeLanes = null, clashWith = [] }) {
  * @param {object} a
  *   - `spec`      the spec's folder name
  *   - `bucket`    where its own copy sits, or null when it could not be read
- *   - `phases`    `[{ n, done }]` from its own copy, or null when unreadable
+ *   - `phases`    `[{ n, done, cancelled }]` from its own copy, or null when unreadable
  *   - `gate`      `armed` · `clear` · `off` (the project opted out) ·
  *                 `unreadable`
  *   - `passes`    codes of the passes waiting unclaimed, or null when the
@@ -73,8 +73,10 @@ function nextAction(a) {
   if (bucket === 'backlog') return backlogAction(spec, a)
   if (bucket !== 'in-progress') return tell('unknown', `${spec}'s own copy could not be read`)
 
-  const phases = a.phases
-  if (phases === null || phases === undefined) return tell('in-progress', 'its phase files could not be read')
+  if (a.phases === null || a.phases === undefined) return tell('in-progress', 'its phase files could not be read')
+  // A cancelled phase (➖) has nothing to build and is out of the total, so it
+  // is never the next phase and never keeps a spec from completing.
+  const phases = a.phases.filter((p) => !p.cancelled)
   const done = phases.filter((p) => p.done).length
   const progress = `phase ${Math.min(done + 1, phases.length)} of ${phases.length}`
 
@@ -111,7 +113,7 @@ function nextAction(a) {
 
   // A spec with no phase files yet has nothing for `/spec-next` to build;
   // naming the command would send the operator to a refusal.
-  if (!phases.length) return { verb: 'idle', state: 'no phase files', command: null, link: null, why: null }
+  if (!a.phases.length) return { verb: 'idle', state: 'no phase files', command: null, link: null, why: null }
   if (done === phases.length) {
     return { verb: 'complete', state: `${done} of ${phases.length} ✅ · clean`, command: '/spec-complete', link: null, why: null }
   }
@@ -172,7 +174,7 @@ function readPhases(root, bucket, folder, io = defaultIo) {
     // One unreadable phase makes the count a guess, and a guess here is what
     // would print `/spec-complete` for a spec with a phase left to build.
     if (text === null) return null
-    out.push({ n: Number(f.slice(0, 2)), done: phaseIsDone(text) })
+    out.push({ n: Number(f.slice(0, 2)), done: phaseIsDone(text), cancelled: phaseIsCancelled(text) })
   }
   return out
 }

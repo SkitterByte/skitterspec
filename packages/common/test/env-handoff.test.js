@@ -67,6 +67,6 @@ test('no worktree, or no remote, refuses with no offer', () => {
 })
 
 test('phaseProgress reads the H1 emoji, and copes with no phases', () => {
-  assert.deepStrictEqual(phaseProgress(base().phases), { done: 1, total: 3, current: 2 })
-  assert.deepStrictEqual(phaseProgress([]), { done: 0, total: 0, current: null })
+  assert.deepStrictEqual(phaseProgress(base().phases), { done: 1, total: 3, current: 2, cancelled: 0 })
+  assert.deepStrictEqual(phaseProgress([]), { done: 0, total: 0, current: null, cancelled: 0 })
 })

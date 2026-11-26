@@ -141,7 +141,8 @@ feature was designed not to disturb.
 ## 3. Update the spec
 
 - Tick all completed tasks in the phase files; flip every finished phase-file
-  heading **and** every row in the `00-overview.md` phase index to `✅`.
+  heading **and** every row in the `00-overview.md` phase index to `✅`. A phase
+  cancelled in place keeps its `➖`: it is out of the total, not unfinished.
 
 <!-- seam:spec-status-owner -->
 

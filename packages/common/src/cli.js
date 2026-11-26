@@ -3912,7 +3912,7 @@ function specEnvIntegrateDocs(dir, config, spec, flags) {
 
 // `spec-env disposition [<spec>] [--json]` — enumerate the loose ends a
 // completion must dispose before a PR goes ready: unticked tasks, phase-index
-// rows not ✅, surfaced follow-ups. Information only — it never refuses and
+// rows not ✅ or ➖, surfaced follow-ups. Information only — it never refuses and
 // nothing gates on it; /spec-complete's PR-mode guard is the consumer, and the
 // deciding (tick · spin off · drop) is the operator's there.
 /**
@@ -4031,7 +4031,7 @@ function specEnvDisposition(dir, config, specArg, flags = {}) {
     for (const t of d.tasks) out.push(`    ${t.file}:${t.line}  ${t.text}`)
   }
   if (d.phases.length) {
-    out.push(`  phases not ✅ (${d.phases.length}):`)
+    out.push(`  phases not ✅ or ➖ (${d.phases.length}):`)
     for (const p of d.phases) out.push(`    ${p.n}  ${p.title} — ${p.status}`)
   }
   if (d.followUps.length) {

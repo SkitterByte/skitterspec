@@ -97,6 +97,7 @@ function state(bucket, legacy, text, progress) {
     phasesDone: progress ? progress.done : null,
     phasesTotal: progress ? progress.total : null,
     currentPhase: progress ? progress.current : null,
+    phasesCancelled: progress ? progress.cancelled : null,
     status: header(text, 'Status'),
     developer: header(text, 'Developer'),
     epic: (header(text, 'Epic') || '').replace(/^`(.*)`$/, '$1') || null,

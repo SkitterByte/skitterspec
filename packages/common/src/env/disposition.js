@@ -19,7 +19,7 @@
  * @param {object} input { overview, phases: [{ file, content }] }
  * @returns {object} { tasks, phases, followUps, clean }
  *   tasks     — unticked `- [ ]` items, per phase file, with line numbers
- *   phases    — phase-index rows whose status is not ✅
+ *   phases    — phase-index rows whose status is not ✅ or ➖
  *   followUps — Changelog `Follow-up surfaced:` lines (all of them: whether a
  *               spec was later written for one is not knowable from this file,
  *               so the operator reads the list rather than trusting a guess)
@@ -45,7 +45,8 @@ function collectDisposition(input) {
   const phases = []
   for (const line of overview.split('\n')) {
     const m = line.match(/^\|\s*(\d+)\s*\|\s*(.+?)\s*\|\s*([^|]+?)\s*\|\s*\[([^\]]+)\]/)
-    if (m && !m[3].includes('✅')) {
+    // A ➖ row was cancelled on purpose — a disposition already made.
+    if (m && !m[3].includes('✅') && !m[3].includes('➖')) {
       phases.push({ n: Number(m[1]), title: m[2], status: m[3].trim(), file: m[4] })
     }
   }

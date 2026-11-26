@@ -211,7 +211,8 @@ Before writing any code for this phase, get the workspace clean:
 
 ## 3. Implement the phase
 
-Identify the **first unfinished phase** from the `00-overview.md` phase index,
+Identify the **first unfinished phase** from the `00-overview.md` phase index
+(skipping any `➖` — a phase cancelled in place is never built),
 then open its phase file (`0N-<slug>.md`) — that file holds the tasks.
 
 **Ask the spec's epic before building it.** Run

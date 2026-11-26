@@ -25,8 +25,14 @@ Inside it:
   Acceptance criteria, Decisions, Solution overview, the **Impact map** (a
   `Surface | Change | Detail` table naming the endpoints, schemas, tables,
   routes and rules touched), the **phase index** (a table linking each phase
-  file with `⬜`/`🔄`/`✅`), Open questions, State log and Changelog.
+  file with `⬜`/`🔄`/`✅`/`➖`), Open questions, State log and Changelog.
   **No per-phase task lists.**
+- **Phase status** is the emoji ending each phase-file H1, mirrored in its
+  index row: `⬜` not started · `🔄` in progress · `✅` done · `➖` cancelled.
+  A `➖` phase was dropped in place and kept for the record.
+  It is **excluded from the total** ("3 of 3 phases done, 2 cancelled"),
+  `/spec-next` skips it, and a spec whose remaining phases are all `➖` is
+  ready to complete.
 - **One file per phase**: `01-<slug>.md`, `02-<slug>.md`, and so on, in
   execution order. Each holds its goal, its task checkboxes (tests included) and
   its notes. A single-phase spec still gets `01-….md`.

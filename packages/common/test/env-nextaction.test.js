@@ -172,8 +172,8 @@ function tmpTree() {
 test('readPhases reads done-ness off each phase file in its own copy', () => {
   const root = tmpTree()
   assert.deepStrictEqual(readPhases(root, 'in-progress', 'feat-a'), [
-    { n: 1, done: true },
-    { n: 2, done: false },
+    { n: 1, done: true, cancelled: false },
+    { n: 2, done: false, cancelled: false },
   ])
   assert.strictEqual(readPhases(root, 'backlog', 'feat-a'), null)
 })

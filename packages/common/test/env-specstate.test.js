@@ -54,6 +54,7 @@ test('a normal folder spec: bucket, progress and its headers', () => {
     phasesDone: 1,
     phasesTotal: 3,
     currentPhase: 2,
+    phasesCancelled: 0,
     status: 'In Progress — Phase 2 (started 2026-11-01)',
     developer: 'Reuben Greaves',
     epic: null,

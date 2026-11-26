@@ -92,7 +92,8 @@ function parseSections(body) {
 }
 
 // Canonical milestone status from the phase-index emoji.
-const EMOJI_STATUS = { '⬜': 'not-started', '🔄': 'in-progress', '✅': 'done' }
+// ➖ is a phase cancelled in place (bug-cancelled-phase-state).
+const EMOJI_STATUS = { '⬜': 'not-started', '🔄': 'in-progress', '✅': 'done', '➖': 'cancelled' }
 
 // Parse the "## Phases" index table into [{ name, status }] rows.
 function parsePhaseIndex(phasesSection) {
@@ -105,7 +106,7 @@ function parsePhaseIndex(phasesSection) {
     const n = cells[1]
     if (!/^\d+$/.test(n)) continue // skip header + separator rows
     const name = cells[2]
-    const emoji = (cells[3].match(/[⬜🔄✅]/u) || [])[0]
+    const emoji = (cells[3].match(/[⬜🔄✅➖]/u) || [])[0]
     // `stated` separates "the row says not-started" from "the row said nothing
     // we recognise". A cell holding the word `Done`, an em dash, or a legacy
     // spec's freeform text expresses no status in this vocabulary, and reading
@@ -122,18 +123,18 @@ function phaseTitle(body) {
   const h1 = /^#\s+(.*)$/m.exec(body)
   if (!h1) return null
   const t = h1[1]
-    .replace(/\s*[⬜🔄✅]\s*$/u, '')
+    .replace(/\s*[⬜🔄✅➖]\s*$/u, '')
     .replace(/^Phase\s+\d+\s*[—–-]\s*/i, '')
     .trim()
   return t || null
 }
 
-// The raw ⬜/🔄/✅ on a phase file's h1, or undefined when it carries none.
+// The raw ⬜/🔄/✅/➖ on a phase file's h1, or undefined when it carries none.
 // Kept separate from `phaseStateBucket` because the LINT has to tell "absent"
 // apart from "not-started" — the projection deliberately cannot (see below).
 function headingEmoji(body) {
   const h1 = /^#\s+(.*)$/m.exec(body)
-  return h1 ? (h1[1].match(/[⬜🔄✅]/u) || [])[0] : undefined
+  return h1 ? (h1[1].match(/[⬜🔄✅➖]/u) || [])[0] : undefined
 }
 
 // The `> **Status:** …` line's value, or null when the file has none. This is
@@ -155,16 +156,17 @@ const STATUS_WORDS = [
   [/\b(not[\s-]?started|todo|to[\s-]do|planned)\b/i, 'not-started'],
   [/\b(in[\s-]?progress|started|doing|wip)\b/i, 'in-progress'],
   [/\b(done|complete[d]?|finished|shipped)\b/i, 'done'],
+  [/\b(cancel+ed|dropped|abandoned)\b/i, 'cancelled'],
 ]
 function statusLineValue(line) {
   if (!line) return null
-  const emoji = (line.match(/[⬜🔄✅]/u) || [])[0]
+  const emoji = (line.match(/[⬜🔄✅➖]/u) || [])[0]
   if (emoji) return EMOJI_STATUS[emoji]
   for (const [re, status] of STATUS_WORDS) if (re.test(line)) return status
   return null
 }
 
-// A phase's status (from its heading emoji ⬜/🔄/✅) mapped to a state bucket the
+// A phase's status (from its heading emoji ⬜/🔄/✅/➖) mapped to a state bucket the
 // `states` table understands, so a sub-issue lands in the matching Linear issue
 // state. Unknown/absent → backlog.
 //
@@ -172,7 +174,7 @@ function statusLineValue(line) {
 // format we don't parse", which is silent corruption: the wrong state pushes
 // cleanly and `record` then commits it as the INTENDED value. The fix is not
 // leniency here — one convention beats two — it is `lintPhases`, which warns.
-const PHASE_STATE_BUCKET = { 'not-started': 'backlog', 'in-progress': 'in-progress', done: 'complete' }
+const PHASE_STATE_BUCKET = { 'not-started': 'backlog', 'in-progress': 'in-progress', done: 'complete', cancelled: 'cancelled' }
 function phaseStateBucket(body) {
   return PHASE_STATE_BUCKET[EMOJI_STATUS[headingEmoji(body)]] || 'backlog'
 }
@@ -317,7 +319,7 @@ function lintPhases(snapshotDir, config) {
       warnings.push({
         file: phase.file,
         code: 'missing-status-emoji',
-        message: `no ⬜/🔄/✅ in the heading — projecting as not-started`,
+        message: `no ⬜/🔄/✅/➖ in the heading — projecting as not-started`,
       })
       // Without a heading emoji there is nothing to disagree WITH: the other two
       // signals can't be checked against a value that was never expressed.

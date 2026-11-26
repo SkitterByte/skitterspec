@@ -55,7 +55,7 @@ function detailOf(row) {
   if (!row.found) return `status unknown — ${row.reason}`
   const parts = [row.bucket]
   if (row.phasesTotal !== null) {
-    parts.push(progressText({ done: row.phasesDone, total: row.phasesTotal, current: row.currentPhase }))
+    parts.push(progressText({ done: row.phasesDone, total: row.phasesTotal, current: row.currentPhase, cancelled: row.phasesCancelled }))
   }
   if (row.status) parts.push(row.status)
   if (row.developer) parts.push(row.developer)

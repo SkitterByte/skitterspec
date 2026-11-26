@@ -26,7 +26,7 @@
  * Pure but for the injected reads, so it is testable without a repository.
  */
 
-const { phaseIsDone } = require('./resolve.js')
+const { phaseIsDone, phaseIsCancelled } = require('./resolve.js')
 const { epicRows, epicPlan, actionText } = require('./nextaction.js')
 
 const BUCKETS = ['backlog', 'in-progress', 'complete', 'cancelled']
@@ -343,9 +343,9 @@ function epicStatus({ epic, index, readFile, candidates = [], worktrees = [], br
     m.resolved = m.waits.map((w) => ({ ...w, ...resolveWait(w, waitIndex, waitRead) }))
     // A phase's own `Waits on:` holds that phase, not the spec's start: the
     // sync point the field example turned on (#154 phase 2 on #159 phase 1).
-    // A phase already done has nothing left to wait for.
+    // A phase already done, or cancelled, has nothing left to wait for.
     m.phaseWaits = m.phases
-      .filter((p) => p.text !== null && !phaseIsDone(p.text))
+      .filter((p) => p.text !== null && !phaseIsDone(p.text) && !phaseIsCancelled(p.text))
       .flatMap((p) =>
         epicHeaders(p.text).waitsOn.map((w) => ({ at: p.n, wait: { ...w, ...resolveWait(w, waitIndex, waitRead) } })),
       )

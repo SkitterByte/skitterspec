@@ -83,6 +83,7 @@ function readPhases(specDir, { overviewFile = '00-overview.md' } = {}) {
   if (!files.length) return isEpic(specDir) ? { total: 0, done: 0, hasNextPhase: false, live: null } : null
 
   let done = 0
+  let cancelled = 0
   for (const name of files) {
     let text
     try {
@@ -91,8 +92,12 @@ function readPhases(specDir, { overviewFile = '00-overview.md' } = {}) {
       return null
     }
     if (phaseIsDone(text)) done++
+    else if (phaseIsCancelled(text)) cancelled++
   }
-  return { total: files.length, done, hasNextPhase: done < files.length, live: livePhase(specDir, files) }
+  // A cancelled phase is out of the total (see phases.js), so a spec whose
+  // remaining phases were all cancelled has no next phase.
+  const total = files.length - cancelled
+  return { total, done, hasNextPhase: done < total, live: livePhase(specDir, files) }
 }
 
 /**
@@ -143,7 +148,7 @@ function parsePhase(text, name) {
   // `# Phase 1 — The engine reads the phase index ✅` → the title between the
   // dash and the status emoji, which is the half a reader wants.
   let title = heading ? heading[1] : ''
-  title = title.replace(/^Phase\s+\d+\s*[—–-]\s*/i, '').replace(/\s*[⬜🔄✅]\s*$/u, '').trim()
+  title = title.replace(/^Phase\s+\d+\s*[—–-]\s*/i, '').replace(/\s*[⬜🔄✅➖]\s*$/u, '').trim()
   const goal = /^\*\*Goal:\*\*\s*([\s\S]*?)(?:\n\n|\n##)/m.exec(text)
   // LINE BY LINE, not one regex. A task wraps across lines with the
   // continuation indented, and an `$` under `/m` matches at every line end — so
@@ -302,6 +307,17 @@ function phaseIsDone(text) {
   const status = /^>.*\*\*Status:\*\*\s*(.+)$/m.exec(text)
   if (status) return /^done\b/i.test(status[1].trim())
   return /^#\s.*✅\s*$/m.test(text)
+}
+
+/**
+ * Was this phase cancelled in place? Pure. Same precedence as `phaseIsDone`:
+ * the status line wins, else the heading's ➖. A cancelled phase is settled —
+ * nothing is left to build in it — but it is not done.
+ */
+function phaseIsCancelled(text) {
+  const status = /^>.*\*\*Status:\*\*\s*(.+)$/m.exec(text)
+  if (status) return /^cancel+ed\b/i.test(status[1].trim())
+  return /^#\s.*➖\s*$/m.test(text)
 }
 
 // Split a `feat-`/`bug-`/`hotfix-`/`chore-`/`issue-`/`incident-`/`epic-`
@@ -907,6 +923,7 @@ module.exports = {
   findSpecFolder,
   readPhases,
   phaseIsDone,
+  phaseIsCancelled,
   phaseIsStarted,
   parsePhase,
   readOverview,

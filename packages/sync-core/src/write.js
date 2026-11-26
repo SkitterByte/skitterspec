@@ -140,7 +140,7 @@ function findPhaseFileByTitle(snapshotDir, name) {
     const h1 = /^#\s+(.*)$/m.exec(splitFrontmatter(raw).body)
     if (!h1) continue
     const title = h1[1]
-      .replace(/\s*[⬜🔄✅]\s*$/u, '')
+      .replace(/\s*[⬜🔄✅➖]\s*$/u, '')
       .replace(/^Phase\s+\d+\s*[—–-]\s*/i, '')
       .trim()
     if (title === want) return file

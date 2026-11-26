@@ -162,7 +162,7 @@ specs/backlog/feat-<name>/
 ```
 
 `00-overview.md` is the index — it carries a **phase table** linking to each
-phase file with its status (`⬜`/`🔄`/`✅`). **Each phase is its own file** so it's
+phase file with its status (`⬜`/`🔄`/`✅`, or `➖` for a phase cancelled in place). **Each phase is its own file** so it's
 easy to dive into one phase without wading through the whole spec. The lifecycle
 skills keep the index and phase files in sync.
 
