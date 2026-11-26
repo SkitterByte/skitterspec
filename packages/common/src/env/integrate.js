@@ -52,6 +52,29 @@ function planIntegrate(spec, config, ctx) {
     return { ...result, noop: true, afterLand: afterLandFor(config, mainRepoPath, null) }
   }
 
+  // The branch was created on top of commits that are not on the base, so the
+  // fast-forward would land them under this spec's name — another spec's
+  // unreviewed work, the way bug-up-forks-from-head found it. `inherited` is a
+  // positive signal the caller reads off the branch's own creation point;
+  // anything it could not read is null and changes nothing here.
+  const inherited = ctx && ctx.inherited
+  if (inherited && inherited.commits.length) {
+    const owner = inherited.owner ? `${inherited.owner}'s` : 'not this spec\'s'
+    const list = inherited.commits.map((c) => `${c.short} ${c.subject}`).join('; ')
+    const exit = inherited.ownerBranch
+      ? `land ${inherited.owner || inherited.ownerBranch} first, or move this spec's own commits off them ` +
+        `with \`git -C ${shellPath(spec.worktreePath)} rebase --onto ${base} ${inherited.from}\``
+      : `move this spec's own commits off them with ` +
+        `\`git -C ${shellPath(spec.worktreePath)} rebase --onto ${base} ${inherited.from}\``
+    return {
+      ...result,
+      blocked: true,
+      reason:
+        `${branch} was created on ${inherited.from.slice(0, 12)}, which is not on ${base}, so it carries ` +
+        `${inherited.commits.length} commit(s) that are ${owner}: ${list} — ${exit}`,
+    }
+  }
+
   // `merge --ff-only` moves whatever the primary checkout has checked out, so a
   // checkout still on the previous release candidate would RECEIVE the land.
   // Switch it first — and refuse while it holds uncommitted work, which a switch

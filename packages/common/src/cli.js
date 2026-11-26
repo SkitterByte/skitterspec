@@ -84,7 +84,9 @@ const {
   isEpic,
   parseBaseVersion,
   BUCKETS,
+  readTicket,
 } = require('./env/resolve.js')
+const { branchToSpec } = require('./tada/specs.js')
 const {
   primaryAnchor,
   attachProject,
@@ -3472,6 +3474,7 @@ function specEnvIntegrate(dir, config, specArg, flags = {}) {
   const ahead = wtGit(['rev-list', '--count', `${baseRef}..HEAD`])
   const aheadOfBase = ahead !== null && Number(ahead) > 0
 
+  const foreign = aheadOfBase ? foreignCommits(dir, config, spec, baseRef, retarget) : { inherited: null, warnings: [] }
   const plan = planIntegrate(spec, config, {
     worktreeState: { dirty },
     base,
@@ -3479,6 +3482,7 @@ function specEnvIntegrate(dir, config, specArg, flags = {}) {
     mainRepoPath: dir,
     changedFiles: landRange(gitReader(dir), baseRef, spec.branch),
     primarySwitch,
+    inherited: foreign.inherited,
   })
 
   if (plan.blocked) {
@@ -3502,10 +3506,118 @@ function specEnvIntegrate(dir, config, specArg, flags = {}) {
   out.push(...retargetLines(retarget), ...gapLines(config, gitReader(dir)))
   if (primarySwitch) out.push(`  primary:   on ${primarySwitch.from} — switched to ${base} before the land`)
   out.push(...reverifyLines(dir, spec, baseRef, spec.projectPath || spec.worktreePath))
+  out.push(...foreign.warnings)
   out.push('')
   out.push('  run these (abort the rebase on conflict):')
   for (const cmd of plan.commands) out.push(`    ${cmd}`)
   process.stdout.write(out.join('\n') + '\n' + afterLandSection(plan.afterLand))
+}
+
+/**
+ * Commits a land would bring in that are not this spec's own
+ * (bug-up-forks-from-head). Two kinds of answer:
+ *
+ * - `inherited` REFUSES. The branch's oldest reflog entry is where it was
+ *   created; when that commit is not on the base, everything between the base
+ *   and it was there before the branch existed, so it is someone else's work.
+ *   `owner` names the spec whose branch holds it, where one does.
+ * - `warnings` only warn: a `Refs:` trailer naming another ticket, or a commit
+ *   touching another spec's folder and not this one's. Both happen on purpose
+ *   (a spec written part-way through another lands on the branch it was
+ *   written on, `.claude/rules/commit-trailers.md`), so neither is proof.
+ *
+ * WHAT WOULD FOOL THIS, each routed to silence (negative-checks rule 4):
+ *   * NO REFLOG — a branch fetched, or older than `gc.reflogExpire`. No
+ *     creation point is read, and nothing is inherited.
+ *   * A RESUMED BRANCH is created from its own remote image (`Created from
+ *     origin/<branch>`), whose commits ARE its own. The message naming the
+ *     branch itself is read as cannot-tell.
+ *   * A ROLLED BASE — a spec forked from the previous release candidate lands
+ *     on the newer one, and the old rc's commits are not foreign. Whatever
+ *     `retarget.from` holds is subtracted.
+ *   * A REAL REBASE rewrites the inherited commits' shas, so they no longer
+ *     match the creation range and go unseen. That misses, never accuses.
+ */
+function foreignCommits(dir, config, spec, baseRef, retarget) {
+  const none = { inherited: null, warnings: [] }
+  if (spec.baseRef) return none // a hotfix forks from a tag and lands by tag
+  const git = gitReader(dir)
+  const log = git([
+    'log', '--format=%H%x1f%h%x1f%s%x1f%(trailers:key=Refs,valueonly,separator=%x2c)',
+    `${baseRef}..${spec.branch}`,
+  ])
+  if (!log) return none
+  const commits = log.split('\n').filter(Boolean).map((line) => {
+    const [sha, short, subject, refs] = line.split('\x1f')
+    return { sha, short, subject, refs: (refs || '').split(',').map((r) => r.trim()).filter(Boolean) }
+  })
+
+  let inherited = null
+  const reflog = git(['reflog', 'show', '--format=%H%x1f%gs', `refs/heads/${spec.branch}`])
+  const created = reflog ? reflog.split('\n').filter(Boolean).pop() : null
+  if (created) {
+    const [from, how] = created.split('\x1f')
+    const ownImage = how && how.includes(`/${spec.branch}`)
+    const onBase = git(['merge-base', '--is-ancestor', from, baseRef]) !== null
+    if (from && !ownImage && !onBase) {
+      const exclude = retarget && retarget.from ? [`^${retarget.from}`] : []
+      const before = git(['rev-list', `${baseRef}..${from}`, ...exclude])
+      const set = new Set((before || '').split('\n').filter(Boolean))
+      const hit = commits.filter((c) => set.has(c.sha))
+      if (hit.length) {
+        const base = baseRef.replace(new RegExp(`^${baseRemote(config)}/`), '')
+        const holders = (git(['for-each-ref', '--contains', from, '--format=%(refname:short)', 'refs/heads']) || '')
+          .split('\n').map((b) => b.trim()).filter((b) => b && b !== spec.branch && b !== base)
+        const toSpec = branchToSpec(config.branch && config.branch.pattern)
+        const ownerBranch = holders[0] || null
+        inherited = {
+          from,
+          commits: hit.reverse(),
+          ownerBranch,
+          owner: ownerBranch ? toSpec(ownerBranch) || ownerBranch : null,
+        }
+      }
+    }
+  }
+
+  // The warnings read only what the refusal did not already name.
+  const named = new Set(inherited ? inherited.commits.map((c) => c.sha) : [])
+  const rest = commits.filter((c) => !named.has(c.sha))
+  const warnings = []
+  const ticket = spec.path ? readTicket(safeRead(path.join(spec.path, '00-overview.md'))) : null
+  if (ticket) {
+    for (const c of rest) {
+      const others = c.refs.filter((r) => r !== ticket.id)
+      if (others.length) {
+        warnings.push(`  warning:   ${c.short} ${c.subject} — Refs: ${others.join(', ')}, not this spec's ${ticket.id}`)
+      }
+    }
+  }
+  const files = git(['log', '--name-only', '--format=%x1e%H', `${baseRef}..${spec.branch}`])
+  const touched = new Map()
+  for (const chunk of (files || '').split('\x1e').filter(Boolean)) {
+    const [sha, ...paths] = chunk.split('\n').map((l) => l.trim()).filter(Boolean)
+    touched.set(sha, paths)
+  }
+  for (const c of rest) {
+    const folders = new Set()
+    for (const p of touched.get(c.sha) || []) {
+      const m = /(?:^|\/)specs\/(?:backlog|in-progress|complete|cancelled)\/([^/]+)\//.exec(p)
+      if (m) folders.add(m[1])
+    }
+    if (folders.size && !folders.has(spec.folder)) {
+      warnings.push(`  warning:   ${c.short} ${c.subject} — touches ${[...folders].join(', ')}, not ${spec.folder}`)
+    }
+  }
+  return { inherited, warnings }
+}
+
+function safeRead(file) {
+  try {
+    return fs.readFileSync(file, 'utf8')
+  } catch {
+    return ''
+  }
 }
 
 // What this land's rebase will bring in that the spec's BUILT phases waited

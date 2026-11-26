@@ -77,7 +77,7 @@ expected: [ '-b', 'feat/next', 'main' ],
 | # | Phase | Status |
 |---|-------|--------|
 | 1 | [Fork from the base, named](01-fork-from-base.md) | ✅ Done |
-| 2 | [integrate names another spec's commits](02-integrate-foreign-commits.md) | ⬜ |
+| 2 | [integrate names another spec's commits](02-integrate-foreign-commits.md) | ✅ Done |
 | 3 | [down treats a cherry-picked re-land as landed](03-down-patch-landed.md) | ⬜ |
 
 Phase 1 is the root cause and ships the fix on its own. Phases 2 and 3 are
@@ -91,7 +91,7 @@ Phase 3 removes the `--force` the manual recovery needed.
 |---------|--------|--------|
 | CLI command | update | `spec-env up`: every fresh `-b` names the base (local, else `<remote>/<base>`); `fork:` prints whenever the primary checkout is not on it |
 | CLI command | update | `spec-env nospec`: the printed `-b` names the base |
-| CLI command | update | `spec-env integrate`: names commits owned by another spec before the fast-forward (phase 2) |
+| CLI command | update | `spec-env integrate`: refuses a branch created on commits not on the base, naming them and their owner; `warning:` for another ticket's `Refs:` or another spec's folder |
 | CLI command | update | `spec-env down`: patch-equivalent or elsewhere-held commits count as landed (phase 3) |
 
 ## Changelog
@@ -104,3 +104,10 @@ Phase 3 removes the `--force` the manual recovery needed.
   point whatever is checked out; test green, suite green (4610 passed).
   Checkout mode (`git switch -c`) is out of scope: it builds one spec at a time
   in the primary checkout, so no other spec can be live there.
+- 2026-11-26 — Phase 2 deviates from its plan. Reachability from another spec's
+  branch cannot say who owns a shared commit: a branch forked FROM this one
+  shares commits just the same. So the refusal keys on the branch's creation
+  point (oldest reflog entry), which is a positive, directional signal.
+  `Refs:` and spec-folder matches only warn, because commit-trailers.md
+  allows one spec's commits on another's branch on purpose. The PR-mode land
+  is left as it was: the host's PR shows the carried commits for review.
