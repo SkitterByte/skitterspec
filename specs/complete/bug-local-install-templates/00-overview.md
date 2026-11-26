@@ -85,3 +85,5 @@ block. Run with `node --test packages/common/test/init-local.test.js`.
 - 2026-11-26 — Fixed: templates are managed paths under local scope; tracked
   ones are reported, never untracked; uninstall takes the untracked ones.
   Tests green.
+- 2026-11-26 — Completed; fix done, tests green. docs/index.html re-read for
+  the completion check: still right, stamped.
