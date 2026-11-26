@@ -177,7 +177,7 @@ through to a documented conservative default; see the field notes below.
   //   machine leaves them pending here. `spec-env hotfix land` prints them
   //   after a carry that moved the base branch, and not at all when it moved
   //   nothing (held, already carried, or `hotfix.cherryPickMain` false).
-  // The engine only plans: /spec-complete, /spec-to-main and /no-spec run
+  // The engine only plans: /spec-complete, /spec-land and /no-spec run
   // them (a /spec documents-only land does not). They stop at the first
   // failure, report it as a caveat, and never undo the land or block
   // teardown. Literal strings — tokens are NOT expanded, because they run on

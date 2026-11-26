@@ -21,6 +21,8 @@ instance, and the docs match — proven by asset tests and a `git grep`.
 - [ ] Sweep skills, rules, `claude-md-section.md`, `review/page.html` and
       engine output: *base* / *root checkout* / *live*, and the resolved
       branch name in reports
+- [ ] Add a `MIGRATION.md` entry for every rename in this spec (`/spec-to-main`,
+      `/spec-live main`, `/allow-main`, `guards.mainIsLandingZone`)
 - [ ] Update `docs/reference.html` and `docs/index.html`; stamp with
       `node scripts/docs-freshness.js verify reference index`
 - [ ] Add/extend tests (old-key warning, stays-silent on the new key;

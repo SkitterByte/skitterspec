@@ -22,7 +22,7 @@ const ASSETS = path.join(__dirname, '..', 'assets')
 const skillText = (name) => fs.readFileSync(path.join(ASSETS, 'skills', name, 'SKILL.md'), 'utf8')
 const SECTION = 'then, in the primary checkout (<path>), run:'
 
-for (const name of ['spec-complete', 'spec-to-main', 'no-spec']) {
+for (const name of ['spec-complete', 'spec-land', 'no-spec']) {
   test(`/${name} runs the after-land section, stopping at the first failure`, () => {
     const text = skillText(name)
     assert.ok(text.includes(SECTION), 'names the section the engine prints')
@@ -32,7 +32,7 @@ for (const name of ['spec-complete', 'spec-to-main', 'no-spec']) {
   })
 }
 
-for (const name of ['spec-complete', 'spec-to-main', 'no-spec']) {
+for (const name of ['spec-complete', 'spec-land', 'no-spec']) {
   test(`/${name} runs only the run list — a skipped block is never commands`, () => {
     const text = skillText(name)
     assert.match(text, /Run only the\s+lines under that\s+heading/)
@@ -64,8 +64,8 @@ test('/spec-complete runs it on the hotfix path too', () => {
   assert.match(hotfix, /\*\*Run the after-land commands\*\*/)
 })
 
-test('/spec-to-main runs them before the re-test on base, and reports in Notes', () => {
-  const text = skillText('spec-to-main')
+test('/spec-land runs them before the re-test on base, and reports in Notes', () => {
+  const text = skillText('spec-land')
   const land = text.indexOf('**Then run the after-land commands.**')
   assert.ok(land > 0 && land < text.indexOf('## 5. Re-test on base'))
   assert.match(text, /\*\*Fields:\*\* `Branch` · `Tests` · `Notes`/)

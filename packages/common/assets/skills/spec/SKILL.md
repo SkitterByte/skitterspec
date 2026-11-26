@@ -584,7 +584,7 @@ still uncommitted at this point is not this spec's and the land must not proceed
 `then, in the primary checkout (<path>), run:`, those are the project's
 `afterLand` commands — a data migration, an install — and they exist for code
 that landed. This land is documents only, so it changes nothing they would
-catch up on; `/spec-complete`, `/spec-to-main` and `/no-spec` run them.
+catch up on; `/spec-complete`, `/spec-land` and `/no-spec` run them.
 
 **If the rebase conflicts, stop and say so.** It is unlikely on a
 documents-only branch and not impossible — two specs authored at once can both

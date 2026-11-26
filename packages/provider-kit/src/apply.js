@@ -316,7 +316,7 @@ async function applyInner({
   // spec path in this output takes.
   const snapshotPath = path.relative(dir, file).split(path.sep).join('/')
   lines.push(`  snapshot: ${snapshotPath}`)
-  if (heldState) lines.push(`  state held: ${identifier} → ${heldState} waits for the merge — run 2 sends it with --send-held`)
+  if (heldState) lines.push(`  state held: ${identifier} → ${heldState} waits for the merge — /spec-complete sends it with --send-held`)
   if (fellBack) {
     lines.push(`  !! nothing was held for ${identifier} — sent the whole plan; ${snapshotPath} now differs from the merged copy`)
   }
@@ -379,14 +379,14 @@ function heldOverMcp({ holdState, sendHeld }, program) {
   if (holdState) {
     return (
       "  --hold-state: apply the plan WITHOUT the spec issue's state, then record with\n" +
-      `  \`${program} record <spec> --held\` — run 2 sends the state after the merge.`
+      `  \`${program} record <spec> --held\` — /spec-complete sends the state after the merge.`
     )
   }
   if (sendHeld) {
     return (
       "  --send-held: if `plan` is empty, send the spec issue's state alone and record\n" +
-      '  nothing — the merged snapshot already says it. If it is not, run 1 held\n' +
-      '  nothing: apply it whole and record as usual.'
+      '  nothing — the merged snapshot already says it. If it is not, /spec-pr\n' +
+      '  held nothing: apply it whole and record as usual.'
     )
   }
   return null

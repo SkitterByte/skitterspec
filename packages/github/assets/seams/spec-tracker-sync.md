@@ -26,17 +26,17 @@ GitHub token is set (see `apply.transport` in `github.config.md`).
   and **finish the operation anyway**. The spec is complete/cancelled/reviewed in
   the repo regardless; the mirror is disposable and the next push repairs it.
   Do not roll anything back, and do not stop to ask.
-- **In `/spec-complete`'s PR mode the Done waits for run 2.** Run 1 readies a
-  PR, and a ready PR is not a merged one. Which run pushes depends on the
-  `land.specDocs` lane:
-  - **`trunk`** — skip it on run 1. Run 2 moves the spec on base, so it pushes
-    there in this step's usual place, before its own commit.
-  - **`branch`** — run 1 commits the move to ride the PR, so push **here**,
+- **In PR mode the Done waits for the merge.** `/spec-pr` readies the PR,
+  and a ready PR is not a merged one; `/spec-complete` runs after the merge.
+  Which of the two pushes depends on the `land.specDocs` lane:
+  - **`trunk`** — `/spec-pr` skips it. `/spec-complete` moves the spec on
+    base, so it pushes there in this step's usual place, before its commit.
+  - **`branch`** — `/spec-pr` commits the move to ride the PR, so push **here**,
     holding the state: `spec-sync apply <spec> --plan <file> --hold-state`.
     Everything but the Done goes now, and the snapshot is written as if the
-    Done had gone too, so it rides the PR. Run 2 sends it once the host has
+    Done had gone too, so it rides the PR. `/spec-complete` sends it once the host has
     merged: `spec-sync apply <spec> --send-held`, which needs no plan and
-    leaves the snapshot untouched. Over MCP, apply by hand and end run 1 with
+    leaves the snapshot untouched. Over MCP, apply by hand and end `/spec-pr` with
     `spec-sync record <spec> --held`.
 
   The tracker's Done lands when the work does.
@@ -63,12 +63,13 @@ In `/spec-complete` and `/spec-cancel` this step is deliberately pinned
   snapshot under `specs/.core/`. Push after the commit instead and both are left
   uncommitted, which makes `spec-env integrate` refuse to land the branch.
 
-**PR mode keeps both halves by splitting the push across the runs.** In the
-`branch` lane the commit happens in run 1, and run 2 only has the base branch,
+**PR mode keeps both halves by splitting the push across two skills.** In the
+`branch` lane the commit happens in `/spec-pr`, and `/spec-complete` only has
+the base branch,
 where nothing is left to commit a snapshot to. An unsplit push there left a
-modified snapshot on base after every completion. `--hold-state` writes run 2's
-snapshot in run 1, and `--send-held` then moves only the state. If it says
-nothing was held (a run 1 from before this), it sends the whole plan and names
+modified snapshot on base after every completion. `--hold-state` writes the
+finish's snapshot in `/spec-pr`, and `--send-held` then moves only the state. If it says
+nothing was held (a PR readied before this), it sends the whole plan and names
 the snapshot it leaves modified. Relay that line.
 
 The snapshot is reached **by name**, not by breadth. It is a declared

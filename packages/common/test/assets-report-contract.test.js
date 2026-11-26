@@ -31,7 +31,7 @@ const SKILLS = {
     'spec-incident',
     'spec-start',
     'spec-next',
-    'spec-to-main',
+    'spec-land',
     'spec-pr',
     'spec-complete',
     'spec-cancel',

@@ -154,7 +154,7 @@ test('no skill still inlines the single-link banner', () => {
 // in for symmetry — the same deliberate decision `assets-phase-end-review.js`
 // guards for the render step itself.
 test('STAYS SILENT: the skills that land branches gain no stack at all', () => {
-  for (const name of ['spec-complete', 'spec-to-main']) {
+  for (const name of ['spec-complete', 'spec-land']) {
     const text = skillText(name)
     assert.doesNotMatch(text, /`local:`, `network:` and `remote:`/, name)
     assert.doesNotMatch(text, /## ⏸ Review ready/, name)

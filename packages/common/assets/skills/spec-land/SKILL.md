@@ -1,10 +1,10 @@
 ---
-name: spec-to-main
-description: Land an in-progress spec's branch onto main WITHOUT finishing it — rebase + fast-forward so the work reaches main (to run it in CI / a shared test env), while the worktree stays and the spec stays In Progress. Repeatable — land again as you commit more. Targets a spec by name (arg) or the spec in context. Use when the user says "/spec-to-main", "land this on main but keep going", "I need this on main to run tests before finishing", or "merge to main without completing the spec".
+name: spec-land
+description: Trunk mode — land an in-progress spec's branch onto the base branch WITHOUT finishing it — rebase + fast-forward so the work reaches the base (for CI or a shared test env), while the worktree stays and the spec stays In Progress. Repeatable. Targets a spec by name (arg) or the spec in context. Use when the user says "/spec-land", "land this but keep going", or "I need this on the base to test before finishing".
 disable-model-invocation: true
 ---
 
-# /spec-to-main — land the branch on main, keep the spec open
+# /spec-land — land the branch on the base, keep the spec open
 
 > Stay silent while this runs — speak only to ask something you cannot answer
 > yourself, or to report a failure at the moment it happens. Read
@@ -14,7 +14,7 @@ disable-model-invocation: true
 The **intermediate** landing. `/spec-complete` also lands the branch, but then
 verifies every phase, flips the status to Complete, `git mv`s the spec to
 `complete/`, and tears the environment down.
-**`/spec-to-main` stops after the land**: the worktree stays, the spec stays
+**`/spec-land` stops after the land**: the worktree stays, the spec stays
 `In Progress`, and you can land again as you add commits.
 
 Use it when a later phase can only be done *after* the current work is on `main` —
@@ -26,14 +26,18 @@ It reuses the **same engine** as `/spec-complete`'s landing (`spec-env integrate
 — rebase + fast-forward), so it produces identical linear history. Because a
 fast-forward leaves `base == branch`, the operation is
 **idempotent and repeatable**: new commits put the branch ahead of base again,
-and you can run `/spec-to-main` as many times as you like.
+and you can run `/spec-land` as many times as you like.
 
-**In PR mode** (`land.strategy: "pr"` in `env.config.json`) the destination is
-the host, not the local base: this skill becomes *push the branch and open or
-update the DRAFT pull request* — same intent (get the work into CI / the shared
-env), new transport. §4b replaces §4 there; everything else holds unchanged.
+**Trunk mode only.** In PR mode (`land.strategy: "pr"`) the base moves when
+the host merges, never from here: the mid-spec share is **`/spec-pr`**, which
+pushes the branch as a draft PR.
 
 ## 0. Preconditions — when this applies
+
+- **Not PR mode.** Where `land.strategy` is `"pr"`, stop `⏸` changing nothing:
+  `Why` is that the base moves by PR here, and `Next` is `/spec-pr`. A
+  project that mixes routes passes `--strategy ff` to land this spec locally
+  anyway; carry it into every `spec-env integrate` below.
 
 - **Isolation must be on** (`specs/.core/env.config.json` exists **and** the spec
   was provisioned by `/spec-start` — a worktree, or its branch in the checkout under
@@ -131,28 +135,6 @@ land made elsewhere leaves them pending here.
 that failed and the ones that did not run, and it **never undoes the land**.
 No section, nothing to run, and nothing to say about it.
 
-## 4b. PR mode — push the branch, keep the PR a draft
-
-When the plan's heading reads `(pr)`, run
-`skitterspec spec-env integrate <name> --draft` instead and run what it prints:
-a fetch, a rebase onto `<remote>/<base>`, and — this is the consent gate — the
-push and PR-create under its own `with your consent` section.
-**Ask before pushing**: ask once, plainly, naming the remote and that the PR
-opens as a draft. On a yes, re-run with `--push` added and run the single printed list; on
-a no, relay the held commands and stop — the work is rebased and ready, and the
-user can push it themselves.
-
-- **The draft is the point.** A draft cannot be merged and the tracker's
-  automations read it as in-progress, so nothing downstream can close the
-  ticket early. `/spec-complete` is what flips it to ready.
-- A `pr:` line saying the PR is already open means the push updates it —
-  nothing more to create, and that is the repeatable case.
-- **No after-land commands run here.** The plan defers them ("after-land
-  commands are deferred: base moves when the host merges") — the completion run
-  that follows the merge owns them. §5's re-test on base does not apply either:
-  base has not moved; CI on the PR is the check this land exists for.
-- A **rebase conflict** aborts and stops exactly as §4.
-
 ## 5. Re-test on base, then report
 
 - Run the project's test command **from the primary checkout** — base must be
@@ -165,11 +147,9 @@ user can push it themselves.
   to Complete, `git mv` the spec, or tear down the worktree/stack.
   **The spec stays `In Progress` and the worktree stays put.**
 - It **never pushes** — say the user can `git push` the base branch themselves to
-  trigger CI / the shared env. (PR mode is not an exception to the stance but to
-  the mechanics: there the push *is* the land, and it runs only behind §4b's
-  explicit consent — never silently.)
+  trigger CI / the shared env.
 - `Next` points the way forward: `/spec-next` to continue the remaining phases
-  (you'll keep committing on the same branch and can `/spec-to-main` again), and
+  (you'll keep committing on the same branch and can `/spec-land` again), and
   `/spec-complete` when every phase is genuinely done — it will land the final
   commits, finalise, and tear down.
 
@@ -191,9 +171,7 @@ the shape; this section carries only what is specific here.
 skipped because the land matched no `when` — or the one that failed and the ones that did not run. Nothing about it when none are
 configured.
 
-`Landed` in PR mode names the host, not the base: `PR #14 (draft) opened` or
-`PR #14 (draft) updated` — and `held — not pushed` when §4b's consent was
-declined, because an unpushed rebase is a true outcome, not a failure.
+`Landed` names the base and the commit it fast-forwarded to.
 
 **No `Spec` field, deliberately.** This skill changes no status and moves no
 folder, and a `Spec` line here would read as though it had. The spec stays

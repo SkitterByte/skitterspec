@@ -2003,7 +2003,7 @@ const USAGE = `Usage: skitterspec-azure-boards spec-sync <subcommand>
   normalize <spec>                       print the local projection as JSON
   plan <spec> --workspace-states <f>     what a push would change (dry, JSON)
   apply <spec> --plan <f> | --all <b>    apply a plan over the API
-  apply <spec> --hold-state | --send-held  PR-mode completion: hold Done for run 2, then send it
+  apply <spec> --hold-state | --send-held  PR mode: /spec-pr holds the Done, /spec-complete sends it
   restate <spec> | --all <b>             resend child states to today's map (dry)
     [--parents] [--apply]                include the spec item; write the moves
   stamp <spec> --issue AB#n [--sub r=n]  write returned ids into the spec

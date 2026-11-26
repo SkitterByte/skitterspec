@@ -119,7 +119,7 @@ test('commit-land commits, lands and tears down — in that order', () => {
 
 test('commit leaves the branch standing, and says what lands it later', () => {
   assert.match(NOSPEC, /\*\*`commit`\*\* — the same commit, and \*\*stop there\*\*/)
-  assert.match(NOSPEC, /`\/spec-to-main` lands it later/)
+  assert.match(NOSPEC, /`\/spec-land` lands it later/)
 })
 
 test('a conflicting rebase tears nothing down and reports ❌', () => {

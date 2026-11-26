@@ -18,8 +18,9 @@ writing specs by hand, so structure and lifecycle stay consistent.
 | `/spec-epic-next` | Names the epic member that can start now | unchanged |
 | `/spec-resume` | Goes back into a spec in flight, by name or `#N`; never starts anything | unchanged |
 | `/spec-park` | Records a `Blocked on:` wait outside the repo | unchanged |
-| `/spec-to-main` | Lands the branch mid-spec without finishing it | unchanged |
-| `/spec-complete` | Verifies phases and tests, lands, tears down | `complete/` |
+| `/spec-land` | Trunk mode: lands the branch mid-spec without finishing it | unchanged |
+| `/spec-pr` | PR mode: a draft PR mid-spec, a ready PR once every phase is done | unchanged |
+| `/spec-complete` | Verifies phases and tests, lands, tears down (in PR mode, after the merge) | `complete/` |
 | `/spec-cancel` | Records progress and a reason, tears down | `cancelled/` |
 | `/spec-tada` · `/spec-todo` | Evening recap and morning pick-up across projects. Read-only | — |
 | `/spec-init` | Bootstraps or repairs this workflow (idempotent) | — |
@@ -44,7 +45,7 @@ are **slash commands that only a person can run**:
 - `/allow-main`, `/allow-project` and `/spec-skip` lift guards aimed at Claude.
   **Claude must never be able to lift a guard aimed at Claude.**
 
-`/spec-reviewed`, `/spec-to-main`, `/spec-status` and `/spec-sync` are skills,
+`/spec-reviewed`, `/spec-land`, `/spec-status` and `/spec-sync` are skills,
 but user-only. When a skill wants one of these, it tells the user to type it and
 never runs it itself. Every other skill is model-invocable.
 

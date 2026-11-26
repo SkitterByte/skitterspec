@@ -23,7 +23,7 @@ const path = require('node:path')
 const ASSETS = path.join(__dirname, '..', 'assets')
 const skillText = (name) => fs.readFileSync(path.join(ASSETS, 'skills', name, 'SKILL.md'), 'utf8')
 
-for (const name of ['spec-complete', 'spec-to-main']) {
+for (const name of ['spec-complete', 'spec-land']) {
   test(`/${name} relays the retarget line and runs the switch first`, () => {
     const text = skillText(name)
     assert.ok(text.includes('retarget:  forked from <old> · landing onto <new>'), 'quotes the engine line')
@@ -32,7 +32,7 @@ for (const name of ['spec-complete', 'spec-to-main']) {
   })
 }
 
-for (const name of ['spec-complete', 'spec-to-main', 'spec-start']) {
+for (const name of ['spec-complete', 'spec-land', 'spec-start']) {
   test(`/${name} sends a no-match refusal to spec-env base, and stops`, () => {
     const text = skillText(name)
     assert.ok(text.includes('no branch matches <pattern>'), 'names the refusal')
@@ -43,7 +43,7 @@ for (const name of ['spec-complete', 'spec-to-main', 'spec-start']) {
 // The gap between release branches: the refusal carries an offer, and every
 // skill that can meet it relays the refusal FIRST and then offers the fix —
 // never the fix in place of the refusal (`offered-unblocks.md`).
-for (const name of ['spec-complete', 'spec-to-main', 'spec-start', 'spec-diff', 'no-spec', 'spec-idea']) {
+for (const name of ['spec-complete', 'spec-land', 'spec-start', 'spec-diff', 'no-spec', 'spec-idea']) {
   test(`/${name} relays a base refusal, then offers --use-fallback when it carries an offer`, () => {
     const text = skillText(name)
     assert.match(text, /carries an `offer:` line/)

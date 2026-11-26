@@ -622,7 +622,7 @@ verified: a300b68b2fce
       <span class="chip"><b>/spec-diff</b> · read and mark up the diff</span>
       <span class="chip"><b>/spec-live</b> · test on your running server</span>
       <span class="chip"><b>/spec-connect</b> · proxy a spec to localhost</span>
-      <span class="chip"><b>/spec-to-main</b> · land mid-spec for CI</span>
+      <span class="chip"><b>/spec-land</b> · land mid-spec (trunk)</span>
       <span class="chip"><b>/spec-pr</b> · draft PR mid-spec, ready PR at the end</span>
       <span class="chip"><b>/spec-cancel</b> · shelve with a reason</span>
       <span class="chip"><b>/spec-tada</b> · what you got done today, by spec</span>
@@ -736,7 +736,7 @@ verified: a300b68b2fce
         <div class="step-rail"><div class="step-num">6</div><div class="step-line"></div></div>
         <div class="step-body">
           <h3><span class="cmd">/spec-complete</span> Land it and tear down <span class="step-where term-w">terminal</span></h3>
-          <p>Verifies every phase is done and green, runs any completion checks you listed under <code>complete.checks</code> (advisory — they report, never block), lands the branch — a local fast-forward onto your base, or in PR mode a consent-gated push and pull request, finished after the host merges — tears the worktree and stack down, and moves the spec to <code>specs/complete/</code>. A final push flips the Linear issue to Done — the board reflects reality because reality drove it.</p>
+          <p>Verifies every phase is done and green, runs any completion checks you listed under <code>complete.checks</code> (advisory — they report, never block), lands the branch with a local fast-forward onto your base — in PR mode it runs once, after the host merges the pull request <code>/spec-pr</code> opened — tears the worktree and stack down, and moves the spec to <code>specs/complete/</code>. A final push flips the Linear issue to Done — the board reflects reality because reality drove it.</p>
           <div class="mini-term">
 <div class="l"><span style="color:var(--accent)">›</span> /spec-complete</div>
 <div class="l"><span style="color:var(--ink-faint)">  all phases ✓ · 14 tests green · landed on main</span></div>
@@ -930,7 +930,7 @@ verified: a300b68b2fce
       <div class="map-row">
         <div class="map-l">/spec-complete · /spec-cancel <small>landed, or dropped</small></div>
         <div class="map-arrow">→</div>
-        <div class="map-r"><span class="pill-l">Done · Cancelled</span><small>The issue is closed. In PR mode, Done waits for the second run, after the host has merged.</small></div>
+        <div class="map-r"><span class="pill-l">Done · Cancelled</span><small>The issue is closed. In PR mode, Done waits for <code>/spec-complete</code>, which runs after the host has merged.</small></div>
       </div>
       <div class="map-row">
         <div class="map-l">a release <small>your CI, over a commit range</small></div>

@@ -12,7 +12,7 @@ github_url: "https://github.com/SkitterByte/skitterspec/issues/330"
 > **Raised:** 2026-11-26
 > **Area:** packages/common/assets/skills/{spec-to-main,spec-complete,spec-next,spec-start,spec-diff,no-spec,spec,spec-init}, packages/common/assets/commands/{allow-main,spec-live,spec-skip,allow-project}.md, packages/common/assets/rules/spec-planning.md, packages/common/assets/claude-md-section.md, packages/common/assets/core/env.config.md, packages/common/assets/review/page.html, packages/common/src/{cli.js,init.js}, packages/common/src/env/{config,live,mainguard,review,integrate,nextaction}.js, docs/{index,reference}.html
 > **Stack:** worktree
-> **Docs:** reference, index
+> **Docs:** reference, index, github, linear, jira, azure-boards
 
 ## Summary
 
@@ -132,7 +132,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | `/spec-pr`, and `/spec-complete` as the post-merge finish | ✅ | [01-spec-pr.md](01-spec-pr.md) |
-| 2 | `/spec-land` replaces `/spec-to-main` in ff mode | ⬜ | [02-spec-land.md](02-spec-land.md) |
+| 2 | `/spec-land` replaces `/spec-to-main` in ff mode | ✅ | [02-spec-land.md](02-spec-land.md) |
 | 3 | `live.refusedReach` for manual-steps stops | ⬜ | [03-refused-reach.md](03-refused-reach.md) |
 | 4 | Vocabulary: base, root checkout, live; docs | ⬜ | [04-vocabulary.md](04-vocabulary.md) |
 
@@ -155,3 +155,14 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   mode; it passes `--strategy pr`, because LSC lands some features by PR and
   some directly. It is model-invocable (the autonomous `pr` ending hands off
   to it); the push stays behind its consent ask.
+- 2026-11-26 — Phase 2: no pruning code was needed — `update` already removes
+  any managed file a version stops shipping (pristine only). `/spec-land`
+  stays user-only, as `/spec-to-main` was, and takes `--strategy ff` for a
+  project that mixes routes. The MIGRATION entry moves to phase 4, with the
+  other renames.
+- 2026-11-26 — Docs sweep, at the operator's request: the static site
+  (index, reference, and the four provider pages), the providers'
+  tracker-sync seams and the held-state engine messages now describe
+  `/spec-pr` then `/spec-complete` rather than "run 1 / run 2". The two
+  `docs/rationale/` files are left alone on purpose: they are frozen copies
+  of old rules, matched by hash on upgrade. `Docs:` gains the provider pages.

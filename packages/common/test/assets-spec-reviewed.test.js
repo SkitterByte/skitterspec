@@ -104,7 +104,7 @@ test('it ships where the docs say it does', () => {
     'utf8',
   )
   assert.match(planning, /\| `\/spec-reviewed` \|/, 'the skill table lists it')
-  assert.match(planning, /`\/spec-reviewed`, `\/spec-to-main`, `\/spec-status` and `\/spec-sync` are skills,\s+but user-only/)
+  assert.match(planning, /`\/spec-reviewed`, `\/spec-land`, `\/spec-status` and `\/spec-sync` are skills,\s+but user-only/)
   const init = fs.readFileSync(
     path.join(__dirname, '..', 'assets', 'skills', 'spec-init', 'SKILL.md'),
     'utf8',

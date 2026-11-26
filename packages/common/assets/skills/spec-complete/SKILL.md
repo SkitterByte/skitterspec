@@ -349,7 +349,7 @@ confirmed, naming every check that is not.
 Land the finished branch on the base branch so the work reaches `main` (or your
 configured `baseBranch`) in one flow. (Need the work on `main` *before* the spec
 is finished — e.g. to run a later phase in CI or a shared test env? Use
-**`/spec-to-main`**: same rebase + fast-forward, but it leaves the spec
+**`/spec-land`**: same rebase + fast-forward, but it leaves the spec
 `In Progress` and the worktree standing, and it's repeatable.)
 
 1. **Require a clean worktree.** Step 4 already committed the completion edits, so

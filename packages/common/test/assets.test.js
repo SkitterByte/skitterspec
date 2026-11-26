@@ -227,10 +227,10 @@ test('a self-editing lifecycle skill checks for pre-existing dirt before editing
   }
 })
 
-test('/spec-to-main keeps the no-auto-commit rule — it edits nothing itself', () => {
-  const text = skillText('spec-to-main')
+test('/spec-land keeps the no-auto-commit rule — it edits nothing itself', () => {
+  const text = skillText('spec-land')
   assert.ok(/don't auto-commit/.test(text), 'the rule is correct where dirt is the user\'s own work')
-  assert.ok(!/## \d\. Move to /.test(text), 'spec-to-main moves no spec, so it dirties nothing')
+  assert.ok(!/## \d\. Move to /.test(text), 'spec-land moves no spec, so it dirties nothing')
 })
 
 // --- tracker seam placement --------------------------------------------------
@@ -475,11 +475,11 @@ test('the placement check stays silent on a skill that links early and syncs lat
   )
 })
 
-// /spec-to-main and /spec-live change no status — a push from them would send an
+// /spec-land and /spec-live change no status — a push from them would send an
 // unchanged projection. Asserted so "add a seam everywhere" is a deliberate no.
 test('the lifecycle entries that change no status carry no tracker seam', () => {
-  const text = fs.readFileSync(path.join(ASSETS, 'skills', 'spec-to-main', 'SKILL.md'), 'utf8')
-  assert.doesNotMatch(text, /<!--\s*seam:/, 'spec-to-main moves no spec between buckets')
+  const text = fs.readFileSync(path.join(ASSETS, 'skills', 'spec-land', 'SKILL.md'), 'utf8')
+  assert.doesNotMatch(text, /<!--\s*seam:/, 'spec-land moves no spec between buckets')
   // spec-live is a command now; it changes no status either, and a command body
   // has no seam to fill in the first place.
   for (const cmd of ['spec-connect.md', 'spec-live.md']) {

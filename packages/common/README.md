@@ -33,7 +33,7 @@ the governing `spec-planning.md` rule, and the `specs/` folder structure. The li
 | `/spec-epic-next` | Name the epic member that can start now, to start in a new tab | (unchanged) | (unchanged) |
 | `/spec-resume` | Go back into a spec in flight, by name or ticket, rebuilding its worktree if needed | (unchanged) | (unchanged) |
 | `/spec-park` | Record what a spec in flight is waiting on, on the spec or one phase | (unchanged) | (unchanged) |
-| `/spec-to-main` | Land the branch on the base mid-spec, without finishing | (unchanged) | (unchanged) |
+| `/spec-land` | Land the branch on the base mid-spec, without finishing | (unchanged) | (unchanged) |
 | `/spec-pr` | Push the branch as a draft PR mid-spec, or a ready PR once every phase is done | (unchanged) | (unchanged) |
 | `/spec-init` | Bootstrap/repair this workflow in a project (idempotent) | — | — |
 | `/spec-diff` | Read what changed, on a page you can mark up and hand back | `—` | (unchanged) |

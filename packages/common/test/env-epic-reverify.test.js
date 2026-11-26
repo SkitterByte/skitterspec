@@ -169,7 +169,7 @@ test('integrate says nothing about re-verifying when the rebase brings nothing i
 })
 
 test('the landing skills run the tests between the rebase and the fast-forward', () => {
-  for (const skill of ['spec-complete', 'spec-to-main']) {
+  for (const skill of ['spec-complete', 'spec-land']) {
     const text = fs.readFileSync(path.join(__dirname, '..', 'assets', 'skills', skill, 'SKILL.md'), 'utf8')
     assert.match(text, /When the plan carries `re-verify:` lines/, skill)
     assert.match(text, /\*\*stop before the fast-forward\*\*/, skill)

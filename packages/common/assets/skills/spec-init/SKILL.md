@@ -36,7 +36,7 @@ The system is **twenty-one skills**: `spec` (feature, chore or issue), `spec-bug
 `spec-reviewed` (pick up a review you approved on that page),
 `spec-epic-next` (name the epic member that can start now),
 `spec-resume` (back into a spec in flight, by name or ticket),
-`spec-park` (record what a spec in flight is waiting on), `spec-to-main`,
+`spec-park` (record what a spec in flight is waiting on), `spec-land`,
 `spec-pr` (share the branch as a draft or ready PR),
 `spec-complete`, `spec-cancel`, `spec-tada` (a ta-da list of what got done),
 `spec-todo` (where you left off, and what is ahead), `spec-idea` (an idea

@@ -13,7 +13,7 @@ const path = require('node:path')
 
 const ROOT = path.join(__dirname, '..', '..', '..')
 const USER_ONLY_SKILLS = [
-  ['common', 'spec-to-main'], // lands a branch — side-effecting
+  ['common', 'spec-land'], // lands a branch — side-effecting
   ['linear', 'spec-status'], // read-only, but nobody invokes it except by typing
   ['linear', 'spec-sync'], // a CLI manual across ten subcommands
 ]

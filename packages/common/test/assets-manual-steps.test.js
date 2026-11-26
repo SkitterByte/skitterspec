@@ -117,7 +117,7 @@ test('the first listing ends the turn and asks no question', () => {
 
 test('Next names how to reach the work before the steps', () => {
   assert.match(section, /`\/spec-live`/)
-  assert.match(section, /`\/spec-to-main`/)
+  assert.match(section, /`\/spec-land`/)
   assert.match(section, /migration/)
 })
 

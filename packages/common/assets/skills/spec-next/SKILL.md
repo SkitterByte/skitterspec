@@ -355,7 +355,7 @@ on the base branch — so nothing could have been tested. The stop is a report:
    runs through `/spec-diff` §2a.
 2. **End `⚠️`**, `Why` the phase stopped at its manual steps. `Next` first
    names how to reach the work — `/commit`, then `/spec-live`; or
-   `/commit`, then `/spec-to-main` where live refuses the branch (it touches
+   `/commit`, then `/spec-land` where live refuses the branch (it touches
    migrations, which would change the shared database) or a step needs it on
    the base branch — then the steps a row each, then a closing row: *tell me
    how it went, or `/spec-next`*. The rows follow

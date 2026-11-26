@@ -204,6 +204,28 @@ test('resync prunes a retired managed skill (pristine) but keeps a customized on
   assert.ok(fs.existsSync(customAbs), 'customized retired file kept')
 })
 
+// feat-pr-mode-verbs: /spec-to-main was renamed /spec-land with no alias. An
+// upgrading project must lose the old skill (or it keeps a model-visible copy
+// pointing at removed behaviour) and gain the new one — and an edited copy of
+// the old one is kept, never deleted (the generic case, tested above).
+test('resync retires /spec-to-main and installs /spec-land in its place', async () => {
+  const dir = tmpProject()
+  await init({ dir, force: false, claudeMd: false, mode: 'init' })
+  const oldRel = path.join('.claude', 'skills', 'spec-to-main', 'SKILL.md')
+  const oldAbs = path.join(dir, oldRel)
+  fs.mkdirSync(path.dirname(oldAbs), { recursive: true })
+  fs.writeFileSync(oldAbs, 'old spec-to-main body')
+  const m = readManifest(dir)
+  m.files[oldRel.split(path.sep).join('/')] = sha1('old spec-to-main body')
+  writeManifest(dir, m.files)
+
+  resync(dir, { claudeMd: false })
+
+  assert.ok(!fs.existsSync(oldAbs), 'pristine /spec-to-main pruned')
+  assert.ok(fs.existsSync(path.join(dir, '.claude', 'skills', 'spec-land', 'SKILL.md')), '/spec-land installed')
+  assert.ok(fs.existsSync(path.join(dir, '.claude', 'skills', 'spec-pr', 'SKILL.md')), '/spec-pr installed')
+})
+
 test('resync recreates a missing managed file', async () => {
   const dir = tmpProject()
   await init({ dir, force: false, claudeMd: false, mode: 'init' })

@@ -86,7 +86,7 @@ test('/spec-hotfix says the range is measured from the base tag', () => {
 // --- stays silent -----------------------------------------------------------
 
 test('the skills that land branches do not gain the step', () => {
-  for (const name of ['spec-complete', 'spec-to-main']) {
+  for (const name of ['spec-complete', 'spec-land']) {
     // The RENDER invocations only. `/spec-complete` names
     // `review <spec> --drop <code>` before it tears the worktree down, and
     // disowning a pass is not rendering a page — see `renderInvocations`.
@@ -371,7 +371,7 @@ test('STAYS SILENT: /spec-next declares no set, and still says why', () => {
 test('STAYS SILENT: the landing skills gain no button set either', () => {
   // Same reasoning as the render test above: they do not render a phase page,
   // so there is nothing here for them to declare.
-  for (const name of ['spec-complete', 'spec-to-main']) {
+  for (const name of ['spec-complete', 'spec-land']) {
     assert.ok(!/--buttons/.test(skillText(name)), `/${name} declares no button set`)
   }
 })

@@ -47,7 +47,7 @@ const SANCTIONED = [
   [/\b(do\s+not|don't|never|nothing\s+here\s+does)\b/i, 'prohibition'],
   // A deploy tag is not a branch: /spec-hotfix ships by tagging for CI/CD.
   [/\b(tag|--follow-tags)\b/i, 'tag push'],
-  // The BASE branch is the user's to publish; /spec-complete and /spec-to-main
+  // The BASE branch is the user's to publish; /spec-complete and /spec-land
   // both say so without doing it.
   [/\bbase branch\b/i, 'base-branch advice'],
   // Teardown's remote delete removes a branch rather than publishing one, and is

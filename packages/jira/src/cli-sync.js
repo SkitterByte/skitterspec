@@ -1334,7 +1334,7 @@ const USAGE = `Usage: skitterspec-jira spec-sync <subcommand>
   normalize <spec>                       print the local projection as JSON
   plan <spec> --workspace-states <f>     what a push would change (dry, JSON)
   apply <spec> --plan <f> | --all <b>    apply a plan over the API
-  apply <spec> --hold-state | --send-held  PR-mode completion: hold Done for run 2, then send it
+  apply <spec> --hold-state | --send-held  PR mode: /spec-pr holds the Done, /spec-complete sends it
   stamp <spec> --issue KEY [--sub r=K]   write returned keys into the spec
   record <spec> [--held]                 write the last-pushed snapshot
   status <spec> [--remote <f>]           read-only drift report

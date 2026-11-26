@@ -193,7 +193,7 @@ three, in that order — never the bare `page:` path.
 
 - **`commit`** — the same commit, and **stop there**. The branch stands with the
   work on it, which is the right ending for work that turned out to be bigger
-  than one sitting. Say in `Next` that `/spec-to-main` lands it later.
+  than one sitting. Say in `Next` that `/spec-land` lands it later (`/spec-pr` in PR mode).
 - **`changes`** — work the notes, record a resolution for each one so the next
   render shows it struck through with what changed, then
   **re-render and wait again**. The reader is still holding a decision.
