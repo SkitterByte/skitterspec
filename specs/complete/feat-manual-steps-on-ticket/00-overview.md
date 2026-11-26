@@ -143,3 +143,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-11-26 — Phase 2: Jira's `mdToAdf` now removes a list-indented fence's
   indent from the script body. Without that, every pasted line would carry
   two stray spaces.
+- 2026-11-26 — Completed; all phases done, tests green.
