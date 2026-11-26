@@ -5,6 +5,15 @@ What's new for users of skitterspec-github. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 3.2.7 — 26 Nov 2026
+
+### Env
+- **Fixed** — Tearing down a spec after re-landing its commits by cherry-pick no longer needs --force when nothing on its branch would be lost.
+- **Fixed** — Landing a spec whose branch was started on top of another spec's unfinished work now stops before anything moves, naming those commits and the spec they belong to.
+- **Fixed** — Starting a spec while another is live in your main checkout no longer carries the live spec's unfinished commits onto the new branch, where landing would put them on main.
+- **Fixed** — spec-env prune no longer offers to delete your primary checkout's own Docker volumes, such as a dev database. It now lists only volumes a spec's stack created that no container uses, and lists nothing when Docker is turned off for the project.
+- **Fixed** — /spec-resume can now get back into an in-progress spec whose branch has merged and gone, when its only copy is on the base branch. It re-creates the branch at the base instead of refusing.
+
 ## 3.2.6 — 25 Nov 2026
 
 ### Epic
