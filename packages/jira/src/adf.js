@@ -237,9 +237,15 @@ function mdToAdf(md, options) {
     }
     const fence = FENCE_RE.exec(line)
     if (fence) {
+      // A fence under a list item (a manual step's script) is indented by the
+      // list; that indent is not the script's, so it comes off every line.
+      const indent = line.length - line.trimStart().length
       const body = []
       i++
-      while (i < lines.length && !FENCE_RE.test(lines[i])) body.push(lines[i++])
+      while (i < lines.length && !FENCE_RE.test(lines[i])) {
+        const lead = lines[i].length - lines[i].trimStart().length
+        body.push(lines[i++].slice(Math.min(lead, indent)))
+      }
       if (i < lines.length) i++
       const node = { type: 'codeBlock', content: body.length ? [text(body.join('\n'))] : [] }
       if (fence[1].trim()) node.attrs = { language: fence[1].trim() }

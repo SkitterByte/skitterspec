@@ -20,7 +20,7 @@ const { dialectOf } = require('./dialect.js')
 const { descriptionMode, wrapBlock, specBlockInner, phaseBlockInner } = require('./summary.js')
 const { fieldsOf } = require('./fields.js')
 const { fenceMask, findTaskBlocks, collapse, collapseHyphenAware } = require('./task-block.js')
-const { parseManualSteps } = require('./manual-steps.js')
+const { parseManualSteps, hoistOrder, openStepsSection, OPEN_HEADING } = require('./manual-steps.js')
 
 // --- markdown / frontmatter parsing -----------------------------------------
 
@@ -595,10 +595,14 @@ function bugShaped(snapshotDir) {
 // `leadSections` names headings to emit FIRST, in its order, matched
 // case-insensitively; the rest follow in document order. Empty means document
 // order throughout — byte-identical to before the parameter existed.
-function buildDescription(title, sections, localOnlySections, extraSkip = [], dialect, leadSections = []) {
+// `preamble` is markdown that goes straight after the title, ahead of every
+// section — the open manual steps, which are what a reader must act on.
+// Empty emits nothing, byte-identical again.
+function buildDescription(title, sections, localOnlySections, extraSkip = [], dialect, leadSections = [], preamble = '') {
   const skip = new Set([...(localOnlySections || []), ...extraSkip])
   const parts = []
   if (title) parts.push(`# ${title}`)
+  if (preamble) parts.push(preamble)
   const entries = Object.entries(sections)
   const lead = []
   for (const want of leadSections) {
@@ -656,14 +660,26 @@ function projectPhaseBody(phase, localOnlySections) {
   const blockAt = new Map()
   for (const b of phase.blocks || []) blockAt.set(b.start, b)
 
+  // While a manual step is open, its section is read first, under the Goal
+  // (feat-manual-steps-on-ticket). Otherwise the walk is the file in order.
+  const hoist = hoistOrder(lines, phase)
+  const order = hoist ? hoist.order : lines.map((_, i) => i)
+
   const out = []
   let dropping = false // inside a local-only section
   let seenTitle = false
-  for (let i = 0; i < lines.length; i++) {
+  for (let k = 0; k < order.length; k++) {
+    const i = order[k]
+    if (i === -1) {
+      out.push('')
+      continue
+    }
     const block = blockAt.get(i)
     if (block) {
       if (!dropping) out.push(renderTaskBlockLine(block))
-      i = block.end - 1
+      // A block's lines are contiguous in the file, and a hoist moves a whole
+      // section, so they are contiguous in `order` too.
+      k += block.end - block.start - 1
       continue
     }
     const line = lines[i]
@@ -675,6 +691,10 @@ function projectPhaseBody(phase, localOnlySections) {
         continue
       }
       if (/^>\s*\*\*Status:\*\*/.test(line)) continue
+      if (hoist && i === hoist.heading) {
+        if (!dropping) out.push(`## ${OPEN_HEADING}`)
+        continue
+      }
     }
     if (!dropping) out.push(line)
   }
@@ -915,6 +935,9 @@ function normalizeLocal(snapshotDir, config) {
           // different render of the same overview, so the Bug form opens on the
           // repro rather than the feature-shaped prose.
           bugShaped(snapshotDir) ? BUG_LEAD_SECTIONS : [],
+          // Open manual steps of the started phases, first on the ticket
+          // (feat-manual-steps-on-ticket). Nothing open emits nothing.
+          openStepsSection(phases),
         ),
         inlined,
         tasksMode,

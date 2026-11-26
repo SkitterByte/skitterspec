@@ -156,3 +156,17 @@ test('bold-wrapped inline code still round-trips word-perfect', () => {
   const md = 'Before **x `y` z** after, and *em `q` tail*.'
   assert.strictEqual(roundTrip(md), stream(md))
 })
+
+// A manual step's script sits under its list item (feat-manual-steps-on-ticket).
+test('a fence under a list item is a codeBlock without the list indent', () => {
+  const md = "- [ ] On Prod, grant:\n\n  ```sql\n  INSERT INTO p (c)\n    VALUES (1) -- a < b;\n  ```\n\n- [ ] Tell support"
+  const code = mdToAdf(md).content.find((n) => n.type === 'codeBlock')
+  assert.deepStrictEqual(code.attrs, { language: 'sql' })
+  assert.strictEqual(code.content[0].text, 'INSERT INTO p (c)\n  VALUES (1) -- a < b;')
+  assert.strictEqual(roundTrip(md), stream(md))
+})
+
+test('an unindented fence keeps its body exactly', () => {
+  const code = mdToAdf('```sh\n  ./run.sh\nls\n```').content[0]
+  assert.strictEqual(code.content[0].text, '  ./run.sh\nls')
+})

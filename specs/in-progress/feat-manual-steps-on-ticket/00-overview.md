@@ -128,7 +128,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Parse the `## Manual steps` section | ✅ | [01-parse-section.md](01-parse-section.md) |
-| 2 | Project open steps onto Task and parent | ⬜ | [02-projection.md](02-projection.md) |
+| 2 | Project open steps onto Task and parent | ✅ | [02-projection.md](02-projection.md) |
 | 3 | Skills write and read the new form | ⬜ | [03-skills-and-docs.md](03-skills-and-docs.md) |
 
 ## Open questions
@@ -140,3 +140,6 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-11-26 — Spec created from the ereqs brief. Chose fenced markdown over
   `<pre><code>` because of the Boards sanitiser, and decided that only started
   phases surface on the parent.
+- 2026-11-26 — Phase 2: Jira's `mdToAdf` now removes a list-indented fence's
+  indent from the script body. Without that, every pasted line would carry
+  two stray spaces.

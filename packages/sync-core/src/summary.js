@@ -15,6 +15,7 @@
  */
 
 const path = require('node:path')
+const { openStepsBlock, phaseOpenStepsBlock } = require('./manual-steps.js')
 
 // The two delimiter styles. `comment` is invisible where the tracker keeps
 // HTML comments verbatim (GitHub, measured 2026-11-08); `heading` is the
@@ -184,6 +185,9 @@ function specBlockInner({ snapshotDir, sections, body, phases }) {
   if (summary) parts.push(summary)
   const ac = criteria(sections)
   if (ac) parts.push(`**Acceptance criteria**\n\n${ac}`)
+  // Open manual steps of the started phases (feat-manual-steps-on-ticket).
+  const steps = openStepsBlock(phases)
+  if (steps) parts.push(steps)
   const t = touches(sections)
   if (t) parts.push(`**Touches** ${t}`)
   const gating = headerValue(body, 'Gating')
@@ -247,6 +251,8 @@ function phaseBlockInner(phase) {
   const blocked = headerValue(((phase && phase.lines) || []).join('\n'), 'Blocked on')
   const parts = [goal]
   if (blocked && blocked !== '—') parts.push(`**Blocked on** ${blocked}`)
+  const steps = phaseOpenStepsBlock(phase)
+  if (steps) parts.push(steps)
   if (total) parts.push(`**Progress** ${ticked} of ${total} tasks`)
   return parts.join('\n\n')
 }
