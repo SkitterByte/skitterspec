@@ -5,6 +5,33 @@ What's new for users of skitterspec-azure-boards. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 4.0.0 — 26 Nov 2026
+
+**Highlights:**
+- Commands no longer say main where they mean your base branch, so they read true on master or release-branch projects. Use /spec-live off, /spec-connect off and /allow-base, and rename guards.mainIsLandingZone to guards.baseIsLandingZone in env.config.json.
+- PR-based projects now have /spec-pr: it opens a draft pull request while you build and readies it once every phase is done. /spec-complete runs once, after the merge, and also recognises squash and rebase merges.
+- Steps only a person can do, such as SQL on Prod, now appear on the ticket and its phase while they are open, each script as a code block you can copy. They drop off once ticked.
+
+### Env
+- **New** — When live refuses a branch because it changes migrations, it now tells you how your project reaches such a branch instead. Set live.refusedReach to worktree, pr or live-confirm; unset lists all three.
+- **Fixed** — A phase cancelled in place, its heading ending in ➖, now counts as cancelled. Progress leaves it out of the total, the next action skips it, and the tracker shows it as cancelled, not backlog.
+
+### Install
+- **Fixed** — On a local install, updating skitterspec no longer leaves changed specs/.core templates in git status. Templates already committed are named with the git rm --cached command that takes them out of git.
+
+### Review
+- **Fixed** — The review page closes its tab again once Claude picks up your verdict, even when the pickup takes more than a few seconds.
+
+### Skills
+- **Action required** — Commands no longer say main where they mean your base branch, so they read true on master or release-branch projects. Use /spec-live off, /spec-connect off and /allow-base, and rename guards.mainIsLandingZone to guards.baseIsLandingZone in env.config.json.
+- **Action required** — /spec-to-main is now /spec-land and lands mid-spec on trunk projects only. On PR-based projects use /spec-pr instead, which opens a draft pull request.
+- **New** — PR-based projects now have /spec-pr: it opens a draft pull request while you build and readies it once every phase is done. /spec-complete runs once, after the merge, and also recognises squash and rebase merges.
+- **New** — New specs write steps only a person can do under a Manual steps section, so they reach the ticket as soon as their phase starts.
+
+### Sync
+- **New** — Steps only a person can do, such as SQL on Prod, now appear on the ticket and its phase while they are open, each script as a code block you can copy. They drop off once ticked.
+- **Fixed** — Pushing without an API token no longer writes a phase the parent's state: a done Task now gets its own type's state (such as Closed) instead of the story's Resolved.
+
 ## 3.2.8 — 26 Nov 2026
 
 ### Env
