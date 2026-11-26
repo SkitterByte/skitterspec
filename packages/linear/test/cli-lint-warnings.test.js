@@ -70,7 +70,7 @@ test('human status output carries the warning inline', async () => {
   const dir = fixtureRepo()
   const r = await run(['status', 'feat-drifted'], dir)
   assert.strictEqual(r.code, 0, 'never blocks')
-  assert.match(r.out, /warning 01-engine\.md: no ⬜\/🔄\/✅ in the heading/)
+  assert.match(r.out, /warning 01-engine\.md: no ⬜\/🔄\/✅\/➖ in the heading/)
   assert.match(r.out, /projecting as not-started/, 'says the consequence, not just the rule')
 })
 
