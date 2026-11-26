@@ -5,6 +5,11 @@ What's new for users of skitterspec-azure-boards. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 3.2.8 — 26 Nov 2026
+
+### Env
+- **Fixed** — On Windows, where git checks files out with CRLF line endings, linked specs are now recognised as linked again. A push no longer treats one as new, and branch names, /spec-resume and the land's ticket check find the spec's ticket.
+
 ## 3.2.7 — 26 Nov 2026
 
 ### Env
