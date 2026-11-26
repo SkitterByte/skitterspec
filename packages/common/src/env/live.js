@@ -309,6 +309,72 @@ function afterSwitchFor(config, c) {
  *   decided against `changedFiles`, to run in the primary checkout after the
  *   checkout; empty on a refusal, since nothing switched.
  */
+/**
+ * The migrations refusal, naming how THIS project reaches such a branch
+ * (`live.refusedReach`). Unset lists all three, so a reader is never left with
+ * one guessed route — the guess this key exists to replace was "/spec-to-main",
+ * which in PR mode put the work nowhere testable.
+ */
+function migrationsRefusal(spec, reach, askedToAllow) {
+  const head = `${spec.folder}'s branch changes migrations — live overlay is code-only`
+  const fromWorktree = `run it from its worktree (${spec.worktreePath}; \`/spec-connect ${spec.folder}\` where it has a stack)`
+  const asPr = 'share it as a draft PR for a pipeline to deploy (`/spec-pr`)'
+  const unasked = askedToAllow ? '; --allow-migrations needs `live.refusedReach: "live-confirm"`' : ''
+  if (reach === 'worktree') return `${head}; this project reaches it from the worktree: ${fromWorktree}${unasked}`
+  if (reach === 'pr') return `${head}; this project reaches it by PR: ${asPr}${unasked}`
+  if (reach === 'live-confirm') {
+    return `${head}; this project takes it live after a confirm: \`spec-env live take ${spec.folder} --allow-migrations\``
+  }
+  return (
+    `${head}; reach it another way — ${fromWorktree}, or ${asPr} — ` +
+    'or set `live.refusedReach` (`worktree` · `pr` · `live-confirm`) so this names one' +
+    unasked
+  )
+}
+
+// The bypass ledger beside the receipt (`.spec-env/live-bypass.json`,
+// gitignored): which branch HEADs have been OFFERED the migrations bypass (so it
+// is offered once per HEAD), and every take that was ALLOWED (the record).
+function bypassPath(rootDir, config) {
+  return path.resolve(rootDir, path.dirname(config.registry), 'live-bypass.json')
+}
+
+// Missing or unreadable → empty. WHAT WOULD FOOL THIS: a corrupt file reads as
+// "never offered", so the offer comes back once more — a repeated question,
+// never a silent bypass, because only `--allow-migrations` ever takes it.
+function readBypass(rootDir, config) {
+  try {
+    const raw = JSON.parse(fs.readFileSync(bypassPath(rootDir, config), 'utf-8'))
+    return raw && typeof raw === 'object' ? raw : {}
+  } catch {
+    return {}
+  }
+}
+
+function writeBypass(rootDir, config, ledger) {
+  const file = bypassPath(rootDir, config)
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  fs.writeFileSync(file, JSON.stringify(ledger, null, 2) + '\n')
+}
+
+// Pure: has the bypass been offered for this spec at this HEAD?
+function bypassOffered(ledger, specFolder, head) {
+  const entry = ledger && ledger[specFolder]
+  return Boolean(head && entry && Array.isArray(entry.offered) && entry.offered.includes(head))
+}
+
+// Pure: the ledger with one more event (`offered` a HEAD, or an `allowed` take).
+function recordBypass(ledger, specFolder, event) {
+  const next = { ...(ledger || {}) }
+  const entry = { offered: [], allowed: [], ...(next[specFolder] || {}) }
+  if (event.kind === 'offered' && event.head && !entry.offered.includes(event.head)) {
+    entry.offered = [...entry.offered, event.head]
+  }
+  if (event.kind === 'allowed') entry.allowed = [...entry.allowed, { head: event.head, at: event.at, by: event.by }]
+  next[specFolder] = entry
+  return next
+}
+
 function planTake(spec, config, ctx) {
   const c = ctx || {}
   const branch = spec.branch
@@ -410,10 +476,26 @@ function planTake(spec, config, ctx) {
     )
   }
   // 6. …and refuse a branch that changes migrations (would mutate the shared DB).
-  if (c.migrationsHit) {
+  //    How such a branch IS reached is the project's answer (`live.refusedReach`),
+  //    because teams test migration branches differently — so the refusal names
+  //    that answer rather than one guess, and lists all three when none is set.
+  //    Only `live-confirm` can let it through, and only on `--allow-migrations`.
+  const reach = config && config.live ? config.live.refusedReach || null : null
+  const migrationsAllowed = Boolean(c.migrationsHit && reach === 'live-confirm' && c.allowMigrations)
+  if (c.migrationsHit && !migrationsAllowed) {
     return block(
-      `${spec.folder}'s branch changes migrations — live overlay is code-only; ` +
-        'use `/spec-connect`',
+      migrationsRefusal(spec, reach, c.allowMigrations),
+      // A BYPASS, offered once per branch HEAD and only where the project chose
+      // it: the shared database really does change, so stepping past this is
+      // the operator's answer, recorded (`live take --offered` spends it,
+      // `--allow-migrations` records the take). Any other reach declares none.
+      reach === 'live-confirm' && !c.migrationsOfferSpent
+        ? {
+            kind: 'bypass',
+            label: 'Take it live anyway — this changes the shared database',
+            command: `skitterspec spec-env live take ${spec.folder} --allow-migrations`,
+          }
+        : undefined,
     )
   }
   // 7. Verify-only: a dev server must be listening to hot-reload the switch.
@@ -437,6 +519,9 @@ function planTake(spec, config, ctx) {
   }
   warnings.push(...restartReminders(restartApps, 'after the switch'))
   if (c.rebaseNote) warnings.push(c.rebaseNote)
+  if (migrationsAllowed) {
+    warnings.push('migrations taken live on the operator\'s say-so — the shared database changes, and this take is recorded')
+  }
 
   return {
     ...result,
@@ -663,6 +748,12 @@ module.exports = {
   globToRegExp,
   migrationsHit,
   depsChanged,
+  migrationsRefusal,
+  bypassPath,
+  readBypass,
+  writeBypass,
+  bypassOffered,
+  recordBypass,
   planTake,
   planRelease,
   planAbort,

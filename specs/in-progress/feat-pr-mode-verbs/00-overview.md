@@ -133,7 +133,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | `/spec-pr`, and `/spec-complete` as the post-merge finish | ✅ | [01-spec-pr.md](01-spec-pr.md) |
 | 2 | `/spec-land` replaces `/spec-to-main` in ff mode | ✅ | [02-spec-land.md](02-spec-land.md) |
-| 3 | `live.refusedReach` for manual-steps stops | ⬜ | [03-refused-reach.md](03-refused-reach.md) |
+| 3 | `live.refusedReach` for manual-steps stops | ✅ | [03-refused-reach.md](03-refused-reach.md) |
 | 4 | Vocabulary: base, root checkout, live; docs | ⬜ | [04-vocabulary.md](04-vocabulary.md) |
 
 ## Open questions
@@ -166,3 +166,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   `/spec-pr` then `/spec-complete` rather than "run 1 / run 2". The two
   `docs/rationale/` files are left alone on purpose: they are frozen copies
   of old rules, matched by hash on upgrade. `Docs:` gains the provider pages.
+- 2026-11-26 — Phase 3: the bypass is spent per branch HEAD (new commits are
+  new work, asked again) and recorded in a gitignored ledger beside the live
+  receipt (`.spec-env/live-bypass.json`), not the spec's Changelog — a take
+  checks the branch out in the primary checkout, so writing the spec there
+  would dirty it. An unknown `refusedReach` reads as unset, never as the
+  bypass. Phase 4 note: the loader already reports unknown keys, so the
+  retired `guards.mainIsLandingZone` warns with no new mechanism.

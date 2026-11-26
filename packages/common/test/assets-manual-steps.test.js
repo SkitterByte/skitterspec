@@ -117,8 +117,18 @@ test('the first listing ends the turn and asks no question', () => {
 
 test('Next names how to reach the work before the steps', () => {
   assert.match(section, /`\/spec-live`/)
-  assert.match(section, /`\/spec-land`/)
   assert.match(section, /migration/)
+})
+
+// feat-pr-mode-verbs: the refused branch used to be sent to /spec-to-main,
+// which in PR mode only opened a draft — nowhere testable. The reach is now
+// the project's answer, and an unset key lists every route rather than one.
+test('a branch live refuses follows live.refusedReach, and unset lists all three', () => {
+  assert.match(section, /live\.refusedReach/)
+  for (const v of ['worktree', 'pr', 'live-confirm']) assert.match(section, new RegExp('`' + v + '`'))
+  assert.match(section, /\*\*Unset → say live refuses it and why, and list all three\*\*/)
+  assert.match(section, /never guess the way round it/)
+  assert.doesNotMatch(section, /spec-to-main/)
 })
 
 test('the operator\'s reply resolves it, or a later run asks', () => {

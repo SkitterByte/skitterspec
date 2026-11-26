@@ -450,7 +450,7 @@ through to a documented conservative default; see the field notes below.
   // running dev server by checking its branch out in the primary checkout.
   // `migrations` is a list of globs (`**`, `*`, `?`) marking migration files; a
   // branch that changes any of them is treated as STATEFUL and `live take`
-  // refuses it (code-only v1 — use `/spec-connect` for those). Default: none.
+  // refuses it (code-only v1). Default: none.
   // Nothing is detected for you: an EF Core project wants
   // ["**/Migrations/**"], so a spec adding a migration is refused rather than
   // applied to the shared dev database.
@@ -476,9 +476,21 @@ through to a documented conservative default; see the field notes below.
   // [] (or absent) = none, and take and release print what they always did. It
   // does not replace the "restart your dev server" warning — an install is not
   // a restart.
+  //
+  // `refusedReach` is how THIS project reaches a branch live refuses (it changes
+  // migrations) — the refusal, and `/spec-next`'s manual-steps `Next`, name it:
+  //   "worktree"     run it from the spec's worktree against your own database
+  //                  (`/spec-connect <spec>` where it has a stack)
+  //   "pr"           share it as a draft PR for a pipeline to deploy (`/spec-pr`)
+  //   "live-confirm" let live take it after a confirm: the refusal offers
+  //                  `live take <spec> --allow-migrations` once per branch HEAD,
+  //                  and every such take is recorded in .spec-env/live-bypass.json
+  // Unset (the default) lists all three. Any other value reads as unset — never
+  // as "live-confirm" — and `live take` says so.
   "live": {
     "migrations": [],
-    "afterSwitch": []
+    "afterSwitch": [],
+    "refusedReach": null
   },
 
   // Hotfix landing (`spec-env hotfix land` / `/spec-complete` on a Type: Hotfix

@@ -360,7 +360,7 @@ const DEFAULT_CONFIG = Object.freeze({
   // `afterSwitch` is `afterLand`'s grammar, run in the primary checkout after a
   // take or a release — a separate list because `afterLand` may hold a data
   // migration, which must never run for a branch that has not landed.
-  live: Object.freeze({ migrations: Object.freeze([]), afterSwitch: Object.freeze([]) }),
+  live: Object.freeze({ migrations: Object.freeze([]), afterSwitch: Object.freeze([]), refusedReach: null }),
   // Hotfix landing (`spec-env hotfix land`). `bump` is the version-bump strategy
   // for the new deploy tag: "patch" (X.Y.Z -> X.Y.(Z+1)) or "hotfix-suffix"
   // (X.Y.Z -> X.Y.Z-hotfix.N). The loader keeps whatever string it is given and
@@ -469,7 +469,7 @@ function defaults() {
     teardown: { ...DEFAULT_CONFIG.teardown },
     review: { ...DEFAULT_CONFIG.review, reviewers: [] },
     auto: { ...DEFAULT_CONFIG.auto },
-    live: { migrations: [], afterSwitch: [] },
+    live: { migrations: [], afterSwitch: [], refusedReach: null },
     hotfix: { ...DEFAULT_CONFIG.hotfix, targets: [] },
   }
 }
@@ -888,6 +888,17 @@ function mergeConfig(base, parsed) {
   // after `setup`, which the shorthand expands from.
   if (isObject(parsed.live) && Array.isArray(parsed.live.afterSwitch)) {
     base.live.afterSwitch = normalizeAfterLand(parsed.live.afterSwitch, base.setupTriggers)
+  }
+
+  // How a branch live refuses (it touches migrations) is reached instead. One
+  // of three, or unset — and an unknown value reads as UNSET, the direction
+  // that asks rather than acts: unset lists every route, while a typo read as
+  // `live-confirm` would offer a database-changing bypass nobody chose. The
+  // bad value is kept on `refusedReachInvalid` so `live take` can say so.
+  if (isObject(parsed.live) && parsed.live.refusedReach !== undefined && parsed.live.refusedReach !== null) {
+    const v = parsed.live.refusedReach
+    if (v === 'worktree' || v === 'pr' || v === 'live-confirm') base.live.refusedReach = v
+    else base.live.refusedReachInvalid = String(v)
   }
 
   if (isObject(parsed.hotfix)) {

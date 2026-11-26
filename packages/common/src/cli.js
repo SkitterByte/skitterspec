@@ -113,6 +113,10 @@ const {
   summarizeReceipt,
   migrationsHit,
   depsChanged,
+  readBypass,
+  writeBypass,
+  bypassOffered,
+  recordBypass,
   planTake,
   liveStateFor,
   liveStateLine,
@@ -8300,7 +8304,9 @@ async function specEnvLive(dir, config, positional, flags) {
       break
     default:
       process.stdout.write(
-        'Usage: skitterspec spec-env live <spec>|<base branch>|<take|release|abort|status> [spec]\n',
+        'Usage: skitterspec spec-env live <spec>|<base branch>|<take|release|abort|status> [spec]\n' +
+          '       live take <spec> --allow-migrations   (live.refusedReach: "live-confirm" only)\n' +
+          '       live take <spec> --offered            spend the migrations bypass offer\n',
       )
   }
 }
@@ -8460,6 +8466,26 @@ async function specEnvLiveTake(dir, config, specArg, flags = {}) {
     serverUp = up.length === canonicalPorts.length
   }
 
+  // The migrations bypass is offered once per branch HEAD (`--offered` spends
+  // it) — new commits are new work, so they may be asked about again.
+  const branchHead = worktreeExists ? gitReader(spec.worktreePath)(['rev-parse', 'HEAD']) : null
+  const bypassLedger = readBypass(dir, config)
+  if (flags.offered) {
+    writeBypass(dir, config, recordBypass(bypassLedger, spec.folder, { kind: 'offered', head: branchHead }))
+    process.stdout.write(
+      `spec-env live take: the migrations bypass for ${spec.folder} is spent at ` +
+        `${branchHead ? branchHead.slice(0, 7) : 'an unknown HEAD'} — nothing was taken live.\n`,
+    )
+    return
+  }
+  if (config.live.refusedReachInvalid) {
+    process.stdout.write(
+      `spec-env live take: live.refusedReach "${config.live.refusedReachInvalid}" is not one of ` +
+        'worktree · pr · live-confirm — read as unset.\n',
+    )
+  }
+  const hitMigrations = migrationsHit(files, config.live.migrations)
+
   const plan = planTake(spec, config, {
     primary,
     primaryPath: dir,
@@ -8474,7 +8500,9 @@ async function specEnvLiveTake(dir, config, specArg, flags = {}) {
     serverUp,
     canonicalPorts,
     restartApps,
-    migrationsHit: migrationsHit(files, config.live.migrations),
+    migrationsHit: hitMigrations,
+    allowMigrations: flags.allowMigrations === true,
+    migrationsOfferSpent: bypassOffered(bypassLedger, spec.folder, branchHead),
     depsChanged: depsHit,
     changedFiles,
     holder: primaryGit(['config', 'user.name']) || 'unknown',
@@ -8550,6 +8578,12 @@ async function specEnvLiveTake(dir, config, specArg, flags = {}) {
     return
   }
   const receipt = writeReceipt(dir, config, plan.receipt)
+  // The record a bypass owes: who took a migrations branch live, at which HEAD.
+  if (hitMigrations && flags.allowMigrations === true && config.live.refusedReach === 'live-confirm') {
+    writeBypass(dir, config, recordBypass(bypassLedger, spec.folder, {
+      kind: 'allowed', head: branchHead, at: plan.receipt.heldSince, by: plan.receipt.holder,
+    }))
+  }
   // Another spec is now the one on this checkout; the last release no longer is.
   const last = readLastLive(dir, config)
   if (last && last.spec !== spec.folder) clearLastLive(dir, config)
@@ -8879,6 +8913,7 @@ async function specEnv(rest) {
     else if (args[i] === '--check') flags.check = true
     else if (args[i] === '--for-command') flags.forCommand = args[++i]
     else if (args[i] === '--offered') flags.offered = true
+    else if (args[i] === '--allow-migrations') flags.allowMigrations = true
     else if (args[i] === '--phase') flags.phase = args[++i]
     else if (args[i] === '--record-primary') flags.recordPrimary = true
     else if (args[i] === '--docs') flags.docs = true

@@ -354,12 +354,23 @@ on the base branch — so nothing could have been tested. The stop is a report:
    committed. Wait for the verdict as §5 does, under its banner; a `Commit`
    runs through `/spec-diff` §2a.
 2. **End `⚠️`**, `Why` the phase stopped at its manual steps. `Next` first
-   names how to reach the work — `/commit`, then `/spec-live`; or
-   `/commit`, then `/spec-land` where live refuses the branch (it touches
-   migrations, which would change the shared database) or a step needs it on
-   the base branch — then the steps a row each, then a closing row: *tell me
-   how it went, or `/spec-next`*. The rows follow
-   `.claude/rules/spec-reports.md`, *Open manual steps are rows*.
+   names how to reach the work — `/commit`, then `/spec-live` — then the steps
+   a row each, then a closing row: *tell me how it went, or `/spec-next`*. The
+   rows follow `.claude/rules/spec-reports.md`, *Open manual steps are rows*.
+
+   **Where live refuses the branch** (it changes migrations, which would
+   change the shared database), never guess the way round it. Read
+   `live.refusedReach` from `env.config.json` and name what it says, after
+   `/commit`:
+   - `worktree` — run it from the spec's worktree (its path), with
+     `/spec-connect <spec>` where it has a stack;
+   - `pr` — `/spec-pr`, a draft PR for the project's pipeline to deploy;
+   - `live-confirm` — `/spec-live`, whose refusal offers the recorded bypass
+     (`.claude/rules/offered-unblocks.md`).
+   **Unset → say live refuses it and why, and list all three**; the operator
+   knows which one their team uses. A step that needs the work on the base
+   branch itself is `/spec-land` in trunk mode, and in PR mode it waits for
+   the merge.
 
 **The operator's next message is the answer** — "all done", "step 5 failed:
 …" — read as one of the three below. Or a later `/spec-next` finds the steps

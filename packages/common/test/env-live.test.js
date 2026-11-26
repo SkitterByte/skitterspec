@@ -19,7 +19,12 @@ const {
   planTake,
   planRelease,
   planAbort,
+  bypassOffered,
+  recordBypass,
+  readBypass,
+  writeBypass,
 } = require('../src/env/live.js')
+const { loadEnvConfig } = require('../src/env/config.js')
 const { assertPrimaryOnMain } = require('../src/env/resolve.js')
 
 const CONFIG = { registry: '.spec-env/registry.json' }
@@ -220,6 +225,105 @@ test('planTake always refuses a hotfix, regardless of stack', () => {
 test('planTake refuses a branch that changes migrations', () => {
   const plan = planTake(SPEC, {}, okCtx({ migrationsHit: true }))
   assert.match(plan.reason, /changes migrations/)
+})
+
+// --- live.refusedReach (feat-pr-mode-verbs) -----------------------------------
+
+const reachCfg = (refusedReach) => ({ live: { refusedReach } })
+
+test('migrations refusal names the project\'s reach: worktree, pr, live-confirm', () => {
+  const wt = planTake(SPEC, reachCfg('worktree'), okCtx({ migrationsHit: true }))
+  assert.match(wt.reason, /from the worktree: run it from its worktree \(\/wt\/x/)
+  const pr = planTake(SPEC, reachCfg('pr'), okCtx({ migrationsHit: true }))
+  assert.match(pr.reason, /by PR: .*`\/spec-pr`/)
+  const lc = planTake(SPEC, reachCfg('live-confirm'), okCtx({ migrationsHit: true }))
+  assert.match(lc.reason, /--allow-migrations/)
+  for (const plan of [wt, pr, lc]) {
+    assert.strictEqual(plan.blocked, true)
+    assert.doesNotMatch(plan.reason, /spec-to-main|spec-land/)
+  }
+})
+
+test('unset reach lists every route and never guesses one', () => {
+  const plan = planTake(SPEC, {}, okCtx({ migrationsHit: true }))
+  assert.match(plan.reason, /run it from its worktree/)
+  assert.match(plan.reason, /`\/spec-pr`/)
+  assert.match(plan.reason, /set `live\.refusedReach`/)
+})
+
+// Stays silent: no project chose the bypass, so no refusal may declare it.
+test('only live-confirm declares a bypass offer — worktree, pr and unset carry none', () => {
+  for (const reach of [undefined, 'worktree', 'pr']) {
+    const plan = planTake(SPEC, reachCfg(reach), okCtx({ migrationsHit: true }))
+    assert.strictEqual(plan.offer, undefined, String(reach))
+  }
+  const lc = planTake(SPEC, reachCfg('live-confirm'), okCtx({ migrationsHit: true }))
+  assert.strictEqual(lc.offer.kind, 'bypass')
+  assert.match(lc.offer.command, /live take feat-x --allow-migrations/)
+})
+
+test('the bypass offer is spent once per HEAD', () => {
+  const spent = planTake(SPEC, reachCfg('live-confirm'), okCtx({ migrationsHit: true, migrationsOfferSpent: true }))
+  assert.strictEqual(spent.blocked, true)
+  assert.strictEqual(spent.offer, undefined)
+  let ledger = recordBypass({}, 'feat-x', { kind: 'offered', head: 'abc' })
+  assert.strictEqual(bypassOffered(ledger, 'feat-x', 'abc'), true)
+  assert.strictEqual(bypassOffered(ledger, 'feat-x', 'later'), false, 'new commits are asked again')
+  ledger = recordBypass(ledger, 'feat-x', { kind: 'allowed', head: 'abc', at: 't', by: 'Test' })
+  assert.deepStrictEqual(ledger['feat-x'].allowed, [{ head: 'abc', at: 't', by: 'Test' }])
+})
+
+test('--allow-migrations takes it live only under live-confirm, with a warning', () => {
+  const ok = planTake(SPEC, reachCfg('live-confirm'), okCtx({ migrationsHit: true, allowMigrations: true }))
+  assert.strictEqual(ok.blocked, false)
+  assert.match(ok.warnings.join('\n'), /shared database changes/)
+  for (const reach of [undefined, 'worktree', 'pr']) {
+    const no = planTake(SPEC, reachCfg(reach), okCtx({ migrationsHit: true, allowMigrations: true }))
+    assert.strictEqual(no.blocked, true, String(reach))
+    assert.match(no.reason, /needs `live\.refusedReach: "live-confirm"`/)
+  }
+})
+
+test('a code-only branch is untouched by refusedReach (stays silent)', () => {
+  const plan = planTake(SPEC, reachCfg('live-confirm'), okCtx({ migrationsHit: false, allowMigrations: true }))
+  assert.strictEqual(plan.blocked, false)
+  assert.doesNotMatch(plan.warnings.join('\n'), /database/)
+})
+
+test('a corrupt bypass ledger reads as never offered', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-bypass-'))
+  try {
+    const cfg = { registry: '.spec-env/registry.json' }
+    assert.deepStrictEqual(readBypass(dir, cfg), {})
+    writeBypass(dir, cfg, recordBypass({}, 'feat-x', { kind: 'offered', head: 'abc' }))
+    assert.strictEqual(bypassOffered(readBypass(dir, cfg), 'feat-x', 'abc'), true)
+    fs.writeFileSync(path.join(dir, '.spec-env', 'live-bypass.json'), '{not json')
+    assert.deepStrictEqual(readBypass(dir, cfg), {})
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('config: live.refusedReach takes the three values; anything else reads as unset', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-reach-'))
+  const write = (live) => {
+    fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
+    fs.writeFileSync(path.join(dir, 'specs', '.core', 'env.config.json'), JSON.stringify({ live }))
+  }
+  try {
+    for (const v of ['worktree', 'pr', 'live-confirm']) {
+      write({ refusedReach: v })
+      assert.strictEqual(loadEnvConfig(dir).config.live.refusedReach, v)
+    }
+    write({ refusedReach: 'Live-Confirm' })
+    const typo = loadEnvConfig(dir).config
+    assert.strictEqual(typo.live.refusedReach, null, 'a typo never becomes the bypass')
+    assert.strictEqual(typo.live.refusedReachInvalid, 'Live-Confirm')
+    write({})
+    assert.strictEqual(loadEnvConfig(dir).config.live.refusedReach, null)
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
 })
 
 test('planTake refuses when no dev server is listening', () => {
