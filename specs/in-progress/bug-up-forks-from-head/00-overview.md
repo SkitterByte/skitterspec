@@ -78,7 +78,7 @@ expected: [ '-b', 'feat/next', 'main' ],
 |---|-------|--------|
 | 1 | [Fork from the base, named](01-fork-from-base.md) | ✅ Done |
 | 2 | [integrate names another spec's commits](02-integrate-foreign-commits.md) | ✅ Done |
-| 3 | [down treats a cherry-picked re-land as landed](03-down-patch-landed.md) | ⬜ |
+| 3 | [down treats a cherry-picked re-land as landed](03-down-patch-landed.md) | ✅ Done |
 
 Phase 1 is the root cause and ships the fix on its own. Phases 2 and 3 are
 the hardening the report's acceptance criteria ask for. Phase 2 catches a branch
@@ -111,3 +111,6 @@ Phase 3 removes the `--force` the manual recovery needed.
   `Refs:` and spec-folder matches only warn, because commit-trailers.md
   allows one spec's commits on another's branch on purpose. The PR-mode land
   is left as it was: the host's PR shows the carried commits for review.
+- 2026-11-26 — Fixed phase 3: `down` counts a branch as landed when every
+  commit is patch-equivalent on the base or held by another local branch;
+  suite green (4619 passed). All three phases done.

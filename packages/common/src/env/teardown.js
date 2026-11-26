@@ -30,7 +30,7 @@ const { shellPath } = require('./project.js')
  * @param {object} config normalised env config.
  * @param {object} flags { keepVolumes, force }
  * @param {object} ctx   { worktreeState: { dirty, unpushed, merged, reachableFromTag,
- *                     remoteBranch }, timestamp }
+ *                     carried, remoteBranch }, timestamp }
  * @returns {object} { blocked, reason, commands, remoteCommands, backupCommand,
  *                     backupPath, volumesDropped }
  */
@@ -46,7 +46,9 @@ function planDown(spec, config, flags, ctx) {
   // it decides whether the unpushed guard blocks, and whether the branch delete
   // can use `-D` — the same question ("are these commits recoverable?"), so the
   // two must never answer it differently.
-  const landed = Boolean(worktreeState.merged || worktreeState.reachableFromTag)
+  // `carried` is the third answer: every commit is patch-equivalent on base or
+  // held by another branch — a re-land by cherry-pick (bug-up-forks-from-head).
+  const landed = Boolean(worktreeState.merged || worktreeState.reachableFromTag || worktreeState.carried)
   // A spec-documents-only branch under `land.specDocs: "branch"` — authored,
   // perhaps pushed, never started (feat-tracker-spec-branches). It holds no
   // code to lose and was never meant to have a PR, and left on the remote it

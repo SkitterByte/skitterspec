@@ -2656,7 +2656,7 @@ function gitReader(cwd) {
 // ancestor of it (fully landed), which lets teardown skip the unpushed guard.
 function worktreeGitState(worktreePath, base) {
   if (!fs.existsSync(worktreePath)) {
-    return { dirty: false, unpushed: false, merged: true, reachableFromTag: false, remoteBranch: null }
+    return { dirty: false, unpushed: false, merged: true, reachableFromTag: false, carried: false, remoteBranch: null }
   }
   const git = gitReader(worktreePath)
 
@@ -2684,6 +2684,18 @@ function worktreeGitState(worktreePath, base) {
   // teardown its commits are safely recoverable.
   const pointing = git(['tag', '--points-at', 'HEAD'])
   const reachableFromTag = pointing !== null && pointing.length > 0
+
+  // carried = nothing on this branch would be lost by deleting it, though it is
+  // not an ancestor of base: every commit is patch-equivalent on base (`git
+  // cherry` marks it `-`), or another local branch holds it. That is a re-land
+  // by cherry-pick, the hand recovery when a branch carried another spec's
+  // commits (bug-up-forks-from-head). Only asked when not merged.
+  //
+  // WHAT WOULD FOOL THIS: a `cherry` git would not answer, or an empty one,
+  // reads as not carried, so the guard stays where it was. Another branch
+  // holding a commit can itself be deleted later; it is still a branch, so
+  // nothing is lost by THIS teardown, which is the only question asked here.
+  const carried = !merged && base != null && carriedElsewhere(git, base)
 
   // remoteBranch = the remote-tracking ref for this worktree's branch when one
   // actually exists here (e.g. "origin/feat/thing"), else null. Teardown plans a
@@ -2719,7 +2731,24 @@ function worktreeGitState(worktreePath, base) {
     }
   }
 
-  return { dirty, unpushed, merged, reachableFromTag, remoteBranch }
+  return { dirty, unpushed, merged, reachableFromTag, carried, remoteBranch }
+}
+
+// Is every commit on HEAD that base lacks either patch-equivalent on base or
+// held by another local branch? False on anything git would not answer.
+function carriedElsewhere(git, base) {
+  const cherry = git(['cherry', base, 'HEAD'])
+  if (!cherry) return false
+  const own = git(['symbolic-ref', '--short', 'HEAD'])
+  for (const line of cherry.split('\n').filter(Boolean)) {
+    const [mark, sha] = line.trim().split(/\s+/)
+    if (mark === '-') continue
+    const holders = git(['for-each-ref', '--contains', sha, '--format=%(refname:short)', 'refs/heads'])
+    if (holders === null) return false
+    const others = holders.split('\n').map((b) => b.trim()).filter((b) => b && b !== own)
+    if (!others.length) return false
+  }
+  return true
 }
 
 // A deterministic-enough compact timestamp for backup filenames (CLI-only; the
