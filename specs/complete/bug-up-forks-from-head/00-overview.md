@@ -114,3 +114,4 @@ Phase 3 removes the `--force` the manual recovery needed.
 - 2026-11-26 — Fixed phase 3: `down` counts a branch as landed when every
   commit is patch-equivalent on the base or held by another local branch;
   suite green (4619 passed). All three phases done.
+- 2026-11-26 — Completed; all phases done, tests green (4619 passed).
