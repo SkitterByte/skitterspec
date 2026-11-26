@@ -824,17 +824,29 @@ when that path is skipped — a declined/guard-aborted teardown, a manual
 `git worktree remove`, or `--keep-volumes`. Over many worktrees these orphaned
 DB volumes pile up and eat disk.
 
-`skitterspec spec-env prune` reconciles the live volumes in the
-`{repoSlug}_*` namespace against the specs that still have a **worktree** and
-lists the orphans (volumes owned by no live spec) plus the `docker volume rm`
-commands to remove them. It plans only — you run the printed commands — and it
-frees any stale registry slot for a reaped spec.
+`skitterspec spec-env prune` reconciles the volumes spec stacks created
+against the specs that still have a **worktree** and lists the orphans
+(volumes owned by no live spec) plus the `docker volume rm` commands to remove
+them. It plans only — you run the printed commands — and it frees any stale
+registry slot for a reaped spec.
+
+- **Only a spec stack's volume is ever a candidate.** Its
+  `com.docker.compose.project` label must match `docker.projectNamePattern`
+  (with `{slug}` as the wildcard) — a name prefix is not enough. The primary
+  checkout's own volumes, external and unlabelled or labelled with the base
+  project, are never listed, and nor is any name the base `composeFile`
+  mentions.
+- **Never a volume in use.** Anything a container references, running or
+  stopped, is kept. If docker cannot answer, prune lists nothing and says it
+  cannot tell.
+- **`docker.enabled: false` lists nothing** — no spec there ever had a stack.
 
 - **Liveness = an existing worktree, not the registry** (the registry is what
   goes stale). A spec with a live worktree — in any bucket, including one checked
   out only on its branch — is always protected.
 - **No backup.** Unlike `spec-env down`, prune does **not** run
-  `backupCommand`: an orphan has no running DB to dump. Add `--older-than <days>`
+  `backupCommand`: an orphan is used by no container, so there is no running
+  DB to dump. Add `--older-than <days>`
   to only reap volumes older than a cutoff (volumes of unknown age are kept).
 - `/spec-complete` and `/spec-cancel` run prune (confirm-first) as their last
   teardown step, so orphans get swept as specs finish. You can also run it by

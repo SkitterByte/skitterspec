@@ -607,15 +607,18 @@ only ordering that survives.
    that wants it unattended sets `teardown.deleteRemoteBranch: "always"` in
    `env.config.json`, and then it appears in `run these:` instead of here.
 4. **Reap orphaned test-DB volumes:** run `skitterspec spec-env prune`. It lists
-   Docker volumes in the repo namespace that belong to **no live spec** (no
-   worktree) — leftovers from declined/aborted teardowns, manual
-   `git worktree remove`, or `--keep-volumes`. Show the user the orphan list and,
+   volumes a **spec stack's compose created** (by their compose project label)
+   that belong to **no live spec** (no worktree) and that no container, running
+   or stopped, uses — leftovers from declined/aborted teardowns, manual
+   `git worktree remove`, or `--keep-volumes`. The primary checkout's own
+   volumes are never listed, whatever their names. Show the user the orphan list and,
    **only on their confirmation**, execute the printed `docker volume rm`
    commands. **This one still asks**, unlike 1–3: it reaps volumes belonging to
    *other* specs, and this spec having landed cleanly says nothing about those.
    Non-fatal: if prune can't run (Docker down) or the user declines, report it and
    finish completing anyway — never block the spec on it. Skip when Docker isn't
-   in use (the command self-reports "no orphaned volumes").
+   in use (the command self-reports "Docker is not in use"). A `cannot tell`
+   lists nothing: relay it and offer no command.
 
 **Report from where you now are.** After a teardown you relocated for, the
 worktree path in the report is a directory that no longer exists and the landed

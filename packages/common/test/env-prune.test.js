@@ -7,22 +7,30 @@ const { planPrune, liveSlugsForSpecs, reconcileRegistry } = require('../src/env/
 
 const REPO = 'skitterspec'
 const names = (plan) => plan.orphans.map((o) => o.name)
+// A volume a spec stack's compose created: labelled with its project, mounted
+// by nothing. The default shape of a real orphan.
+const vol = (slug, suffix = 'db-data', extra = {}) => ({
+  name: `${REPO}_${slug}_${suffix}`,
+  project: `${REPO}_${slug}`,
+  inUse: false,
+  ...extra,
+})
 
 test('reaps a true orphan in the namespace', () => {
-  const plan = planPrune([`${REPO}_gone_db-data`], [], { repoSlug: REPO })
+  const plan = planPrune([vol('gone')], [], { repoSlug: REPO })
   assert.deepStrictEqual(names(plan), [`${REPO}_gone_db-data`])
   assert.deepStrictEqual(plan.commands, [`docker volume rm ${REPO}_gone_db-data`])
 })
 
 test('protects a live slug', () => {
-  const plan = planPrune([`${REPO}_alive_db-data`], ['alive'], { repoSlug: REPO })
+  const plan = planPrune([vol('alive')], ['alive'], { repoSlug: REPO })
   assert.deepStrictEqual(names(plan), [])
   assert.deepStrictEqual(plan.commands, [])
 })
 
 test('exact-prefix safety — "add" does not protect "add-widget"', () => {
   const plan = planPrune(
-    [`${REPO}_add_db-data`, `${REPO}_add-widget_db-data`],
+    [vol('add'), vol('add-widget')],
     ['add'],
     { repoSlug: REPO },
   )
@@ -32,7 +40,11 @@ test('exact-prefix safety — "add" does not protect "add-widget"', () => {
 
 test('ignores volumes outside the repo namespace', () => {
   const plan = planPrune(
-    [`otherrepo_thing_db-data`, `${REPO}_gone_db-data`, `unrelated-volume`],
+    [
+      { name: 'otherrepo_thing_db-data', project: 'otherrepo_thing', inUse: false },
+      vol('gone'),
+      { name: 'unrelated-volume', project: 'unrelated', inUse: false },
+    ],
     [],
     { repoSlug: REPO },
   )
@@ -49,7 +61,7 @@ test('empty inputs are a clean no-op', () => {
 
 test('accepts a Set of live slugs and multiple orphans', () => {
   const plan = planPrune(
-    [`${REPO}_a_db`, `${REPO}_b_db`, `${REPO}_c_db`],
+    [vol('a', 'db'), vol('b', 'db'), vol('c', 'db')],
     new Set(['b']),
     { repoSlug: REPO },
   )
@@ -61,8 +73,8 @@ test('olderThanDays keeps recent orphans, reaps stale ones', () => {
   const day = 24 * 60 * 60 * 1000
   const plan = planPrune(
     [
-      { name: `${REPO}_stale_db`, createdAt: now - 10 * day },
-      { name: `${REPO}_fresh_db`, createdAt: now - 1 * day },
+      vol('stale', 'db', { createdAt: now - 10 * day }),
+      vol('fresh', 'db', { createdAt: now - 1 * day }),
     ],
     [],
     { repoSlug: REPO, olderThanDays: 7, now },
@@ -72,12 +84,77 @@ test('olderThanDays keeps recent orphans, reaps stale ones', () => {
 
 test('olderThanDays conservatively keeps unknown-age orphans', () => {
   const now = 1_000 * 24 * 60 * 60 * 1000
-  const plan = planPrune([`${REPO}_nodate_db`], [], {
+  const plan = planPrune([vol('nodate', 'db')], [], {
     repoSlug: REPO,
     olderThanDays: 7,
     now,
   })
   assert.deepStrictEqual(names(plan), [])
+})
+
+// --- stays silent: no positive signal of a spec stack ------------------------
+//
+// bug-prune-reaps-base-volumes: the primary checkout's own compose file
+// declared `ereqs_db_data` external and explicitly named, so it shared the
+// `{repoSlug}_` prefix and carried no label — and prune offered to delete it.
+
+test('an unlabelled volume sharing the repo prefix is never a candidate', () => {
+  // External, explicitly named in the base compose file: compose never labels it.
+  const plan = planPrune(
+    [{ name: `${REPO}_db_data`, project: null, inUse: false }],
+    [],
+    { repoSlug: REPO },
+  )
+  assert.deepStrictEqual(names(plan), [])
+})
+
+test("the base stack's own volumes are never candidates", () => {
+  // Non-external volume of the primary checkout's stack: labelled with the
+  // base project (`skitterspec`), not a `{repoSlug}_{slug}` spec project.
+  const plan = planPrune(
+    [{ name: `${REPO}_seq-data`, project: REPO, inUse: false }],
+    [],
+    { repoSlug: REPO },
+  )
+  assert.deepStrictEqual(names(plan), [])
+})
+
+test('a volume the base compose file names is never a candidate', () => {
+  const plan = planPrune([vol('db', 'data')], [], {
+    repoSlug: REPO,
+    protectNames: [`${REPO}_db_data`],
+  })
+  assert.deepStrictEqual(names(plan), [])
+})
+
+test('a volume mounted by any container is never a candidate', () => {
+  const plan = planPrune([vol('gone', 'db', { inUse: true })], [], { repoSlug: REPO })
+  assert.deepStrictEqual(names(plan), [])
+})
+
+test('a volume whose use is unknown is never a candidate', () => {
+  const plan = planPrune([vol('gone', 'db', { inUse: null })], [], { repoSlug: REPO })
+  assert.deepStrictEqual(names(plan), [])
+})
+
+test('a plain volume name, with no label or use known, is never a candidate', () => {
+  const plan = planPrune([`${REPO}_gone_db-data`], [], { repoSlug: REPO })
+  assert.deepStrictEqual(names(plan), [])
+})
+
+test('a project pattern without {slug} cannot tell, and lists nothing', () => {
+  const plan = planPrune([vol('gone')], [], { repoSlug: REPO, projectPattern: '{repoSlug}' })
+  assert.deepStrictEqual(names(plan), [])
+  assert.match(plan.cannotTell, /\{slug\}/)
+})
+
+test('honours a custom project pattern', () => {
+  const plan = planPrune(
+    [{ name: 'spec-gone_db', project: 'spec-gone', inUse: false }, vol('gone')],
+    [],
+    { repoSlug: REPO, projectPattern: 'spec-{slug}' },
+  )
+  assert.deepStrictEqual(names(plan), ['spec-gone_db'])
 })
 
 test('throws when repoSlug is missing', () => {
@@ -86,7 +163,7 @@ test('throws when repoSlug is missing', () => {
 
 test('throws when olderThanDays is set without now', () => {
   assert.throws(
-    () => planPrune([`${REPO}_x_db`], [], { repoSlug: REPO, olderThanDays: 7 }),
+    () => planPrune([vol('x', 'db')], [], { repoSlug: REPO, olderThanDays: 7 }),
     /requires opts\.now/,
   )
 })

@@ -17,49 +17,91 @@
  * volume behind), so the caller derives `liveSlugs` from real worktrees and the
  * registry is only reconciled afterwards. See the spec Decisions.
  *
- * We never parse a slug out of an orphan. Instead we build a protected-prefix
- * set from the live slugs (`{repoSlug}_{slug}_`) and keep any volume matching
- * one — everything else in the `{repoSlug}_` namespace is an orphan. The
- * trailing `_` makes the slug match exact: slugs are kebab-case (`[a-z0-9-]`)
- * and `_` is the compose project/volume separator, so `add` never protects
- * `add-widget`.
+ * **A candidate needs a positive signal that a spec stack owned it.** A name
+ * prefix is not one: the primary checkout's own compose file can name its
+ * volumes `{repoSlug}_db_data` (external, unlabelled), and the base stack's
+ * non-external volumes are `{repoSlug}_<vol>` too — both read as orphans to a
+ * prefix match (bug-prune-reaps-base-volumes, which offered to delete a live dev
+ * database). So a volume is a candidate only when ALL of these hold:
+ *
+ *   1. its `com.docker.compose.project` label matches `docker.projectNamePattern`
+ *      with `{slug}` as the wildcard — the label compose stamps on every volume
+ *      it creates for that project, and never on an external one;
+ *   2. the slug that label names has no live worktree;
+ *   3. docker reports it referenced by no container, running or stopped
+ *      (`inUse === false` — unknown is kept);
+ *   4. the base compose file does not mention its name (`protectNames`).
+ *
+ * WHAT WOULD FOOL THIS: a volume someone created by hand with a spec project's
+ * label on it. It would be reaped like a spec's — which is what the label says
+ * it is. Everything that cannot be told routes to keeping the volume.
+ *
+ * The slug match is exact: slugs are kebab-case (`[a-z0-9-]`) and the label is
+ * matched whole, so `add` never protects `add-widget`.
  *
  * Side-effect free and deterministic: no `Date.now()` — the caller supplies
  * `now` (and per-volume `createdAt`) when age-gating.
  */
 
-const { splitPrefix } = require('./resolve.js')
+const { splitPrefix, expandTokens } = require('./resolve.js')
+
+const DEFAULT_PATTERN = '{repoSlug}_{slug}'
+
+// `docker.projectNamePattern` as a whole-label matcher, `{slug}` captured.
+// Compose lowercases project names, so the match is on lowercase. Null when the
+// pattern has no `{slug}` — then no label can name a spec, and that is
+// cannot-tell, not "nothing is a spec's".
+function projectMatcher(pattern, repoSlug, repo) {
+  const SLUG = '\u0000slug\u0000'
+  const expanded = expandTokens(pattern, { repoSlug, repo: repo || repoSlug, slug: SLUG })
+  if (!expanded.includes(SLUG)) return null
+  const escape = (t) => t.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const [before, ...rest] = expanded.split(SLUG)
+  if (rest.length !== 1) return null
+  return new RegExp(`^${escape(before)}([a-z0-9][a-z0-9-]*)${escape(rest[0])}$`)
+}
 
 /**
- * @param {Array<string|{name:string,createdAt?:number|null}>} volumes
- *   live Docker volume names (or objects carrying `createdAt` epoch-ms for age
- *   gating). Plain strings are treated as unknown-age.
+ * @param {Array<string|{name:string,project?:string|null,inUse?:boolean|null,createdAt?:number|null}>} volumes
+ *   Docker volumes: `project` is the compose project label (null when
+ *   unlabelled), `inUse` whether any container references it (null when
+ *   unknown). A plain string is a name with nothing known — never a candidate.
  * @param {Iterable<string>} liveSlugs  slugs of specs that still have a worktree.
- * @param {object} opts { repoSlug, olderThanDays?, now? }
- *   `repoSlug` (required) is the namespace prefix. `olderThanDays` (optional)
- *   keeps only orphans strictly older than the cutoff; when set, `now`
- *   (epoch-ms) is required and volumes of unknown age are conservatively kept.
- * @returns {{ orphans: Array<{name:string,createdAt:number|null}>, commands: string[] }}
+ * @param {object} opts { repoSlug, repo?, projectPattern?, protectNames?, olderThanDays?, now? }
+ *   `repoSlug` (required) and `repo` expand the pattern's tokens.
+ *   `projectPattern` is `docker.projectNamePattern` (default `{repoSlug}_{slug}`).
+ *   `protectNames` are volume names the base compose file mentions.
+ *   `olderThanDays` (optional) keeps only orphans strictly older than the
+ *   cutoff; when set, `now` (epoch-ms) is required and volumes of unknown age
+ *   are conservatively kept.
+ * @returns {{ orphans: Array<{name:string,slug:string,createdAt:number|null}>, commands: string[], cannotTell?: string }}
  */
 function planPrune(volumes, liveSlugs, opts = {}) {
-  const { repoSlug, olderThanDays = null, now = null } = opts
+  const { repoSlug, repo, projectPattern = DEFAULT_PATTERN, protectNames = [], olderThanDays = null, now = null } = opts
   if (!repoSlug) throw new Error('planPrune: opts.repoSlug is required')
+  if (olderThanDays != null && now == null) throw new Error('planPrune: olderThanDays requires opts.now')
 
-  const namespace = `${repoSlug}_`
+  const matcher = projectMatcher(projectPattern, repoSlug, repo)
+  if (!matcher) {
+    return {
+      orphans: [],
+      commands: [],
+      cannotTell: `docker.projectNamePattern "${projectPattern}" has no {slug}, so no volume can be told to be a spec's`,
+    }
+  }
   const live = liveSlugs instanceof Set ? liveSlugs : new Set(liveSlugs || [])
-  const protectedPrefixes = [...live].map((slug) => `${repoSlug}_${slug}_`)
+  const kept = new Set(protectNames)
 
-  let orphans = (volumes || [])
-    .map((v) => (typeof v === 'string' ? { name: v, createdAt: null } : v))
-    .filter((v) => {
-      const name = v && v.name
-      if (!name || !name.startsWith(namespace)) return false
-      return !protectedPrefixes.some((p) => name.startsWith(p))
-    })
-    .map((v) => ({ name: v.name, createdAt: v.createdAt == null ? null : v.createdAt }))
+  let orphans = []
+  for (const v of volumes || []) {
+    if (!v || typeof v !== 'object' || !v.name) continue
+    if (v.inUse !== false || kept.has(v.name)) continue
+    const m = typeof v.project === 'string' && matcher.exec(v.project.toLowerCase())
+    if (!m || live.has(m[1])) continue
+    orphans.push({ name: v.name, slug: m[1], createdAt: v.createdAt == null ? null : v.createdAt })
+  }
 
   if (olderThanDays != null) {
-    if (now == null) throw new Error('planPrune: olderThanDays requires opts.now')
     const cutoff = now - olderThanDays * 24 * 60 * 60 * 1000
     // Unknown age (createdAt == null) is kept — never drop what we can't date.
     orphans = orphans.filter((v) => v.createdAt != null && v.createdAt <= cutoff)
@@ -104,11 +146,12 @@ function liveSlugsForSpecs(specs, liveWorktreePaths) {
 function reconcileRegistry(registry, orphans, repoSlug) {
   const slots = { ...((registry && registry.slots) || {}) }
   const reaped = (orphans || []).map((o) => o.name)
+  const reapedSlugs = new Set((orphans || []).map((o) => o.slug).filter(Boolean))
   const freed = []
   for (const folder of Object.keys(slots)) {
     const { slug } = splitPrefix(folder)
     const prefix = `${repoSlug}_${slug}_`
-    if (reaped.some((name) => name.startsWith(prefix))) {
+    if (reapedSlugs.has(slug) || reaped.some((name) => name.startsWith(prefix))) {
       delete slots[folder]
       freed.push(folder)
     }

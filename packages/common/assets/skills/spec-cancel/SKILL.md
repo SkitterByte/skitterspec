@@ -234,9 +234,9 @@ only ordering that survives.
    it like the delete above, and run the abandon **before** any remote branch
    delete — closing the PR first is what stops the host complaining about a
    deleted source branch.
-4. `skitterspec spec-env prune` — reap orphaned test-DB volumes that belong to no
-   live spec (leftovers from declined/aborted teardowns or manual worktree
-   removal). Show the orphan list and, **only on the user's confirmation**, run
+4. `skitterspec spec-env prune` — reap orphaned test-DB volumes that a spec
+   stack created, that belong to no live spec and that no container uses
+   (leftovers from declined/aborted teardowns or manual worktree removal). Show the orphan list and, **only on the user's confirmation**, run
    the printed `docker volume rm` commands. Non-fatal: if it can't run or the user
    declines, report and finish cancelling anyway.
 

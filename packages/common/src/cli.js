@@ -2902,24 +2902,56 @@ function specEnvDown(dir, config, specArg, flags) {
 
 // --- prune: reap orphaned per-spec test-DB volumes -------------------------
 
-// Live Docker volumes in the repo namespace (`{repoSlug}_…`). Returns
-// { ok, names }: ok:false means docker is unavailable / errored (non-fatal — the
-// caller reports and skips). The `name=` filter is a substring match, so we
-// re-check the prefix in the pure planner.
-function listRepoVolumes(repoSlug) {
+// One `docker volume ls` call as lines. Returns { ok, lines }: ok:false means
+// docker is unavailable / errored, which the caller reports as cannot-tell.
+function dockerVolumeLs(filter, format) {
   try {
-    const out = execFileSync(
-      'docker',
-      ['volume', 'ls', '--format', '{{.Name}}', '--filter', `name=${repoSlug}_`],
-      { stdio: ['ignore', 'pipe', 'pipe'] },
-    )
+    const out = execFileSync('docker', ['volume', 'ls', '--filter', filter, '--format', format], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
       .toString()
       .trim()
-    const names = out ? out.split('\n').map((s) => s.trim()).filter(Boolean) : []
-    return { ok: true, names }
+    return { ok: true, lines: out ? out.split('\n').map((s) => s.trim()).filter(Boolean) : [] }
   } catch (error) {
     const err = (error.stderr && error.stderr.toString().trim()) || error.message
-    return { ok: false, names: [], err }
+    return { ok: false, lines: [], err }
+  }
+}
+
+// Volumes compose created, with their project label, each marked `inUse` from
+// docker's own `dangling` filter — referenced by no container, running or
+// stopped. Both queries must answer: a failed `dangling` query leaves use
+// unknown, and an unknown is never a candidate (negative-checks rule 4).
+//
+// THE LABEL IS THE POSITIVE SIGNAL, not the name. An external volume — the
+// primary checkout's `name: ereqs_db_data, external: true` — carries no label and
+// is never listed here, whatever its prefix (bug-prune-reaps-base-volumes).
+function listComposeVolumes() {
+  const labelled = dockerVolumeLs('label=com.docker.compose.project', '{{.Name}}\t{{.Label "com.docker.compose.project"}}')
+  if (!labelled.ok) return labelled
+  const dangling = dockerVolumeLs('dangling=true', '{{.Name}}')
+  if (!dangling.ok) return dangling
+  const unused = new Set(dangling.lines)
+  const volumes = labelled.lines.map((line) => {
+    const [name, project] = line.split('\t')
+    return { name, project: project || null, inUse: !unused.has(name) }
+  })
+  return { ok: true, volumes }
+}
+
+// Every word the primary checkout's compose file contains, as volume names to
+// keep. A text scan rather than a YAML read, and deliberately loose: a name
+// that appears anywhere in the base stack's file — `name: ereqs_db_data`, a
+// comment — is kept. Over-protecting costs a leftover volume; under-protecting
+// cost a dev database. Unreadable is cannot-tell; missing is no names.
+function baseComposeNames(dir, config) {
+  const file = config.docker && config.docker.composeFile
+  if (!file) return { ok: true, names: [] }
+  try {
+    return { ok: true, names: fs.readFileSync(path.join(dir, file), 'utf8').match(/[A-Za-z0-9_.-]+/g) || [] }
+  } catch (error) {
+    if (error.code === 'ENOENT') return { ok: true, names: [] }
+    return { ok: false, names: [], err: `could not read ${file} — ${error.message}` }
   }
 }
 
@@ -3161,14 +3193,24 @@ function specEnvPrune(dir, config, flags) {
       `spec-env prune: reaped a stale review-server pidfile (pid ${reapedPid} is gone).\n`,
     )
   }
-  const { repoSlug } = repoInfo(repoRootOf(dir, config))
+  // No spec here has ever had a stack: `resolveStack` escalates only under the
+  // master switch, so nothing docker holds can be a spec's. Ask it nothing.
+  if (!config.docker || !config.docker.enabled) {
+    process.stdout.write('spec-env prune: Docker is not in use (docker.enabled: false) — nothing to prune.\n')
+    return
+  }
+  const { repo, repoSlug } = repoInfo(repoRootOf(dir, config))
 
-  const vols = listRepoVolumes(repoSlug)
+  const cannotTell = (why) =>
+    process.stdout.write(`spec-env prune: cannot tell which volumes are orphans — ${why}.\nNothing pruned.\n`)
+  const vols = listComposeVolumes()
   if (!vols.ok) {
-    process.stdout.write(
-      `spec-env prune: could not list docker volumes — ${vols.err || 'docker unavailable'}.\n` +
-        'Is Docker running? Nothing pruned.\n',
-    )
+    cannotTell(`could not list docker volumes: ${vols.err || 'docker unavailable'}. Is Docker running?`)
+    return
+  }
+  const base = baseComposeNames(dir, config)
+  if (!base.ok) {
+    cannotTell(base.err)
     return
   }
 
@@ -3178,20 +3220,31 @@ function specEnvPrune(dir, config, flags) {
 
   const olderThanDays =
     flags && Number.isFinite(flags.olderThanDays) ? flags.olderThanDays : null
-  let volumes = vols.names
+  let volumes = vols.volumes
   let now = null
   if (olderThanDays != null) {
-    const createdAt = volumeCreatedAt(vols.names)
-    volumes = vols.names.map((name) => ({ name, createdAt: createdAt.get(name) ?? null }))
+    const createdAt = volumeCreatedAt(volumes.map((v) => v.name))
+    volumes = volumes.map((v) => ({ ...v, createdAt: createdAt.get(v.name) ?? null }))
     now = Date.now()
   }
 
-  const plan = planPrune(volumes, liveSlugs, { repoSlug, olderThanDays, now })
+  const plan = planPrune(volumes, liveSlugs, {
+    repoSlug,
+    repo,
+    projectPattern: config.docker.projectNamePattern,
+    protectNames: base.names,
+    olderThanDays,
+    now,
+  })
+  if (plan.cannotTell) {
+    cannotTell(plan.cannotTell)
+    return
+  }
 
   if (!plan.orphans.length) {
     process.stdout.write(
-      `spec-env prune: no orphaned volumes in ${repoSlug}_* ` +
-        `(${vols.names.length} namespace volume(s), ${liveSlugs.size} live spec(s) protected).\n`,
+      `spec-env prune: no orphaned volumes ` +
+        `(${vols.volumes.length} compose volume(s), ${liveSlugs.size} live spec(s) protected).\n`,
     )
     return
   }
@@ -3211,7 +3264,7 @@ function specEnvPrune(dir, config, flags) {
   out.push('  orphans:')
   for (const o of plan.orphans) out.push(`    ${o.name}`)
   if (freed.length) out.push(`  slots freed:  ${freed.join(', ')}`)
-  out.push('  backup:       none (prune does not back up — orphans have no running DB)')
+  out.push('  backup:       none (prune does not back up — docker reports no container, running or stopped, using these)')
   out.push('')
   out.push('  run these:')
   for (const cmd of plan.commands) out.push(`    ${cmd}`)
