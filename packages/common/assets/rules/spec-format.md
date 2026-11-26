@@ -95,6 +95,30 @@ Each spec has one of seven kinds, recorded twice: in the header
 are the tracker's: write none of them, and add `> **Tracker:** <url>` instead.
 Lines that already exist stay as history.
 
+## Manual steps
+
+Steps only a person can do, such as SQL on Prod, a KQL query, a shell command
+or a check in a UI, go in a phase file's `## Manual steps` section. Each step is
+a checkbox, and a script sits under its step in a fenced block with its
+language:
+
+````
+## Manual steps
+
+- [ ] On Prod, grant the override permission:
+
+  ```sql
+  INSERT INTO permissions (code) VALUES ('order-line-override');
+  ```
+
+- [ ] Confirm the override button appears for an admin
+````
+
+Only the outermost checkboxes are steps. A nested checkbox belongs to the step
+above it. A step is done when ticked `[x]`. Steps count as tasks, as before.
+Manual steps written inline among a phase's tasks, as older specs do, stay
+valid, but nothing recognises them as manual steps.
+
 ## State log
 
 A table of folder and status transitions. Each lifecycle skill appends exactly

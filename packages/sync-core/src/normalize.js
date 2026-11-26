@@ -20,6 +20,7 @@ const { dialectOf } = require('./dialect.js')
 const { descriptionMode, wrapBlock, specBlockInner, phaseBlockInner } = require('./summary.js')
 const { fieldsOf } = require('./fields.js')
 const { fenceMask, findTaskBlocks, collapse, collapseHyphenAware } = require('./task-block.js')
+const { parseManualSteps } = require('./manual-steps.js')
 
 // --- markdown / frontmatter parsing -----------------------------------------
 
@@ -274,6 +275,9 @@ function readPhaseFiles(snapshotDir, config) {
         // field set — `toFieldSet` picks the projection's keys explicitly.
         lines,
         blocks,
+        // The `## Manual steps` section's steps, `[]` when it has none. Also
+        // still ordinary task blocks above, so progress counts them as before.
+        manualSteps: parseManualSteps(lines),
       }
     })
 }

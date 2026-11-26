@@ -24,6 +24,7 @@ const { descriptionMode, delimitersFor, blockOf, wrapBlock, spliceBlock, compara
 const { identityDialect, dialectOf } = require('./src/dialect.js')
 const { fieldsOf } = require('./src/fields.js')
 const { renderTaskBlock, findTaskBlocks, wrapEmphasisAware, collapseHyphenAware, inferWidth, fenceMask, DEFAULT_WIDTH } = require('./src/task-block.js')
+const { parseManualSteps } = require('./src/manual-steps.js')
 const { planRetarget, applyRetarget, deriveRecordedKey, isEmptyRetarget, dirtyPaths } = require('./src/retarget.js')
 
 module.exports = {
@@ -102,6 +103,8 @@ module.exports = {
   inferWidth,
   fenceMask,
   DEFAULT_WIDTH,
+  // A phase file's `## Manual steps` section, for the skills' listing.
+  parseManualSteps,
   planRetarget,
   applyRetarget,
   deriveRecordedKey,
