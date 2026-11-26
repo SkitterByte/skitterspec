@@ -61,3 +61,4 @@ expects the picked-up ending and one close.
 
 - 2026-11-26 — Bug reproduced; failing test added (red).
 - 2026-11-26 — Fixed: bounded late poll closes the tab on a late claim; test green.
+- 2026-11-26 — Completed; all tasks done, tests green.
