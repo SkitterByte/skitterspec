@@ -6,7 +6,7 @@ covers:
   - packages/common/src/cli.js
   - packages/common/src/init.js
   - packages/common/bin/**
-verified: f421f873be61
+verified: be6d7da064cc
 -->
 <html lang="en">
 <head>
@@ -607,7 +607,7 @@ verified: f421f873be61
       <div class="stage">
         <span class="num">03 · LAND</span>
         <h3><span class="cmdname">/spec-complete</span></h3>
-        <p>Verifies every phase is done and tests pass, lands the branch on your base, then tears the worktree and stack down. Clean exit.</p>
+        <p>Verifies every phase is done and tests pass, lands the branch on your base, then tears the worktree and stack down. Clean exit. On a PR-based project it runs once, after the host merges the pull request <code>/spec-pr</code> opened.</p>
         <div class="foot"><span class="status complete">Complete</span> specs/complete/</div>
       </div>
     </div>
@@ -639,6 +639,22 @@ verified: f421f873be61
       <span class="chip"><b>/spec-init</b> · bootstrap or repair the workflow</span>
     </div>
     <!-- commands:end -->
+
+    <div class="section-head reveal" id="trunk-or-pr" style="margin-top:2.5rem">
+      <div class="eyebrow">Trunk or PR?</div>
+      <h3>One setting picks how a finished branch reaches your base branch.</h3>
+      <p class="lede"><code>land.strategy</code> in <code>env.config.json</code>: <code>"ff"</code> (the default) lands locally with a rebase and fast-forward; <code>"pr"</code> hands the merge to your host, for a protected base. The base can be <code>main</code>, <code>master</code> or a release branch matched by <code>baseBranchPattern</code> (<code>2026/Q4</code>). A team that mixes the two passes <code>--strategy pr</code> or <code>--strategy ff</code> per spec.</p>
+    </div>
+    <div class="code reveal"><span class="c"># trunk  (land.strategy "ff")</span>
+<span class="p">/spec-start</span> → <span class="p">/spec-next</span> … → <span class="p">/spec-complete</span>   <span class="c"># rebase, fast-forward, tear down</span>
+<span class="c">          mid-spec, to run it in CI: </span><span class="p">/spec-land</span>
+
+<span class="c"># PR  (land.strategy "pr")</span>
+<span class="p">/spec-start</span> → <span class="p">/spec-next</span> … → <span class="p">/spec-pr</span> → <span class="c">merge on the host</span> → <span class="p">/spec-complete</span>
+<span class="c">          mid-spec, a draft for CI or review: </span><span class="p">/spec-pr</span>
+<span class="c">          /spec-pr with every phase done: disposition pass, then the PR is ready</span>
+<span class="c">          /spec-complete after the merge: catch the base up, afterLand, tear down</span></div>
+    <p class="lede reveal" style="margin-top:1rem">In PR mode <code>/spec-complete</code> refuses before the merge and names the PR, and it recognises a squash or rebase merge by asking the host whether the PR merged at this commit, not by ancestry alone. A branch <code>/spec-live</code> refuses because it changes migrations points at <code>live.refusedReach</code>: <code>worktree</code>, <code>pr</code> or <code>live-confirm</code>. <code>/spec-live off</code> hands the root checkout back, whatever your base branch is called.</p>
   </div>
 </section>
 

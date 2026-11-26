@@ -22,7 +22,7 @@ the governing `spec-planning.md` rule, and the `specs/` folder structure. The li
 | `/spec-review` | Re-validate a spec against the codebase; refresh stale parts | `—` | (unchanged) |
 | `/spec-start` | Put a spec in flight — provision its branch, then build phase 1 | `In Progress` | `specs/in-progress/` |
 | `/spec-next` | Build the next phase of the spec in flight (re-run per phase) | `In Progress` (unchanged) | (unchanged) |
-| `/spec-complete` | Verify all phases done + tests green; land + tear down | `Complete` | `specs/complete/` |
+| `/spec-complete` | Verify all phases done + tests green; land + tear down (PR mode: after the host merges) | `Complete` | `specs/complete/` |
 | `/spec-cancel` | Record progress, stamp a reason; tear down | `Cancelled` | `specs/cancelled/` |
 | `/spec-tada` | Recap what you did, across projects, by spec — ending in a standup | (unchanged) | (unchanged) |
 | `/spec-todo` | Where you left off on your last working day, and what is ahead | (unchanged) | (unchanged) |
@@ -349,6 +349,16 @@ landed, teardown reclaims the worktree **and deletes the branch** without needin
 
 `/spec-complete` and `/spec-cancel` will *offer* to integrate/tear down when the
 config is present — never forced.
+
+**Under `land.strategy: "pr"`** nothing lands from your machine: the base moves
+when the host merges. `/spec-pr` pushes the branch as a **draft** PR mid-spec
+(repeatable, for CI or review), and once every phase is done it runs the
+disposition pass and readies the PR. `/spec-complete` then runs
+**once, after the merge** — it refuses before it, naming the PR — catching the base up,
+running `afterLand` and tearing down. A squash or rebase merge counts: the
+host is asked whether the PR merged carrying this commit. `/spec-land` is the
+trunk-mode mid-spec land and refuses in PR mode; `--strategy ff|pr` overrides
+the config per spec for a team that mixes the two.
 
 ## One-way Linear sync — `/spec-status` · `/spec-push`
 

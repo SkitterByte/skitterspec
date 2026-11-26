@@ -93,7 +93,7 @@ them. Your `specs/` content and live `.core` config are never touched.
 | `/spec-park` | Record what a spec in flight is waiting on: a deploy, a release, a soak |
 | `/spec-land` | Land the branch mid-spec, without finishing it |
 | `/spec-pr` | Push the branch as a draft PR mid-spec, or a ready PR once every phase is done |
-| `/spec-complete` | Verify, land, tear down |
+| `/spec-complete` | Verify, land, tear down — in PR mode, after the merge |
 | `/spec-cancel` | Record why, stamp the header, tear down |
 | `/spec-tada` | A ta-da list: what you did today, by project and by spec, plus a standup |
 | `/spec-todo` | Where you left off on your last working day, what is open and what is waiting on you |

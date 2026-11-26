@@ -7,7 +7,7 @@ covers:
   - packages/common/src/env/**
   - packages/common/src/tada/**
   - packages/common/src/idea*.js
-verified: f421f873be61
+verified: be6d7da064cc
 -->
 <html lang="en">
 <head>
@@ -543,7 +543,7 @@ verified: f421f873be61
           <tr><td class="cmd">/spec</td><td>Grill to a shared understanding, propose the kind — feature; chore for code work no end user sees; issue for non-code work done as recorded manual steps — then write a groomed, phased spec. The grill also watches for bug, hotfix and incident signals and offers the right door the moment one appears — confirm-first, your answers carried across. On the verdict the spec lands on base — or, with a ticketing provider configured (or <span class="mono">land.specDocs: "branch"</span>), stays on its own branch and lands with the work, since the tracker is already the backlog. Where the tracker files work by product (Azure Boards' <span class="mono">azure.products</span>), it asks which product and records it as <span class="mono">&gt; **Product:**</span>, which the review page shows beside the title.</td><td class="folder">backlog/ · Ready</td></tr>
           <tr><td class="cmd">/spec-start</td><td>Put a spec in flight — provision its worktree, promote it, mirror the change, then offer to build phase 1 there.</td><td class="folder">in-progress/</td></tr>
           <tr><td class="cmd">/spec-next</td><td>Build the next phase of the spec in flight, to green. Re-run per phase. Steps only a person can do are listed in the terminal rather than left in the phase file: the run stops there with a page for the code built so far (<i>Commit</i>, no arm), names how to reach it — <span class="mono">/commit</span>, then <span class="mono">/spec-live</span>, or where live refuses the branch the route <span class="mono">live.refusedReach</span> names — and asks nothing until you come back, when your reply or the next <span class="mono">/spec-next</span> settles it as <i>All done</i>, <i>Some failed</i> or <i>Not yet</i>. It reads those steps from the phase's <span class="mono">## Manual steps</span> section, where each script sits in a fenced block under its step and the tracker shows the open ones on the ticket. A phase without the section falls back to judgment. Steps it had to write itself are saved to that section first, and while any are open every report ends with them in <span class="mono">Next</span>, one per row.</td><td class="folder">in-progress/</td></tr>
-          <tr><td class="cmd">/spec-complete</td><td>Verify all phases + tests, land on base, tear down.</td><td class="folder">complete/</td></tr>
+          <tr><td class="cmd">/spec-complete</td><td>Verify all phases + tests, land on base, tear down. In PR mode it runs once, after the host merges (a squash or rebase merge counts, by the host's answer); before the merge it refuses and names the PR and <span class="mono">/spec-pr</span>.</td><td class="folder">complete/</td></tr>
           <tr><td class="cmd">/spec-cancel</td><td>Record progress, stamp a reason, tear down.</td><td class="folder">cancelled/</td></tr>
 
           <tr class="grp-row"><td colspan="3">Entry points &amp; upkeep</td></tr>

@@ -9,6 +9,11 @@ Spec-driven development for [Claude Code](https://claude.com/claude-code) — a
                           ↳ /spec-diff — read what the phase changed
 ```
 
+On a PR-based project (`land.strategy: "pr"`) the end of the loop is
+`/spec-pr` → merge on the host → `/spec-complete`: `/spec-pr` opens a draft PR
+mid-spec and readies it once every phase is done, and `/spec-complete` runs
+once, after the merge. See [Trunk or PR?](#trunk-or-pr).
+
 Ships per-spec **isolation** — a git worktree per in-progress spec, Docker on
 demand, host dev servers on reserved ports — and everything below.
 
@@ -30,7 +35,7 @@ demand, host dev servers on reserved ports — and everything below.
 | `/spec-park` | Record what a spec in flight is waiting on: a deploy, a release, a soak |
 | `/spec-land` | Land the branch mid-spec, without finishing it |
 | `/spec-pr` | Push the branch as a draft PR mid-spec, or a ready PR once every phase is done |
-| `/spec-complete` | Verify, land, tear down |
+| `/spec-complete` | Verify, land, tear down — in PR mode, after the merge |
 | `/spec-cancel` | Record why, stamp the header, tear down |
 | `/spec-tada` | A ta-da list: what you did today, by project and by spec, plus a standup |
 | `/spec-todo` | Where you left off on your last working day, what is open and what is waiting on you |
@@ -110,6 +115,27 @@ Ticketing sync is a **separate superset you install instead of this one**:
 
 Install exactly one — the superset is a strict superset of this package.
 
+## Trunk or PR?
+
+`land.strategy` in `specs/.core/env.config.json` decides how a finished branch
+reaches your base branch (`main`, `master`, or a release branch matched by
+`baseBranchPattern`):
+
+| | Trunk (`"ff"`, the default) | PR (`"pr"`) |
+|---|---|---|
+| Mid-spec, to run it in CI | `/spec-land` — rebase + fast-forward the base | `/spec-pr` — push, open or update a **draft** PR |
+| Every phase done | `/spec-complete` lands, re-tests, tears down | `/spec-pr` runs the disposition pass and readies the PR |
+| After that | done | merge on the host, then `/spec-complete`: catch the base up, `afterLand`, tear down |
+
+In PR mode `/spec-complete` refuses before the merge and names the PR. It
+recognises a squash or rebase merge by asking the host whether the PR merged
+at this commit, not by ancestry alone. A team that lands some features by PR
+and some directly passes `--strategy pr` (or `--strategy ff`) per spec.
+
+A branch `/spec-live` refuses because it changes migrations is pointed at the
+route `live.refusedReach` names — `worktree`, `pr` or `live-confirm` — and
+`/spec-live off` hands the root checkout back, whatever the base is called.
+
 ## Testing UI/API worktrees — `/spec-connect`
 
 When your app runs from the root checkout on `localhost`, a worktree's changes are
@@ -185,7 +211,8 @@ open; `Commit & Continue` on that page resumes it. It ends as `auto.then` or
 - **`pause`**: one final page with every phase's follow-ups and notes above the
   whole-branch diff, offering `Complete`, `Push branch` and `Open PR`
 - **`push`**: push the branch, spec still in flight
-- **`pr`**: `/spec-complete`'s PR run, with each phase's commit in the PR body
+- **`pr`**: `/spec-pr`'s ready path, with each phase's commit in the PR body;
+  `/spec-complete` follows the host's merge
 
 Naming `push` or `pr` is the push consent for that run. A push notification
 says when it finished or stopped, and a `PreCompact` hook records how often the

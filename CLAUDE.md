@@ -4,8 +4,9 @@
 ## Spec workflow
 
 Spec-driven development runs through the lifecycle **skills**. The everyday
-loop is **`spec → start → next → commit → complete`**. Use **`/spec-diff`** to
-read what a phase changed, and `/spec-connect` or `/spec-live` to try it in a
+loop is **`spec → start → next → commit → complete`**; under PR landing
+(`land.strategy: "pr"`) it ends **`… → pr → merge on the host → complete`**.
+Use **`/spec-diff`** to read what a phase changed, and `/spec-connect` or `/spec-live` to try it in a
 browser. `/spec-resume` goes back into a spec that was waiting, and
 `/spec-park` records what it is waiting on. `/spec-tada` and `/spec-todo` recap
 the day and plan the next one across projects.
