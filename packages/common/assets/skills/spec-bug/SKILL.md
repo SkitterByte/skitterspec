@@ -232,6 +232,14 @@ The **State log** is the folder/status audit trail; later transitions
 (`/spec-complete`, `/spec-cancel`) append a row. The **Changelog** is for the
 fix narrative and decisions — keep them separate.
 
+**Steps only a person can do go under `## Manual steps` in a phase file.** That
+covers repairing the data the bug damaged on Prod, re-running a job, or checking
+the fix on the deployed host. Each step is a checkbox, with its script in a
+fenced block underneath, as `.claude/rules/spec-format.md` shows. Only phase
+files are read for steps, so a fix that has any goes in `01-fix.md` even when it
+would otherwise sit in the overview's `## Fix`. While a step is open, the
+tracker shows it on the bug's ticket.
+
 <!-- seam:spec-tracker-link -->
 
 <!-- seam:spec-tracker-assign -->

@@ -75,7 +75,9 @@ only, each step gets its own row, and a closing row says what comes after:
 | | 2. Set one process up, press **Check again**; its card turns ✓ |
 | | then `/spec-next` to finish phase 5 |
 
-Copy them from the phase file, never from an earlier message.
+Copy them from the phase file, never from an earlier message: its
+`## Manual steps` section where it has one, otherwise the tasks a person must
+do. A step's script stays in the phase file, and the row names the step.
 A count is not a list ("run the seven steps"), and neither is the file's path.
 This applies to every skill's block.
 A report with no open manual steps keeps its one-row `Next`.

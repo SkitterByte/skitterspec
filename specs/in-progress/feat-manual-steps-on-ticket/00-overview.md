@@ -129,7 +129,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Parse the `## Manual steps` section | ✅ | [01-parse-section.md](01-parse-section.md) |
 | 2 | Project open steps onto Task and parent | ✅ | [02-projection.md](02-projection.md) |
-| 3 | Skills write and read the new form | ⬜ | [03-skills-and-docs.md](03-skills-and-docs.md) |
+| 3 | Skills write and read the new form | ✅ | [03-skills-and-docs.md](03-skills-and-docs.md) |
 
 ## Open questions
 

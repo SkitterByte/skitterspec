@@ -54,7 +54,9 @@ test('an unconfirmed step leaves the phase open and arms nothing', () => {
 // them and the next run listed a different set from the one the reader saw.
 test('steps the skill had to write are saved to the phase file before asking', () => {
   assert.match(section, /Steps you had to write are saved first/)
-  assert.match(section, /numbered sub-checkboxes \*\*before\*\* you\s+list them/)
+  assert.match(section, /`## Manual steps` section, creating it if\s+there is none, \*\*before\*\* you list them/)
+  // Each script in a fenced block, so the ticket renders it copyable.
+  assert.match(section, /each\s+script goes in a fenced block under its step/)
 })
 
 // The report that broke came from `/commit`, not `/spec-next`, so the rule
@@ -138,4 +140,30 @@ test('the stop renders a page with the manual set, and arms nothing', () => {
 
 test('Next commits the built code before it reaches for the work', () => {
   assert.match(section, /`\/commit`, then `\/spec-live`/)
+})
+
+// feat-manual-steps-on-ticket: the `## Manual steps` section is the marker the
+// tracker projects, so the skills that write phase files write it there, and
+// `/spec-next` reads it first while legacy phases keep the judgment.
+const asset = (...p) => fs.readFileSync(path.join(__dirname, '..', 'assets', ...p), 'utf8')
+
+test('spec-next reads ## Manual steps first, and falls back to judgment', () => {
+  assert.match(section, /`## Manual steps` section is where they are read from first/)
+  assert.match(section, /falls back\s+to \*\*judgment\*\*/)
+})
+
+test('the /spec phase template carries a ## Manual steps section with a fenced script', () => {
+  const spec = asset('skills', 'spec', 'SKILL.md')
+  assert.match(spec, /## Manual steps\n\n- \[ \] <a step only a person can do/)
+  assert.match(spec, /An \*\*Issue\*\* spec's steps all go\s+there/)
+})
+
+test('/spec-bug puts manual steps in a phase file, where they are read', () => {
+  assert.match(asset('skills', 'spec-bug', 'SKILL.md'), /go under `## Manual steps` in a phase file/)
+})
+
+test('spec-format documents the section, and keeps inline steps valid', () => {
+  const fmt = asset('rules', 'spec-format.md')
+  assert.match(fmt, /^## Manual steps$/m)
+  assert.match(fmt, /inline among a phase's tasks, as older specs do, stay\s+valid/)
 })

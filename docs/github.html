@@ -5,7 +5,7 @@ covers:
   - packages/skitterspec-github/**
   - packages/sync-core/**
   - packages/provider-kit/**
-verified: 0d7df9958d7e
+verified: 363dfe36a0f7
 -->
 <html lang="en">
 <head>
@@ -553,7 +553,7 @@ verified: 0d7df9958d7e
       <div class="map-row">
         <div class="map-l">spec folder <small>specs/&lt;bucket&gt;/feat-name/</small></div>
         <div class="map-arrow">→</div>
-        <div class="map-r"><span class="pill-l">Issue</span><small>One issue labelled spec, e.g. #123. Its body holds the summary block: summary, acceptance criteria, surfaces touched, gating, what it is blocked on when parked, progress and a link to the spec</small></div>
+        <div class="map-r"><span class="pill-l">Issue</span><small>One issue labelled spec, e.g. #123. Its body holds the summary block: summary, acceptance criteria, surfaces touched, gating, what it is blocked on when parked, open manual steps with their scripts as code blocks, progress and a link to the spec</small></div>
       </div>
       <div class="map-row">
         <div class="map-l">phase file <small>01-schema.md, 02-controls.md …</small></div>
@@ -606,7 +606,7 @@ Notes from the PM, a customer quote, a design link: all of it stays.</pre>
     <div class="own reveal">
       <div class="own-card own-push">
         <div class="oh"><span class="d"></span>repo owns · pushed</div>
-        <p>The summary block in each issue and sub-issue, the phase sub-issues themselves, and progress. All of it is derived from the spec in git. The issue's status and assignee are GitHub's by default (<span class="mono">pull</span>): the repo sends a status only when a spec is created, started, completed or cancelled, and assigns only an issue nobody holds. Decisions, the Impact table's detail, phase task lists, the state log, the changelog and open questions stay in the repo.</p>
+        <p>The summary block in each issue and sub-issue, the phase sub-issues themselves, and progress. All of it is derived from the spec in git. The issue's status and assignee are GitHub's by default (<span class="mono">pull</span>): the repo sends a status only when a spec is created, started, completed or cancelled, and assigns only an issue nobody holds. While a phase has unticked steps under <span class="mono">## Manual steps</span>, its sub-issue and the issue both show them as <span class="mono">Manual steps (open)</span>. The issue lists only the open steps of phases that have started, and each script is a copyable code block. Ticked steps drop off. Decisions, the Impact table's detail, phase task lists, the state log, the changelog and open questions stay in the repo.</p>
       </div>
       <div class="own-card own-pull">
         <div class="oh"><span class="d"></span>GitHub-native · left alone</div>

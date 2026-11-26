@@ -314,8 +314,13 @@ Then build it, following the project rules in `.claude/rules/*.md` and `CLAUDE.m
 
 Some tasks are a person's to do: every task in an **Issue** spec, and any task
 you cannot perform yourself — operate a UI, check a device, confirm something
-on a board, run a manual test pass. That is a **judgment**, not a marker: there
-is no `(manual)` tag to look for, and a spec written before this rule has none.
+on a board, run a manual test pass.
+
+**A phase's `## Manual steps` section is where they are read from first.** Its
+checkboxes are the steps, each with its script in a fenced block, and the
+tracker shows the open ones on the ticket (`.claude/rules/spec-format.md`).
+A phase without the section, as every spec written before it has, falls back
+to **judgment**: there is no `(manual)` tag to look for among the tasks.
 
 Build the tasks before the first manual one as usual, to green.
 Then **stop at it** and print
@@ -326,8 +331,10 @@ failure this exists to fix; the steps themselves are what they act on.
 
 **Steps you had to write are saved first.** When the phase file holds only a
 vague manual task — "check it on the running host" — and you wrote the steps
-yourself, add them under that task as numbered sub-checkboxes **before** you
-list them. The conversation does not survive a `/clear`, and a later run that
+yourself, add them to the phase's `## Manual steps` section, creating it if
+there is none, **before** you list them. Each step is a checkbox, and each
+script goes in a fenced block under its step, never inline. The section is what
+puts them on the ticket. The conversation does not survive a `/clear`, and a later run that
 makes up its own set lists different steps from the ones the reader was shown.
 A phase whose manual steps are already tasks is left as it is.
 

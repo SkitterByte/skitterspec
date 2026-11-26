@@ -171,7 +171,8 @@ configured — offer the default, let the user override it like any other
 answer), and its commits default to `chore`/`refactor`/`ci` types with no
 `Release-Note:` (see `.claude/rules/spec-format.md`). An issue defaults its
 `Gating:` to `none: no code`, and its commits to `docs` with no
-`Release-Note:` — its phases are manual steps, not code, though `/spec-start`
+`Release-Note:` — its phases are manual steps, not code (written under each
+phase's `## Manual steps`), though `/spec-start`
 still gives it a worktree, because the document needs one and the history is
 the point.
 
@@ -367,7 +368,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 Then create **one file per phase** (`01-<phase-slug>.md`, `02-…`, in execution
 order). Each phase file uses this template:
 
-```markdown
+````markdown
 # Phase 1 — <goal> ⬜
 
 > Spec: [00-overview.md](00-overview.md) · **Status:** Not started
@@ -385,10 +386,27 @@ order). Each phase file uses this template:
       test commands (see `.claude/rules/spec-planning.md`) — green before the
       phase is done.
 
+## Manual steps
+
+- [ ] <a step only a person can do — omit the section when there are none>
+
+  ```sql
+  <its script, when it has one: sql, kql, sh, …>
+  ```
+
 ## Notes
 
 <Phase-specific decisions, gotchas, or context. Delete if empty.>
-```
+````
+
+**Steps only a person can do go under `## Manual steps`, never among the tasks.**
+That covers SQL on Prod or Demo, a KQL query, a shell command on a
+host, or a check in a UI. Each step is a checkbox, and each script is a fenced
+block under its step, never inline code. While a step is open, the ticketing
+provider puts it on the phase's ticket and its parent, so the people who look
+at tickets see the script as a copyable block. An **Issue** spec's steps all go
+there. Leave out the section when a phase has no such step. The format is in
+`.claude/rules/spec-format.md`.
 
 Keep the `00-overview.md` phase index and the phase files in sync: the index row
 is the one-line summary + status; the phase file is the detail.

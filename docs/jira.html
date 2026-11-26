@@ -5,7 +5,7 @@ covers:
   - packages/skitterspec-jira/**
   - packages/sync-core/**
   - packages/provider-kit/**
-verified: a2f50d28c222
+verified: 363dfe36a0f7
 -->
 <html lang="en">
 <head>
@@ -582,6 +582,7 @@ verified: a2f50d28c222
 
     <h3 style="margin-top:44px; font-size:1.05rem;" class="reveal">Or: the issue carries a summary, and the spec stays in git</h3>
     <p class="reveal" style="max-width:70ch;">The mapping above is <span class="mono">mapping.description: "spec"</span>, which is what a config written before the setting existed gets. With <span class="mono">"summary"</span> (what a new config is written with) the issue body holds a delimited <b>block</b> instead: the spec's summary, its acceptance criteria, the surfaces it touches, its gating, what it is <b>blocked on</b> when it has been parked, and its progress (<span class="mono">62% · phase 3 of 4</span>), with a pointer to the spec. Push splices that block into whatever the description already holds, so anything your team writes around it survives every push, and an edit is reported only if it lands <em>inside</em> the block. Phase sub-issues get a block too: their goal, a phase's own blocker, and <span class="mono">n of m tasks</span>, with the task list staying in git. <span class="mono">mapping.phases: "none"</span> drops the sub-issues altogether.</p>
+    <p class="reveal" style="max-width:70ch;"><b>Open manual steps come first.</b> A phase can list the steps only a person can do, such as SQL on Prod, a KQL query or a shell command, under <span class="mono">## Manual steps</span>, with each script in a fenced block under its step. While any of those steps is unticked, the phase's sub-issue shows the section right under its goal as <span class="mono">Manual steps (open)</span>. The issue gets the same heading first, grouped by phase, listing only the open steps of phases that have started, and each script arrives as a copyable code block. Once every step is ticked the section leaves the issue, and the sub-issue shows the steps where the phase file has them. In summary mode both blocks carry the same open steps. A spec without the section, including one that writes its steps inline among its tasks, projects exactly as before.</p>
     <p class="reveal" style="color:var(--ink-faint); font-size:.85rem; margin-top:10px; font-family:var(--font-mono); max-width:70ch; line-height:1.65;"><b style="color:var(--ink-soft)">Provisional:</b> Jira marks the block with a heading (<span class="mono">summary.delimiter: "heading"</span>) until a measured run settles which delimiter survives Jira's editor. If a delimiter is edited by hand, the push names it and leaves the block unwritten rather than guess.</p>
 
     <h3 style="margin-top:52px; font-size:1.15rem;" class="reveal">Who owns what — no reconciliation, because there's one owner</h3>
