@@ -201,3 +201,23 @@ test('integrate: another ticket\'s Refs or another spec\'s folder warns, and sti
     cleanup(fx)
   }
 })
+
+// Windows CI caught this one: Git for Windows checks the worktree's overview
+// out CRLF, and the spec's own ticket read as null, so the Refs: warning went
+// missing (bug-ticket-crlf-frontmatter). autocrlf reproduces it on any OS.
+test('integrate: the Refs: warning survives a CRLF checkout (core.autocrlf)', async () => {
+  const fx = scaffold()
+  try {
+    git(fx.dir, ['config', 'core.autocrlf', 'true'])
+    git(fx.dir, ['worktree', 'add', '-q', '-b', 'feat/next', fx.wt('next'), 'main'])
+    const overview = fs.readFileSync(path.join(fx.wt('next'), 'specs', 'in-progress', 'feat-next', '00-overview.md'), 'utf8')
+    assert.match(overview, /\r\n/, 'the checkout really is CRLF')
+    fs.writeFileSync(path.join(fx.wt('next'), 'b1.txt'), 'x\n')
+    git(fx.wt('next'), ['add', '-A'])
+    git(fx.wt('next'), ['commit', '-q', '-m', 'other ticket\n\nRefs: #9'])
+    const out = await integrate(fx)
+    assert.match(out, /warning: {3}[0-9a-f]+ other ticket — Refs: #9, not this spec's #7/)
+  } finally {
+    cleanup(fx)
+  }
+})

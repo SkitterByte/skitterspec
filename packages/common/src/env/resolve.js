@@ -188,7 +188,8 @@ function parsePhase(text, name) {
  * whole ticket.
  */
 function readTicket(text, identifierField) {
-  const fm = /^---\n([\s\S]*?)\n---/.exec(text)
+  // `\r?\n`: Git for Windows checks out CRLF (bug-ticket-crlf-frontmatter).
+  const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text)
   if (!fm) return null
   const field = (name) => {
     const m = new RegExp(`^${name}:\\s*(.*)$`, 'm').exec(fm[1])
@@ -350,7 +351,8 @@ function readFrontmatterField(specPath, field) {
   } catch {
     return null
   }
-  const fm = /^---\n([\s\S]*?)\n---/.exec(raw)
+  // `\r?\n`: Git for Windows checks out CRLF (bug-ticket-crlf-frontmatter).
+  const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(raw)
   if (!fm) return null
   const m = new RegExp(`^${field}:\\s*(.+)$`, 'm').exec(fm[1])
   if (!m) return null

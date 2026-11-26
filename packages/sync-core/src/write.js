@@ -28,11 +28,14 @@ function serialize(value) {
   return JSON.stringify(String(value)) // quoted string
 }
 
-// Split `---\n…\n---\n` frontmatter off the top. Returns { fmLines, body, had }.
+// Split `---\n…\n---\n` frontmatter off the top. Returns { fmLines, body, had,
+// eol }. `eol` is the file's own line ending, so a rewrite keeps it: Git for
+// Windows checks out CRLF (bug-ticket-crlf-frontmatter).
 function splitFrontmatter(raw) {
-  const m = /^---\n([\s\S]*?)\n---\n?/.exec(raw)
-  if (!m) return { fmLines: [], body: raw, had: false }
-  return { fmLines: m[1].split('\n'), body: raw.slice(m[0].length), had: true }
+  const eol = /\r\n/.test(raw) ? '\r\n' : '\n'
+  const m = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n)?/.exec(raw)
+  if (!m) return { fmLines: [], body: raw, had: false, eol }
+  return { fmLines: m[1].split(/\r?\n/), body: raw.slice(m[0].length), had: true, eol }
 }
 
 // Apply a key→value patch onto frontmatter lines, preserving order.
@@ -70,10 +73,10 @@ function writeFrontmatter(snapshotDir, config, patch) {
   }
   if (!Object.keys(clean).length) return []
 
-  const { fmLines, body, had } = splitFrontmatter(raw)
+  const { fmLines, body, had, eol } = splitFrontmatter(raw)
   const patched = patchFrontmatterLines(fmLines, clean)
-  const frontmatter = `---\n${patched.join('\n')}\n---\n`
-  const next = had ? frontmatter + body : frontmatter + '\n' + raw
+  const frontmatter = `---${eol}${patched.join(eol)}${eol}---${eol}`
+  const next = had ? frontmatter + body : frontmatter + eol + raw
 
   fs.writeFileSync(file, next, 'utf-8')
   return Object.keys(clean)
@@ -94,7 +97,7 @@ function deleteFrontmatter(snapshotDir, config, keys) {
   const overviewFile = (config && config.snapshot && config.snapshot.overviewFile) || '00-overview.md'
   const file = path.join(snapshotDir, overviewFile)
   const raw = fs.readFileSync(file, 'utf-8')
-  const { fmLines, body, had } = splitFrontmatter(raw)
+  const { fmLines, body, had, eol } = splitFrontmatter(raw)
   if (!had) return []
 
   const drop = new Set(keys)
@@ -111,7 +114,7 @@ function deleteFrontmatter(snapshotDir, config, keys) {
 
   // An emptied block is dropped entirely rather than left as `---\n---`, which
   // some markdown renderers show as a horizontal rule.
-  const next = kept.length ? `---\n${kept.join('\n')}\n---\n${body}` : body
+  const next = kept.length ? `---${eol}${kept.join(eol)}${eol}---${eol}${body}` : body
   fs.writeFileSync(file, next, 'utf-8')
   return removed
 }

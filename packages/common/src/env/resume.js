@@ -92,7 +92,8 @@ function blockingNext(copy) {
 // resolve.js `readFrontmatterField`, for copies read off a branch.
 function frontmatterField(text, field) {
   if (!field) return null
-  const fm = /^---\n([\s\S]*?)\n---/.exec(String(text || ''))
+  // `\r?\n`: Git for Windows checks out CRLF (bug-ticket-crlf-frontmatter).
+  const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(String(text || ''))
   if (!fm) return null
   const m = new RegExp(`^${field}:\\s*(.+)$`, 'm').exec(fm[1])
   return m ? m[1].trim().replace(/^["']|["']$/g, '') || null : null

@@ -25,10 +25,11 @@ const { fenceMask, findTaskBlocks, collapse, collapseHyphenAware } = require('./
 
 // Split `---\n…\n---` frontmatter off the top. Returns { data, body }.
 function parseFrontmatter(raw) {
-  const m = /^---\n([\s\S]*?)\n---\n?/.exec(raw)
+  // `\r?\n`: Git for Windows checks out CRLF (bug-ticket-crlf-frontmatter).
+  const m = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n)?/.exec(raw)
   if (!m) return { data: {}, body: raw }
   const data = {}
-  for (const line of m[1].split('\n')) {
+  for (const line of m[1].split(/\r?\n/)) {
     const kv = /^([A-Za-z0-9_-]+):\s*(.*)$/.exec(line)
     if (!kv) continue
     data[kv[1]] = parseScalar(kv[2].trim())
