@@ -1468,9 +1468,28 @@ function specIsUntracked(dir, git, spec) {
 }
 
 /**
+ * The ref a new branch forks from: the resolved base as a local branch when
+ * this clone has one, else its remote-tracking image.
+ *
+ * Null when git can see neither — no repo, an unborn base, a clone that never
+ * fetched it. WHAT WOULD FOOL THIS: nothing accusing rides on it; null leaves
+ * the fork to HEAD, today's behaviour, rather than printing a start point git
+ * would refuse (negative-checks rule 4).
+ */
+function baseForkRef(config, git, base) {
+  if (!base) return null
+  if (git(['show-ref', '--verify', '--quiet', `refs/heads/${base}`]) !== null) return base
+  const remote = baseRemote(config)
+  if (git(['show-ref', '--verify', '--quiet', `refs/remotes/${remote}/${base}`]) !== null) {
+    return `${remote}/${base}`
+  }
+  return null
+}
+
+/**
  * Is this spec present in the commit the worktree will fork from?
  *
- * A worktree forks from HEAD (`git worktree add -b`), so a spec absent there
+ * A worktree forks from the base (`baseForkRef`), so a spec absent there
  * yields a branch missing the very spec it is for — and a clean working tree
  * cannot detect that, because the spec may be perfectly well committed elsewhere.
  * This asks the positive question rather than inferring it from cleanliness.
@@ -1947,12 +1966,16 @@ function specEnvNospec(dir, config, name, flags = {}) {
         `(${trust.changed ? 'added to' : 'already in'} .claude/settings.local.json)`,
     )
   }
+  // Forked from the base, named, for the same reason `up` names it: HEAD may be
+  // a live spec's branch (bug-up-forks-from-head).
+  const nospecGit = gitReader(dir)
+  const nospecFork = attached ? null : baseForkRef(config, nospecGit, resolveBaseBranch(config, nospecGit))
   out.push('')
   out.push('  to provision, run:')
   out.push(
     attached
       ? `    git worktree add ${shellPath(spec.worktreePath)} ${spec.branch}`
-      : `    git worktree add ${shellPath(spec.worktreePath)} -b ${spec.branch}`,
+      : `    git worktree add ${shellPath(spec.worktreePath)} -b ${spec.branch}${nospecFork ? ` ${nospecFork}` : ''}`,
   )
   const seeds = (config.seedFiles && config.seedFiles.files) || []
   if (seeds.length || (config.setup || []).length) out.push(...bootstrapLines(name))
@@ -2111,19 +2134,22 @@ function specEnvUp(dir, config, specArg, flags = {}) {
   const upGit = gitReader(dir)
   const upStatus = upGit(['status', '--porcelain'])
   const upDirtyPaths = dirtyPaths(upGit)
-  // A worktree forks from whatever the primary checkout has out. Under a
-  // rolling base that can be the previous release candidate, still checked out
-  // after the roll — so where it is not the resolved base, fork from the base
-  // explicitly: the local branch when this clone has one, else its remote image.
-  // No pattern leaves the fork exactly as it was.
-  if (!spec.baseRef && (config.baseBranchPattern || '').trim()) {
+  // A new branch forks from THE BASE, named — never from whatever the primary
+  // checkout has out. Left to `git worktree add -b`'s default it forks from
+  // HEAD, and HEAD is routinely somebody else's work: `/spec-live` puts a spec's
+  // branch there on purpose, and a rolling base leaves the previous release
+  // candidate checked out after the roll. A spec created then inherited the
+  // live spec's commits, and `integrate` landed them on the base under its own
+  // name (bug-up-forks-from-head). A hotfix names its tag instead (`baseRef`).
+  //
+  // `forkFrom` is the start point; `forkMoved` says it differs from what the
+  // primary checkout has out, which is when the report and the spec-commit
+  // gate below care.
+  let forkMoved = false
+  if (!spec.baseRef) {
     const ubase = resolveBaseBranch(config, upGit)
-    if (primaryUp.branch !== ubase) {
-      spec.forkFrom =
-        upGit(['show-ref', '--verify', '--quiet', `refs/heads/${ubase}`]) !== null
-          ? ubase
-          : `${baseRemote(config)}/${ubase}`
-    }
+    spec.forkFrom = baseForkRef(config, upGit, ubase)
+    forkMoved = Boolean(spec.forkFrom) && primaryUp.branch !== ubase
   }
   // A spec with no document on disk does not ask whether the spec is on the
   // fork point — it is known to be nowhere, and that is the healthy state of
@@ -2234,7 +2260,7 @@ function specEnvUp(dir, config, specArg, flags = {}) {
   // The planned spec commit lands on the branch the primary checkout has out,
   // and the fork is from the base — so the new branch would miss the very
   // commit made for it. Refuse rather than plan one that cannot work.
-  if (spec.forkFrom && plan.specCommit) {
+  if (forkMoved && plan.specCommit) {
     process.stdout.write(
       `spec-env up: blocked — ${spec.folder} is uncommitted on ${primaryUp.branch || 'a detached HEAD'}, ` +
         `but the base is ${spec.forkFrom}. Switch the primary checkout to the base and commit the spec ` +
@@ -2320,7 +2346,7 @@ function specEnvUp(dir, config, specArg, flags = {}) {
   } else if (spec.resumeUnknown && !attached) {
     out.push(`  resume:    could not ask ${spec.resumeUnknown} for ${spec.branch} — forking fresh; if it was handed over, fetch and re-run`)
   }
-  if (spec.forkFrom && !attached && !spec.resumeFrom) {
+  if (forkMoved && !attached && !spec.resumeFrom) {
     out.push(`  fork:      ${spec.forkFrom}  (the base — the primary checkout is on ${primaryUp.branch || 'a detached HEAD'})`)
   }
   if (trust.reason === 'malformed') {

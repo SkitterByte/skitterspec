@@ -237,7 +237,7 @@ test('up: a primary checkout already on the base forks as it always did', async 
     git(fx.dir, ['fetch', '-q', 'origin'])
     git(fx.dir, ['switch', '-q', '-c', '2027/Q1', '--track', 'origin/2027/Q1'])
     const out = await runQuiet(['spec-env', 'up', 'feat-other', '--dir', fx.dir])
-    assert.match(out, /git worktree add \S+ -b feat\/other\n/)
+    assert.match(out, /git worktree add \S+ -b feat\/other 2027\/Q1\n/)
     assert.doesNotMatch(out, /fork:/)
   } finally {
     cleanup(fx)
@@ -255,12 +255,15 @@ test('up: an uncommitted spec on the old rc refuses rather than fork without it'
   }
 })
 
-test('up: no pattern → the plan forks from the checkout, and nothing is fetched', async () => {
+// No pattern still forks from the base, never from the rc the checkout has
+// out — it once forked from HEAD here, which is bug-up-forks-from-head.
+test('up: no pattern → the plan forks from the base, and nothing is fetched', async () => {
   const fx = scaffold({ config: {}, spec: false })
   try {
     const out = await runQuiet(['spec-env', 'up', 'feat-other', '--dir', fx.dir])
-    assert.match(out, /git worktree add \S+ -b feat\/other\n/)
-    assert.doesNotMatch(out, /fork:|fetch/)
+    assert.match(out, /git worktree add \S+ -b feat\/other main\n/)
+    assert.match(out, /fork: {6}main {2}\(the base — the primary checkout is on 2026\/Q4\)/)
+    assert.doesNotMatch(out, /fetch/)
     assert.throws(() => git(fx.dir, ['rev-parse', '--verify', 'origin/2027/Q1']))
   } finally {
     cleanup(fx)

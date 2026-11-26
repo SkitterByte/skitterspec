@@ -118,7 +118,7 @@ test('stays silent: an unpublished spec forks exactly as before', async () => {
   try {
     const out = await up(fx.dir)
     assert.doesNotMatch(out, /resume:/)
-    assert.match(provisionCommands(out).join('\n'), /git worktree add \S+ -b feat\/thing$/m)
+    assert.match(provisionCommands(out).join('\n'), /git worktree add \S+ -b feat\/thing main$/m)
   } finally {
     cleanup(fx)
   }

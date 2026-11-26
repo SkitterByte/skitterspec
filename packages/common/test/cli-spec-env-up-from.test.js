@@ -138,7 +138,7 @@ test('without --from the same command forks from base, unchanged', async () => {
   const dir = scaffoldRepo()
   try {
     const out = await runQuiet(['spec-env', 'up', 'hotfix-null-total', '--dir', dir, '--docs'])
-    assert.match(out, new RegExp(`git worktree add ${WT} -b hotfix\/null-total\n`))
+    assert.match(out, new RegExp(`git worktree add ${WT} -b hotfix\/null-total main\n`))
     assert.doesNotMatch(out, /fork:/, 'no fork line where nothing was named')
   } finally {
     cleanup(dir)

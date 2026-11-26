@@ -142,7 +142,7 @@ test('up --docs: with releaseBranch unset, a hotfix plans exactly as before (sta
   const fx = scaffold({})
   try {
     const out = await runQuiet(['spec-env', 'up', 'hotfix-pay', '--docs', '--dir', fx.dir])
-    assert.match(out, /git worktree add \S+ -b hotfix\/pay\n/)
+    assert.match(out, /git worktree add \S+ -b hotfix\/pay main\n/)
     assert.doesNotMatch(out, /fork:|record:/)
     // Nothing fetched: the lead's commit is still unknown here.
     assert.throws(() => git(fx.dir, 'rev-parse', '--verify', fx.head))
@@ -155,7 +155,7 @@ test('up --docs: a non-hotfix spec never forks from the release branch', async (
   const fx = scaffold()
   try {
     const out = await runQuiet(['spec-env', 'up', 'feat-thing', '--docs', '--dir', fx.dir])
-    assert.match(out, /git worktree add \S+ -b feat\/thing\n/)
+    assert.match(out, /git worktree add \S+ -b feat\/thing main\n/)
     assert.doesNotMatch(out, /record:/)
   } finally {
     cleanup(fx)
