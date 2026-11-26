@@ -98,3 +98,4 @@ node --test packages/common/test/env-prune.test.js packages/common/test/cli-spec
   docker's `dangling` answer, base compose names are kept, `docker.enabled:
   false` asks docker nothing; also `env.config.md` (asset and dogfood copy)
   now describes the rule; tests green (4618 pass).
+- 2026-11-26 — Completed; fix done, tests green. `index.html` re-read (no prune content) and stamped.
