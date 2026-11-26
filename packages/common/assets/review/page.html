@@ -2920,11 +2920,16 @@ a.ticket:hover { border-color: var(--accent); }
     }
   }
 
-  // How long to keep asking, and how often. A claim is a file-watch waking a
-  // session that is already sitting there, so the answer normally arrives in
-  // well under a second; these are sized for the case where it does not.
+  // How long to keep asking, and how often. The quick poll decides what the
+  // panel says first; it is NOT how long a claim takes. The wait only watches,
+  // and the claim is the woken session's next model turn — routinely past these
+  // seven seconds — so a quiet late poll keeps asking after it.
   var PASS_POLL_MS = 900
   var PASS_POLL_ROUNDS = 8
+  // Five minutes, every five seconds: past any ordinary turn, and bounded so a
+  // tab left open over a pass nobody claims stops asking.
+  var LATE_POLL_MS = 5000
+  var LATE_POLL_ROUNDS = 60
 
   /**
    * Ask the engine what became of the pass we just sent, and end on the answer.
@@ -2978,11 +2983,43 @@ a.ticket:hover { border-color: var(--accent); }
       // Out of rounds is a CANNOT-TELL, not a no. Nobody is obliged to claim a
       // pass inside seven seconds, and a page that concluded "abandoned" would
       // be inventing an answer out of its own impatience.
-      if (rounds >= PASS_POLL_ROUNDS) return stop(false)
+      if (rounds >= PASS_POLL_ROUNDS) {
+        stop(false)
+        return watchLate(url, verdict, '/spec-reviewed ' + code)
+      }
       window.setTimeout(ask, PASS_POLL_MS)
     }
 
     ask()
+  }
+
+  /**
+   * Keep asking, quietly, after the quick poll has handed over the command —
+   * so a claim that lands on the session's next turn still ends the page.
+   *
+   * IT CHANGES THE ENDING ONLY ON `claimed`. Every other answer, and running
+   * out of rounds, leaves the command exactly where the quick poll put it: the
+   * late poll can take the command away, never put a wrong one up.
+   */
+  function watchLate(url, verdict, cmd) {
+    var rounds = 0
+    function ask() {
+      rounds++
+      fetch(url, { method: 'GET', headers: { accept: 'application/json' } }).then(function (res) {
+        if (!res || !res.ok) return again()
+        return res.text().then(function (text) {
+          var state = null
+          try { state = JSON.parse(text).state } catch (e) {}
+          if (state === 'claimed') return markDecided(verdict, cmd, true)
+          return again()
+        })
+      }, again)
+    }
+    function again() {
+      if (rounds >= LATE_POLL_ROUNDS) return
+      window.setTimeout(ask, LATE_POLL_MS)
+    }
+    again()
   }
 
   function send(verdict) {

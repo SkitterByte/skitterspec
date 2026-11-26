@@ -2186,6 +2186,54 @@ test('a pass nobody claimed keeps its command and keeps the tab', async () => {
   assert.strictEqual(dom.window._closes, 0, 'and the page that carries it stays')
 })
 
+// ── bug-review-tab-late-claim ────────────────────────────────────────────────
+//
+// A claim is not a file-watch: the wait wakes a session, and the session claims
+// on its next model turn — routinely past the quick poll's few seconds. The
+// page used to settle on "nobody took it" there and never ask again, so the tab
+// stayed open on every ordinary pickup.
+
+// Past the quick poll, however many rounds it is: every answer `waiting` until
+// the page has given up the quick way, then `claimed`.
+const QUICK_ROUNDS = 8
+
+test('a claim that lands after the quick poll still closes the tab', async () => {
+  const states = Array(QUICK_ROUNDS + 3).fill('waiting').concat(['claimed'])
+  const dom = runPage(marked(), { protocol: 'http:', fetchWith: polling(states).fetchWith })
+  pressed(dom, 'commit')
+  await drained(40)
+
+  assert.match(dom.byId['decided-note'].textContent, /picked (it|this) up/i)
+  assert.strictEqual(dom.byId['sent-cmd'].hidden, true, 'the command is taken away once it is claimed')
+  assert.strictEqual(dom.window._closes, 1, 'and the tab closes, once')
+})
+
+// STAYS SILENT. Keeping on asking is bounded: a pass nobody ever claims ends
+// the asking without a close, with the command still on screen.
+test('a pass nobody ever claims stops being asked about, and keeps the tab', async () => {
+  const p = polling(['waiting'])
+  const dom = runPage(marked(), { protocol: 'http:', fetchWith: p.fetchWith })
+  pressed(dom, 'commit')
+  await drained(400)
+  const asked = p.asked.length
+  await drained(40)
+
+  assert.strictEqual(p.asked.length, asked, 'the asking stopped')
+  assert.ok(asked > QUICK_ROUNDS, 'after asking past the quick poll')
+  assert.strictEqual(dom.byId['sent-cmd'].hidden, false)
+  assert.strictEqual(dom.window._closes, 0)
+})
+
+// STAYS SILENT. A late `unknown` is a cannot-tell like any other: no close.
+test('a late poll that cannot tell never closes the tab', async () => {
+  const dom = runPage(marked(), { protocol: 'http:', fetchWith: polling(['unknown']).fetchWith })
+  pressed(dom, 'commit')
+  await drained(400)
+
+  assert.strictEqual(dom.byId['sent-cmd'].hidden, false)
+  assert.strictEqual(dom.window._closes, 0)
+})
+
 // STAYS SILENT. A `file://` page hands its pass to the clipboard for the reader
 // to paste, so there is never a confirmed pickup and never a close.
 test('a file:// page keeps the tab, since its pass is on the clipboard', async () => {
