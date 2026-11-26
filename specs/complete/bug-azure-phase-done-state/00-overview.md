@@ -87,3 +87,4 @@ Run: `node --test packages/azure-boards/test/phase-done-state.test.js`.
   with `spec-sync restate --apply`.
 - 2026-11-26 — Fixed: the plan carries the resolved state name per item and
   every no-token push skill writes it; test green.
+- 2026-11-26 — Completed; fix green, suite green.
