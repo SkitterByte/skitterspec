@@ -91,3 +91,4 @@ Red: 13 failing, e.g. `TypeError: phaseIsCancelled is not a function` and
   counted as done.
 - 2026-11-26 — Fixed: ➖ recognised across the engine, sync-core and skill
   wording; tests green.
+- 2026-11-26 — Completed; fix done, tests green.
