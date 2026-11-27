@@ -39,7 +39,18 @@ function renderReceipt(fields) {
   }
   const receipt = {}
   for (const key of REQUIRED) receipt[key] = String(fields[key])
+  // Optional: the snapshot a `--snapshot` take made, which release restores.
+  if (fields.snapshot && fields.snapshot.path) {
+    receipt.snapshot = { path: String(fields.snapshot.path), at: String(fields.snapshot.at || '') }
+  }
   return receipt
+}
+
+// Where a snapshotting take writes its snapshot — the engine owns the path, so
+// both project commands are handed the same file (`SPEC_ENV_SNAPSHOT`).
+function snapshotPathFor(rootDir, config, specFolder, stamp) {
+  const safe = String(stamp).replace(/[^0-9A-Za-z]/g, '')
+  return path.resolve(rootDir, path.dirname(config.registry), 'snapshots', `${specFolder}-${safe}`)
 }
 
 // Read the receipt. Missing file → null (no one is live). Malformed JSON → Error.
@@ -315,19 +326,29 @@ function afterSwitchFor(config, c) {
  * one guessed route — the guess this key exists to replace was "/spec-to-main",
  * which in PR mode put the work nowhere testable.
  */
-function migrationsRefusal(spec, reach, askedToAllow) {
+function migrationsRefusal(spec, reach, askedToAllow, askedToSnapshot) {
   const head = `${spec.folder}'s branch changes migrations — live overlay is code-only`
   const fromWorktree = `run it from its worktree (${spec.worktreePath}; \`/spec-connect ${spec.folder}\` where it has a stack)`
   const asPr = 'share it as a draft PR for a pipeline to deploy (`/spec-pr`)'
-  const unasked = askedToAllow ? '; --allow-migrations needs `live.refusedReach: "live-confirm"`' : ''
+  const unasked =
+    (askedToAllow && reach !== 'live-confirm' ? '; --allow-migrations needs `live.refusedReach: "live-confirm"`' : '') +
+    (askedToSnapshot && reach !== 'snapshot'
+      ? '; --snapshot needs `live.refusedReach: "snapshot"` with `live.snapshot` and `live.restore` set'
+      : '')
   if (reach === 'worktree') return `${head}; this project reaches it from the worktree: ${fromWorktree}${unasked}`
   if (reach === 'pr') return `${head}; this project reaches it by PR: ${asPr}${unasked}`
   if (reach === 'live-confirm') {
-    return `${head}; this project takes it live after a confirm: \`spec-env live take ${spec.folder} --allow-migrations\``
+    return `${head}; this project takes it live after a confirm: \`spec-env live take ${spec.folder} --allow-migrations\`${unasked}`
+  }
+  if (reach === 'snapshot') {
+    return (
+      `${head}; this project takes it live after snapshotting the database, restored on release: ` +
+      `\`spec-env live take ${spec.folder} --snapshot\`${unasked}`
+    )
   }
   return (
     `${head}; reach it another way — ${fromWorktree}, or ${asPr} — ` +
-    'or set `live.refusedReach` (`worktree` · `pr` · `live-confirm`) so this names one' +
+    'or set `live.refusedReach` (`worktree` · `pr` · `live-confirm` · `snapshot`) so this names one' +
     unasked
   )
 }
@@ -475,21 +496,33 @@ function planTake(spec, config, ctx) {
   //    Only `live-confirm` can let it through, and only on `--allow-migrations`.
   const reach = config && config.live ? config.live.refusedReach || null : null
   const migrationsAllowed = Boolean(c.migrationsHit && reach === 'live-confirm' && c.allowMigrations)
-  if (c.migrationsHit && !migrationsAllowed) {
-    return block(
-      migrationsRefusal(spec, reach, c.allowMigrations),
-      // A BYPASS, offered once per branch HEAD and only where the project chose
-      // it: the shared database really does change, so stepping past this is
-      // the operator's answer, recorded (`live take --offered` spends it,
-      // `--allow-migrations` records the take). Any other reach declares none.
-      reach === 'live-confirm' && !c.migrationsOfferSpent
-        ? {
-            kind: 'bypass',
-            label: 'Take it live anyway — this changes the shared database',
-            command: `skitterspec spec-env live take ${spec.folder} --allow-migrations`,
-          }
-        : undefined,
-    )
+  //    `snapshot` lets it through on `--snapshot`: the database is snapshotted
+  //    before the switch and restored on release, so the change is undone.
+  const snapshotting = Boolean(c.migrationsHit && reach === 'snapshot' && c.snapshot)
+  if (c.migrationsHit && !migrationsAllowed && !snapshotting) {
+    let offer
+    // A BYPASS, offered once per branch HEAD and only where the project chose
+    // it: the shared database really does change, so stepping past this is
+    // the operator's answer, recorded (`live take --offered` spends it,
+    // `--allow-migrations` records the take).
+    if (reach === 'live-confirm' && !c.migrationsOfferSpent) {
+      offer = {
+        kind: 'bypass',
+        label: 'Take it live anyway — this changes the shared database',
+        command: `skitterspec spec-env live take ${spec.folder} --allow-migrations`,
+      }
+    }
+    // A SATISFY, on EVERY take and never spent by the ledger: the restore
+    // undoes the change, so nothing is weakened and nothing is recorded. The
+    // confirm stays so the reader learns data written while live is lost.
+    if (reach === 'snapshot') {
+      offer = {
+        kind: 'satisfy',
+        label: 'Snapshot the database, then take it live',
+        command: `skitterspec spec-env live take ${spec.folder} --snapshot`,
+      }
+    }
+    return block(migrationsRefusal(spec, reach, c.allowMigrations, c.snapshot), offer)
   }
   // 6. Verify-only: a dev server must be listening to hot-reload the switch.
   if (c.serverUp === false) {
@@ -515,9 +548,15 @@ function planTake(spec, config, ctx) {
   if (migrationsAllowed) {
     warnings.push('migrations taken live on the operator\'s say-so — the shared database changes, and this take is recorded')
   }
+  if (snapshotting) {
+    warnings.push(`the database is restored from its snapshot on release — data written while ${spec.folder} is live is lost`)
+  }
 
   return {
     ...result,
+    // Runs BEFORE every command below: a dev server that migrates on reload
+    // would otherwise migrate before the snapshot was taken.
+    snapshot: snapshotting ? { command: config.live.snapshot, path: c.snapshotPath } : null,
     commands: [
       `git -C ${shellPath(spec.worktreePath)} rebase ${c.rebaseOnto || base}`,
       `git -C ${shellPath(spec.worktreePath)} switch --detach`,
@@ -531,6 +570,7 @@ function planTake(spec, config, ctx) {
       holder: c.holder,
       heldSince: c.heldSince,
       baseMainCommit: c.baseMainCommit,
+      ...(snapshotting ? { snapshot: { path: c.snapshotPath, at: c.heldSince } } : {}),
     },
   }
 }
@@ -726,8 +766,36 @@ function runAfterSwitch(afterSwitch, spawn = spawnSync) {
   return { lines, failed }
 }
 
+/**
+ * Run a project's snapshot command, in `cwd` with `SPEC_ENV_SNAPSHOT` set to
+ * the engine's path. Its exit 0 is the positive signal: anything else — a
+ * spawn error, a signal, a non-zero exit — is a failed snapshot.
+ *
+ * @param {{ command: string, path: string }} step
+ * @param {string} cwd
+ * @param {function} [spawn]  spawnSync-shaped, injectable for tests
+ * @returns {{ ok: boolean, status: string, tail: string[] }}
+ */
+function runSnapshot(step, cwd, spawn = spawnSync) {
+  fs.mkdirSync(path.dirname(step.path), { recursive: true })
+  const res = spawn(step.command, {
+    cwd,
+    shell: true,
+    env: { ...process.env, SPEC_ENV_SNAPSHOT: step.path },
+    stdio: ['ignore', 'pipe', 'pipe'],
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+  })
+  const ok = !res.error && res.status === 0
+  const status = res.error ? res.error.message : res.signal ? `signal ${res.signal}` : `exit ${res.status}`
+  const tail = `${res.stdout || ''}\n${res.stderr || ''}`.split('\n').filter((l) => l.trim()).slice(-FAIL_TAIL)
+  return { ok, status, tail }
+}
+
 module.exports = {
   runAfterSwitch,
+  runSnapshot,
+  snapshotPathFor,
   receiptPath,
   renderReceipt,
   readReceipt,

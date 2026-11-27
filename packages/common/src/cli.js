@@ -122,6 +122,8 @@ const {
   liveStateLine,
   planRelease,
   runAfterSwitch,
+  runSnapshot,
+  snapshotPathFor,
   planAbort,
 } = require('./env/live.js')
 const { ensureWorktreeDirTrusted } = require('./env/trust.js')
@@ -8054,7 +8056,8 @@ async function specEnvLive(dir, config, positional, flags) {
       process.stdout.write(
         'Usage: skitterspec spec-env live <spec>|off|<take|release|abort|status> [spec]\n' +
           '       live take <spec> --allow-migrations   (live.refusedReach: "live-confirm" only)\n' +
-          '       live take <spec> --offered            spend the migrations bypass offer\n',
+          '       live take <spec> --offered            spend the migrations bypass offer\n' +
+          '       live take <spec> --snapshot           (live.refusedReach: "snapshot" only)\n',
       )
   }
 }
@@ -8230,10 +8233,14 @@ async function specEnvLiveTake(dir, config, specArg, flags = {}) {
   if (config.live.refusedReachInvalid) {
     process.stdout.write(
       `spec-env live take: live.refusedReach "${config.live.refusedReachInvalid}" is not one of ` +
-        'worktree · pr · live-confirm — read as unset.\n',
+        'worktree · pr · live-confirm · snapshot — read as unset.\n',
     )
   }
+  if (config.live.refusedReachUnusable) {
+    process.stdout.write(`spec-env live take: live.${config.live.refusedReachUnusable}.\n`)
+  }
   const hitMigrations = migrationsHit(files, config.live.migrations)
+  const heldSince = new Date().toISOString()
 
   const plan = planTake(spec, config, {
     primary,
@@ -8254,8 +8261,10 @@ async function specEnvLiveTake(dir, config, specArg, flags = {}) {
     migrationsOfferSpent: bypassOffered(bypassLedger, spec.folder, branchHead),
     depsChanged: depsHit,
     changedFiles,
+    snapshot: flags.snapshot === true,
+    snapshotPath: snapshotPathFor(dir, config, spec.folder, heldSince),
     holder: primaryGit(['config', 'user.name']) || 'unknown',
-    heldSince: new Date().toISOString(),
+    heldSince,
   })
 
   if (plan.blocked) {
@@ -8290,9 +8299,32 @@ async function specEnvLiveTake(dir, config, specArg, flags = {}) {
     return
   }
 
+  // The snapshot comes BEFORE any git command (a dev server that migrates on
+  // reload would otherwise migrate first). A failed one switches nothing. A
+  // git failure after it also switches nothing, so the snapshot it made is no
+  // longer anyone's and is removed — the database it copied was never changed.
+  const dropSnapshot = () => {
+    if (plan.snapshot) fs.rmSync(plan.snapshot.path, { recursive: true, force: true })
+  }
+  if (plan.snapshot) {
+    const snap = runSnapshot(plan.snapshot, dir)
+    if (!snap.ok) {
+      dropSnapshot()
+      process.stdout.write(
+        notLive(
+          spec.folder,
+          `the snapshot command failed (${snap.status}) — nothing switched:\n` +
+            snap.tail.map((l) => `    ${l}`).join('\n'),
+        ),
+      )
+      return
+    }
+  }
+
   // Execute the switch. Rebase first; on conflict, abort and bail (state untouched).
   const reb = runGit(spec.worktreePath, ['rebase', onto])
   if (!reb.ok) {
+    dropSnapshot()
     // A rebase fails two ways and they need different answers. It can REFUSE TO
     // START (unstaged changes, a missing base) — nothing to abort, nothing to
     // resolve — or start and CONFLICT. Calling both "hit conflicts" sent people
@@ -8314,6 +8346,7 @@ async function specEnvLiveTake(dir, config, specArg, flags = {}) {
   }
   const det = runGit(spec.worktreePath, ['switch', '--detach'])
   if (!det.ok) {
+    dropSnapshot()
     process.stdout.write(notLive(spec.folder, `could not detach the worktree — ${det.err}`))
     return
   }
@@ -8321,6 +8354,7 @@ async function specEnvLiveTake(dir, config, specArg, flags = {}) {
   if (!co.ok) {
     // Roll the detach back so the worktree keeps its branch.
     runGit(spec.worktreePath, ['switch', spec.branch])
+    dropSnapshot()
     process.stdout.write(
       notLive(spec.folder, `could not check out ${spec.branch} in the primary checkout — ${co.err}`),
     )
@@ -8342,6 +8376,7 @@ async function specEnvLiveTake(dir, config, specArg, flags = {}) {
   out.push(`  primary:   now on ${receipt.branch} (was ${base} @ ${receipt.baseMainCommit.slice(0, 7)})`)
   out.push(`  worktree:  ${spec.worktreePath} (detached — branch handed to the primary checkout)`)
   if (onto !== base) out.push(`  rebased:   onto ${onto} (PR landing — the remote base)`)
+  if (receipt.snapshot) out.push(`  snapshot:  ${receipt.snapshot.path} (restored on release)`)
   // After the receipt, so a failed command leaves a switch that `release` and
   // `status` both know about — the switch stands either way.
   out.push(...runAfterSwitch(plan.afterSwitch).lines)

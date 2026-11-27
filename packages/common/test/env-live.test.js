@@ -23,6 +23,8 @@ const {
   recordBypass,
   readBypass,
   writeBypass,
+  runSnapshot,
+  snapshotPathFor,
 } = require('../src/env/live.js')
 const { loadEnvConfig } = require('../src/env/config.js')
 const { assertPrimaryOnMain } = require('../src/env/resolve.js')
@@ -323,6 +325,128 @@ test('config: live.refusedReach takes the three values; anything else reads as u
     assert.strictEqual(typo.live.refusedReachInvalid, 'Live-Confirm')
     write({})
     assert.strictEqual(loadEnvConfig(dir).config.live.refusedReach, null)
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+// --- the snapshot reach ----------------------------------------------------
+
+const snapCfg = (over = {}) => ({
+  live: { refusedReach: 'snapshot', snapshot: 'pg_dump > "$SPEC_ENV_SNAPSHOT"', restore: 'pg_restore', ...over },
+})
+const SNAP_PATH = '/repo/.spec-env/snapshots/feat-x-20260803T100000Z'
+
+test('snapshot reach declares a satisfy offer on every take — the ledger never spends it', () => {
+  for (const migrationsOfferSpent of [false, true]) {
+    const plan = planTake(SPEC, snapCfg(), okCtx({ migrationsHit: true, migrationsOfferSpent }))
+    assert.strictEqual(plan.blocked, true)
+    assert.deepStrictEqual(plan.offer, {
+      kind: 'satisfy',
+      label: 'Snapshot the database, then take it live',
+      command: 'skitterspec spec-env live take feat-x --snapshot',
+    })
+    assert.match(plan.reason, /after snapshotting the database, restored on release/)
+  }
+})
+
+test('--snapshot plans the snapshot ahead of the checkout, with a warning and a receipt', () => {
+  const plan = planTake(SPEC, snapCfg(), okCtx({ migrationsHit: true, snapshot: true, snapshotPath: SNAP_PATH }))
+  assert.strictEqual(plan.blocked, false)
+  assert.deepStrictEqual(plan.snapshot, { command: 'pg_dump > "$SPEC_ENV_SNAPSHOT"', path: SNAP_PATH })
+  assert.strictEqual(plan.commands.length, 3, 'the snapshot is a step of its own, not a git command')
+  assert.match(plan.warnings.join('\n'), /data written while feat-x is live is lost/)
+  assert.deepStrictEqual(plan.receipt.snapshot, { path: SNAP_PATH, at: '2026-08-03T10:00:00Z' })
+})
+
+test('--snapshot under any other reach is refused and names what it needs', () => {
+  for (const reach of [undefined, 'worktree', 'pr', 'live-confirm']) {
+    const plan = planTake(SPEC, reachCfg(reach), okCtx({ migrationsHit: true, snapshot: true }))
+    assert.strictEqual(plan.blocked, true, String(reach))
+    assert.match(plan.reason, /--snapshot needs `live\.refusedReach: "snapshot"`/)
+    assert.notStrictEqual(plan.offer && plan.offer.kind, 'satisfy')
+  }
+})
+
+test('unset reach lists snapshot alongside the other three', () => {
+  const plan = planTake(SPEC, {}, okCtx({ migrationsHit: true }))
+  assert.match(plan.reason, /`worktree` · `pr` · `live-confirm` · `snapshot`/)
+})
+
+test('stays silent: a code-only branch under the snapshot reach snapshots nothing', () => {
+  const plan = planTake(SPEC, snapCfg(), okCtx({ migrationsHit: false, snapshot: true, snapshotPath: SNAP_PATH }))
+  assert.strictEqual(plan.blocked, false)
+  assert.strictEqual(plan.snapshot, null)
+  assert.strictEqual(plan.receipt.snapshot, undefined)
+  assert.deepStrictEqual(plan.warnings, [])
+})
+
+test('a receipt keeps a snapshot when given one, and the old shape when not', () => {
+  assert.deepStrictEqual(renderReceipt({ ...FIELDS, snapshot: { path: SNAP_PATH, at: 't' } }).snapshot, {
+    path: SNAP_PATH,
+    at: 't',
+  })
+  assert.strictEqual('snapshot' in renderReceipt(FIELDS), false)
+})
+
+test('snapshotPathFor sits under .spec-env/snapshots, named by spec and stamp', () => {
+  assert.strictEqual(
+    snapshotPathFor('/repo', CONFIG, 'feat-x', '2026-08-03T10:00:00.000Z'),
+    path.resolve('/repo', '.spec-env', 'snapshots', 'feat-x-20260803T100000000Z'),
+  )
+})
+
+test('runSnapshot hands the command SPEC_ENV_SNAPSHOT and reads exit 0 as the only success', () => {
+  const dir = tmpDir()
+  try {
+    const seen = []
+    const spawn = (status) => (cmd, opts) => {
+      seen.push({ cmd, cwd: opts.cwd, env: opts.env.SPEC_ENV_SNAPSHOT })
+      return { status, stdout: 'dumped\n', stderr: status ? 'denied\n' : '' }
+    }
+    const step = { command: 'dump', path: path.join(dir, 'snaps', 'feat-x-1') }
+    assert.strictEqual(runSnapshot(step, '/repo', spawn(0)).ok, true)
+    assert.deepStrictEqual(seen[0], { cmd: 'dump', cwd: '/repo', env: step.path })
+    assert.ok(fs.existsSync(path.join(dir, 'snaps')), 'the parent dir exists for the command')
+    const bad = runSnapshot(step, '/repo', spawn(2))
+    assert.strictEqual(bad.ok, false)
+    assert.strictEqual(bad.status, 'exit 2')
+    assert.deepStrictEqual(bad.tail, ['dumped', 'denied'])
+    const err = runSnapshot(step, '/repo', () => ({ error: new Error('spawn ENOENT') }))
+    assert.strictEqual(err.ok, false)
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('config: snapshot reach needs both commands, else reads as unset with a reason', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-snapreach-'))
+  const write = (live) => {
+    fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
+    fs.writeFileSync(path.join(dir, 'specs', '.core', 'env.config.json'), JSON.stringify({ live }))
+  }
+  try {
+    write({ refusedReach: 'snapshot', snapshot: ' dump ', restore: 'restore' })
+    const ok = loadEnvConfig(dir).config.live
+    assert.strictEqual(ok.refusedReach, 'snapshot')
+    assert.strictEqual(ok.snapshot, 'dump')
+    assert.strictEqual(ok.restore, 'restore')
+    assert.strictEqual(ok.refusedReachUnusable, undefined)
+    for (const [live, missing] of [
+      [{ refusedReach: 'snapshot', snapshot: 'dump' }, /needs live\.restore set/],
+      [{ refusedReach: 'snapshot', restore: 'restore', snapshot: '  ' }, /needs live\.snapshot set/],
+      [{ refusedReach: 'snapshot' }, /needs live\.snapshot and live\.restore set/],
+    ]) {
+      write(live)
+      const cfg = loadEnvConfig(dir).config.live
+      assert.strictEqual(cfg.refusedReach, null, 'never read as live-confirm')
+      assert.match(cfg.refusedReachUnusable, missing)
+    }
+    write({})
+    const none = loadEnvConfig(dir).config.live
+    assert.strictEqual(none.snapshot, null)
+    assert.strictEqual(none.restore, null)
+    assert.strictEqual(none.refusedReachUnusable, undefined)
   } finally {
     fs.rmSync(dir, { recursive: true, force: true })
   }

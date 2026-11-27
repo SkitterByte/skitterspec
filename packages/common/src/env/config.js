@@ -355,7 +355,9 @@ const DEFAULT_CONFIG = Object.freeze({
   // `afterSwitch` is `afterLand`'s grammar, run in the primary checkout after a
   // take or a release — a separate list because `afterLand` may hold a data
   // migration, which must never run for a branch that has not landed.
-  live: Object.freeze({ migrations: Object.freeze([]), afterSwitch: Object.freeze([]), refusedReach: null }),
+  // `snapshot` and `restore` are shell commands run with `SPEC_ENV_SNAPSHOT`
+  // set: the pair that makes `refusedReach: "snapshot"` usable.
+  live: Object.freeze({ migrations: Object.freeze([]), afterSwitch: Object.freeze([]), refusedReach: null, snapshot: null, restore: null }),
   // Hotfix landing (`spec-env hotfix land`). `bump` is the version-bump strategy
   // for the new deploy tag: "patch" (X.Y.Z -> X.Y.(Z+1)) or "hotfix-suffix"
   // (X.Y.Z -> X.Y.Z-hotfix.N). The loader keeps whatever string it is given and
@@ -492,7 +494,7 @@ function defaults() {
     teardown: { ...DEFAULT_CONFIG.teardown },
     review: { ...DEFAULT_CONFIG.review, reviewers: [] },
     auto: { ...DEFAULT_CONFIG.auto },
-    live: { migrations: [], afterSwitch: [], refusedReach: null },
+    live: { migrations: [], afterSwitch: [], refusedReach: null, snapshot: null, restore: null },
     hotfix: { ...DEFAULT_CONFIG.hotfix, targets: [] },
   }
 }
@@ -923,8 +925,26 @@ function mergeConfig(base, parsed) {
   // bad value is kept on `refusedReachInvalid` so `live take` can say so.
   if (isObject(parsed.live) && parsed.live.refusedReach !== undefined && parsed.live.refusedReach !== null) {
     const v = parsed.live.refusedReach
-    if (v === 'worktree' || v === 'pr' || v === 'live-confirm') base.live.refusedReach = v
+    if (v === 'worktree' || v === 'pr' || v === 'live-confirm' || v === 'snapshot') base.live.refusedReach = v
     else base.live.refusedReachInvalid = String(v)
+  }
+
+  // The snapshot reach's two commands. A blank or non-string value is no
+  // command. `snapshot` without BOTH reads as UNSET, never as `live-confirm`:
+  // a take that snapshots with no way back would leave the database changed
+  // with nothing to restore it. The reason is kept for `live take` to print.
+  for (const key of ['snapshot', 'restore']) {
+    if (isObject(parsed.live) && typeof parsed.live[key] === 'string' && parsed.live[key].trim()) {
+      base.live[key] = parsed.live[key].trim()
+    }
+  }
+  if (base.live.refusedReach === 'snapshot') {
+    const missing = ['snapshot', 'restore'].filter((k) => !base.live[k])
+    if (missing.length) {
+      base.live.refusedReach = null
+      base.live.refusedReachUnusable =
+        `refusedReach "snapshot" needs live.${missing.join(' and live.')} set — read as unset`
+    }
   }
 
   if (isObject(parsed.hotfix)) {

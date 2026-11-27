@@ -115,7 +115,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Config and a snapshotting take | ⬜ | [01-snapshot-take.md](01-snapshot-take.md) |
+| 1 | Config and a snapshotting take | ✅ | [01-snapshot-take.md](01-snapshot-take.md) |
 | 2 | Restore on release, abort and integrate, plus `live restore` | ⬜ | [02-restore.md](02-restore.md) |
 
 ## Open questions
@@ -125,3 +125,6 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-11-27 — Spec created as member 2 of epic-live-workbench.
+- 2026-11-27 — Phase 1: a git failure after a successful snapshot (rebase,
+  detach or checkout) removes the snapshot file, since nothing switched and
+  the database it copied was never changed.
