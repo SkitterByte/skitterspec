@@ -321,7 +321,7 @@ function planHotfixLand(spec, config, ctx) {
     const tmpPath = path.join(wtRoot, slug)
     commands.push(
       `git worktree add ${shellPath(tmpPath)} -b ${tmpBranch} ${t}`,
-      `git -C ${shellPath(tmpPath)} cherry-pick ${fixPick.join(' ')}`,
+      `git -C ${shellPath(tmpPath)} cherry-pick -x ${fixPick.join(' ')}`,
       `git -C ${shellPath(tmpPath)} tag ${tag}`,
       `git worktree remove ${shellPath(tmpPath)}`,
       `git branch -D ${tmpBranch}`,
@@ -334,7 +334,7 @@ function planHotfixLand(spec, config, ctx) {
       worktreePath: tmpPath,
       argvs: [
         ['-C', root, 'worktree', 'add', tmpPath, '-b', tmpBranch, t],
-        ['-C', tmpPath, 'cherry-pick', ...fixPick],
+        ['-C', tmpPath, 'cherry-pick', '-x', ...fixPick],
         ['-C', tmpPath, 'tag', tag],
         ['-C', root, 'worktree', 'remove', tmpPath],
         ['-C', root, 'branch', '-D', tmpBranch],
@@ -359,8 +359,8 @@ function planHotfixLand(spec, config, ctx) {
     const picks = carry.commits || [fixRange]
     commands.push(
       carry.strategy === 'worktree'
-        ? `git worktree add ${shellPath(carry.tmpPath)} ${c.base} && git -C ${shellPath(carry.tmpPath)} cherry-pick ${picks.join(' ')}`
-        : `git -C ${shellPath(carry.path)} cherry-pick ${picks.join(' ')}`,
+        ? `git worktree add ${shellPath(carry.tmpPath)} ${c.base} && git -C ${shellPath(carry.tmpPath)} cherry-pick -x ${picks.join(' ')}`
+        : `git -C ${shellPath(carry.path)} cherry-pick -x ${picks.join(' ')}`,
     )
     steps.push({
       kind: 'carry',

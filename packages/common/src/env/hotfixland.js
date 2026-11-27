@@ -221,7 +221,7 @@ function runCarry(step, release, ctx) {
       outcome: 'refused',
       line:
         `carry: ${step.cwd} has uncommitted changes on ${step.base} — commit or stash them, ` +
-        `then run: git -C ${shellPath(step.cwd)} cherry-pick ${commits.join(' ')}`,
+        `then run: git -C ${shellPath(step.cwd)} cherry-pick -x ${commits.join(' ')}`,
     }
   }
   const git = (argv) =>
@@ -238,7 +238,7 @@ function runCarry(step, release, ctx) {
     if (step.strategy === 'worktree') git(['-C', step.root, 'worktree', 'remove', '--force', cwd])
   }
   for (const sha of commits) {
-    const res = git(['-C', cwd, 'cherry-pick', sha])
+    const res = git(['-C', cwd, 'cherry-pick', '-x', sha])
     if (res.error || res.status !== 0) {
       git(['-C', cwd, 'cherry-pick', '--abort'])
       cleanup()
@@ -272,7 +272,7 @@ function runCarryPr(step, commits, ctx) {
   if (add.error || add.status !== 0) return fail(`carry: worktree add ${step.tmpPath} — ${lastLine(add.stderr) || why(add)}`)
   const cleanup = () => git(['-C', step.root, 'worktree', 'remove', '--force', step.tmpPath])
   for (const sha of commits) {
-    const res = git(['-C', step.tmpPath, 'cherry-pick', sha])
+    const res = git(['-C', step.tmpPath, 'cherry-pick', '-x', sha])
     if (res.error || res.status !== 0) {
       git(['-C', step.tmpPath, 'cherry-pick', '--abort'])
       cleanup()

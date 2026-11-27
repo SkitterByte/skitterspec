@@ -141,7 +141,7 @@ test('releaseWith: the JSON\'s tag is used and recorded, and no git tag runs', (
   assert.strictEqual(calls[0].cmd, 'node scripts/release-hotfix.cjs --json')
   assert.strictEqual(calls[0].opts.cwd, '/wt/login')
   assert.ok(!calls.some((c) => c.args && c.args.includes('tag')), 'no built-in tag')
-  assert.deepStrictEqual(calls[1].args, ['-C', '/repo', 'cherry-pick', 'v37.2.0..hotfix/login'])
+  assert.deepStrictEqual(calls[1].args, ['-C', '/repo', 'cherry-pick', '-x', 'v37.2.0..hotfix/login'])
 })
 
 test('a failing releaseWith refuses, relays its stderr line, and runs nothing after', () => {
@@ -231,7 +231,7 @@ test('--push publishes the branch, then the tag, before anything is carried', ()
     [
       ['-C', '/wt/login', 'push', 'origin', 'hotfix/login'],
       ['-C', '/wt/login', 'push', 'origin', 'v37.2.0-hotfix.1'],
-      ['-C', '/repo', 'cherry-pick', 'v37.2.0..hotfix/login'],
+      ['-C', '/repo', 'cherry-pick', '-x', 'v37.2.0..hotfix/login'],
     ],
   )
   assert.strictEqual(recorded[recorded.length - 1].pushed, true, 'the record learns it was pushed')
@@ -287,7 +287,7 @@ test('the carry leaves out the version commit the release reports', () => {
   assert.strictEqual(r.ok, true)
   assert.deepStrictEqual(
     calls.slice(1).map((c) => c.args.slice(2)),
-    [['cherry-pick', 'f1'], ['cherry-pick', 's1']],
+    [['cherry-pick', '-x', 'f1'], ['cherry-pick', '-x', 's1']],
   )
   assert.strictEqual(r.carried, 2)
 })
@@ -307,7 +307,7 @@ test('a dirty base checkout refuses with the command to run by hand', () => {
   const plan = planHotfixLand(spec(), RELEASE_WITH, carryCtx('dirty', ['f1', 's1'], { released: GOOD }))
   const r = runHotfixLand(plan.steps, io(spawn))
   assert.strictEqual(r.ok, false)
-  assert.match(r.results[2].line, /uncommitted changes on main — .*git -C \/repo cherry-pick f1 s1/)
+  assert.match(r.results[2].line, /uncommitted changes on main — .*git -C \/repo cherry-pick -x f1 s1/)
   assert.strictEqual(calls.length, 0)
 })
 
@@ -318,7 +318,7 @@ test('a base branch nobody has checked out is carried through a throwaway worktr
   assert.strictEqual(r.ok, true)
   assert.deepStrictEqual(calls.map((c) => c.args), [
     ['-C', '/repo', 'worktree', 'add', '/wt/login-carry-main', 'main'],
-    ['-C', '/wt/login-carry-main', 'cherry-pick', 'f1'],
+    ['-C', '/wt/login-carry-main', 'cherry-pick', '-x', 'f1'],
     ['-C', '/repo', 'worktree', 'remove', '--force', '/wt/login-carry-main'],
   ])
 })
@@ -346,5 +346,40 @@ test('extra targets cherry-pick the listed fix commits, not the whole range', ()
     ctx({ fixCommits: ['f1', 's1'], extraTargets: ['v36.4.0'] }),
   )
   const target = plan.steps.find((s) => s.kind === 'target')
-  assert.deepStrictEqual(target.argvs[1], ['-C', target.worktreePath, 'cherry-pick', 'f1', 's1'])
+  assert.deepStrictEqual(target.argvs[1], ['-C', target.worktreePath, 'cherry-pick', '-x', 'f1', 's1'])
+})
+
+// --- provenance: every cherry-pick the land runs or prints records its source --
+
+const picks = (argvs) => argvs.filter((a) => a.includes('cherry-pick') && !a.includes('--abort'))
+
+test('the carry cherry-picks with -x, in place and through a throwaway worktree', () => {
+  for (const strategy of ['inplace', 'worktree']) {
+    const { spawn, calls } = fakeSpawn()
+    const plan = planHotfixLand(spec(), RELEASE_WITH, carryCtx(strategy, ['f1', 's1'], { released: GOOD }))
+    runHotfixLand(plan.steps, io(spawn))
+    const run = picks(calls.map((c) => c.args))
+    assert.strictEqual(run.length, 2, strategy)
+    for (const a of run) assert.deepStrictEqual(a.slice(-3, -1), ['cherry-pick', '-x'], `${strategy}: ${a.join(' ')}`)
+  }
+})
+
+test('extra targets cherry-pick with -x, and the printed commands say so', () => {
+  const plan = planHotfixLand(
+    spec(),
+    { hotfix: { bump: 'hotfix-suffix', cherryPickMain: true, targets: [] } },
+    ctx({ fixCommits: ['f1', 's1'], extraTargets: ['v36.4.0'] }),
+  )
+  const target = plan.steps.find((s) => s.kind === 'target')
+  assert.deepStrictEqual(target.argvs[1], ['-C', target.worktreePath, 'cherry-pick', '-x', 'f1', 's1'])
+  const printed = plan.commands.filter((c) => /cherry-pick/.test(c))
+  assert.ok(printed.length >= 2, printed.join('\n'))
+  for (const c of printed) assert.match(c, /cherry-pick -x /)
+})
+
+test('a dirty base prints the hand-run carry with -x', () => {
+  const { spawn } = fakeSpawn()
+  const plan = planHotfixLand(spec(), RELEASE_WITH, carryCtx('dirty', ['f1', 's1'], { released: GOOD }))
+  const r = runHotfixLand(plan.steps, io(spawn))
+  assert.match(r.results[2].line, /git -C \/repo cherry-pick -x f1 s1/)
 })

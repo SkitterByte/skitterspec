@@ -72,7 +72,7 @@ test('prod-only: tag the branch head, then cherry-pick onto main', () => {
   assert.strictEqual(plan.prodTag, 'v33.16.5')
   assert.deepStrictEqual(plan.commands, [
     'git -C /wt/login tag v33.16.5',
-    'git -C /repo cherry-pick v33.16.4..hotfix/login',
+    'git -C /repo cherry-pick -x v33.16.4..hotfix/login',
   ])
   // targets: prod + main (no extras)
   assert.deepStrictEqual(
@@ -96,11 +96,11 @@ test('extra target: throwaway worktree, cherry-pick, re-tag, remove, force-delet
   assert.deepStrictEqual(plan.commands, [
     'git -C /wt/login tag v33.16.5',
     'git worktree add /wt/login-onto-v30-2-1 -b hotfix/login-onto-v30-2-1 v30.2.1',
-    'git -C /wt/login-onto-v30-2-1 cherry-pick v33.16.4..hotfix/login',
+    'git -C /wt/login-onto-v30-2-1 cherry-pick -x v33.16.4..hotfix/login',
     'git -C /wt/login-onto-v30-2-1 tag v30.2.2',
     'git worktree remove /wt/login-onto-v30-2-1',
     'git branch -D hotfix/login-onto-v30-2-1',
-    'git -C /repo cherry-pick v33.16.4..hotfix/login',
+    'git -C /repo cherry-pick -x v33.16.4..hotfix/login',
   ])
   const extra = plan.targets.find((t) => t.kind === 'extra')
   assert.deepStrictEqual({ base: extra.base, tag: extra.tag }, { base: 'v30.2.1', tag: 'v30.2.2' })
@@ -288,7 +288,7 @@ test('stays silent: the default config plans exactly the patch tag and commands'
   assert.strictEqual(plan.prodTag, 'v33.16.5')
   assert.deepStrictEqual(plan.commands, [
     'git -C /wt/login tag v33.16.5',
-    'git -C /repo cherry-pick v33.16.4..hotfix/login',
+    'git -C /repo cherry-pick -x v33.16.4..hotfix/login',
   ])
   // And a config with no hotfix block at all is the same patch default.
   assert.strictEqual(planHotfixLand(spec(), {}, ctx()).prodTag, 'v33.16.5')

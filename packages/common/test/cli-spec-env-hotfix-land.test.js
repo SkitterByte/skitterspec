@@ -344,7 +344,7 @@ test('main checked out and dirty: the carry refuses and prints the command', asy
     const head = git(env.dir, 'rev-parse', 'HEAD')
     const { out, code } = await land(env.dir, '--push')
     assert.strictEqual(code, 1)
-    assert.match(out, /has uncommitted changes on main — .*then run: git -C \S+ cherry-pick [0-9a-f]{40} [0-9a-f]{40}/)
+    assert.match(out, /has uncommitted changes on main — .*then run: git -C \S+ cherry-pick -x [0-9a-f]{40} [0-9a-f]{40}/)
     assert.strictEqual(git(env.dir, 'rev-parse', 'HEAD'), head, 'main did not move')
     assert.match(fs.readFileSync(path.join(env.dir, 'other.js'), 'utf8'), /mid-edit/, 'their work is intact')
     assert.ok(onRemote(env, 'refs/tags/v1.0.1'), 'the release and push still happened')
@@ -434,6 +434,29 @@ test('stays silent: spec-env down on a landed hotfix plans exactly what it did b
     assert.match(out, /git worktree remove "?\S+[\\/]wt[\\/]login/)
     assert.match(out, /git branch -D hotfix\/login/)
     assert.ok(fs.existsSync(env.wt), 'down only plans; it removed nothing')
+  } finally {
+    fs.rmSync(env.root, { recursive: true, force: true })
+  }
+})
+
+// --- provenance: every carried commit names the hotfix commit it came from ---
+
+test('every commit carried onto main ends with (cherry picked from commit <hotfix sha>)', async () => {
+  const env = scaffold()
+  try {
+    const before = git(env.dir, 'rev-parse', 'HEAD')
+    const { out, code } = await land(env.dir, '--push')
+    assert.strictEqual(code, 0, out)
+    const landed = git(env.dir, 'rev-list', `${before}..HEAD`).split('\n').filter(Boolean)
+    assert.ok(landed.length > 0, 'something was carried')
+    for (const sha of landed) {
+      const body = git(env.dir, 'log', '-1', '--format=%B', sha).trimEnd()
+      const m = body.match(/\(cherry picked from commit ([0-9a-f]{40})\)$/)
+      assert.ok(m, `carried commit ${sha} has no cherry-picked line:\n${body}`)
+      // The source is a hotfix branch commit, and the same change.
+      assert.match(git(env.dir, 'branch', '--contains', m[1], '--list', 'hotfix/login'), /hotfix\/login/)
+      assert.strictEqual(git(env.dir, 'log', '-1', '--format=%s', m[1]), git(env.dir, 'log', '-1', '--format=%s', sha))
+    }
   } finally {
     fs.rmSync(env.root, { recursive: true, force: true })
   }

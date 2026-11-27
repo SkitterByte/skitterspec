@@ -56,6 +56,10 @@ that branch and is cancelled along with it.
   GitHub counts as `historical`. Never rewrite one, and never write a new one.
 - **Leave a blank line before it**, as with `Release-Note:`, and put it **after**
   `Release-Note:` when both are present.
+- **A hotfix carry ends one line later.** `spec-env hotfix land` picks with
+  `-x`, so every commit it carries onto the base branch or an `--also` tag
+  ends with `(cherry picked from commit <sha>)`, after `Refs:`. That line is
+  expected: it names the hotfix commit the change came from. Leave it.
 
 Under PR landing, every trailer survives a merge commit. A squash keeps them
 only if the squash message keeps the commit bodies. For a squashed

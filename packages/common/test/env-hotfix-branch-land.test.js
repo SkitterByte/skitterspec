@@ -242,7 +242,7 @@ test('runner: the pr carry cuts carry/<slug> from the base, picks, pushes and op
   assert.strictEqual(r.ok, true)
   assert.deepStrictEqual(calls, [
     'git -C /repo worktree add -B carry/pay /wt/pay-carry origin/rc',
-    'git -C /wt/pay-carry cherry-pick aaa111',
+    'git -C /wt/pay-carry cherry-pick -x aaa111',
     'git -C /wt/pay-carry push --force-with-lease -u origin carry/pay',
     'git -C /repo worktree remove --force /wt/pay-carry',
     'gh pr create --head carry/pay --base rc --fill',
@@ -268,7 +268,7 @@ test('runner: the pr carry holds without consent, and skips once its PR exists',
 })
 
 test('runner: a conflicted carry is aborted and names the commit', () => {
-  const { calls, spawn } = fakeSpawn(/cherry-pick aaa111$/)
+  const { calls, spawn } = fakeSpawn(/cherry-pick -x aaa111$/)
   const steps = planBranchHotfixLand(SPEC, config({ tag: false }), {
     ...FRESH, strategy: 'ff', push: true, behind: false, onRelease: true, carry: CARRY_FF,
   }).steps
