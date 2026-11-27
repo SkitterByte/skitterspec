@@ -106,3 +106,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   undefined`, a phase 1 miss. Removed the volume-prune sub-step from
   `/spec-complete` and `/spec-cancel`. Synced the parked providers'
   `MIGRATION.md` by hand.
+- 2026-11-27 — Completed; all phases done, tests green.
