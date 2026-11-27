@@ -140,6 +140,19 @@ test('a member in flight is read from its own worktree, and takes a lane', () =>
   assert.strictEqual(s.freeLanes, 1)
 })
 
+// bug-epic-docs-worktree-in-flight: `/spec` writes each member in its own
+// documents worktree, and under `land.specDocs: "branch"` a Commit verdict keeps
+// it. A worktree whose own copy still files the spec under `backlog/` is a spec
+// nobody started — it must not hold a lane, read as building, or clash.
+test('a member whose worktree copy is still in backlog is not in flight', () => {
+  const s = run(plan(), {
+    worktrees: [{ folder: 'feat-free-authoring-safety', bucket: 'backlog', overview: overview() }],
+  })
+  assert.deepStrictEqual(specs(s.inFlight), [])
+  assert.deepStrictEqual(specs(s.ready), ['feat-free-authoring-safety', 'feat-one-off-workouts'])
+  assert.strictEqual(s.freeLanes, 2, 'it holds no lane')
+})
+
 test('a completed wait on the base branch is met', () => {
   const files = plan()
   delete files['specs/backlog/feat-free-authoring-safety/00-overview.md']

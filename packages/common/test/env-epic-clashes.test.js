@@ -110,6 +110,15 @@ test('memberCheck warns only about a clashing member that is in flight', () => {
   assert.deepStrictEqual(memberCheck(flying, 'feat-library-enrichment').warnings, [])
 })
 
+// bug-epic-docs-worktree-in-flight: a member's documents worktree (kept by a
+// Commit verdict under `land.specDocs: "branch"`) is a spec nobody started.
+test('STAYS SILENT: a clashing member whose worktree copy is in backlog raises no clash', () => {
+  const docsOnly = run(plan(), [
+    { folder: 'feat-free-authoring-safety', bucket: 'backlog', overview: overview(MEMBERS['feat-free-authoring-safety']) },
+  ])
+  assert.deepStrictEqual(memberCheck(docsOnly, 'feat-session-recipes').warnings, [])
+})
+
 test('skitterspec epic check: silent for a non-member and a clear member', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-epic-check-'))
   const git = (...args) => execFileSync('git', ['-C', dir, ...args], { stdio: 'pipe' }).toString()

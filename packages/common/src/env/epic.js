@@ -338,8 +338,16 @@ function epicStatus({ epic, index, readFile, candidates = [], worktrees = [], br
     const base = index.get(m.spec)
     // In flight is the positive signal of a worktree whose own copy has not
     // finished; otherwise the base branch's bucket.
+    //
+    // A worktree is not that signal on its own. `/spec` writes every spec in a
+    // documents worktree, and under `land.specDocs: "branch"` its Commit verdict
+    // keeps it, so a spec nobody started still has one — its copy files it
+    // under `backlog/`, and that bucket is the answer. Only an unreadable
+    // bucket keeps the old reading: in flight is the side that offers no start
+    // (bug-epic-docs-worktree-in-flight).
     const br = onBranch.get(m.spec)
-    m.bucket = wt && !['complete', 'cancelled'].includes(wt.bucket) ? 'in-progress' : br ? br.bucket : base ? base.bucket : wt ? wt.bucket : null
+    const wtInFlight = wt && !['backlog', 'complete', 'cancelled'].includes(wt.bucket)
+    m.bucket = wtInFlight ? 'in-progress' : wt && wt.bucket === 'backlog' ? 'backlog' : br ? br.bucket : base ? base.bucket : wt ? wt.bucket : null
     m.resolved = m.waits.map((w) => ({ ...w, ...resolveWait(w, waitIndex, waitRead) }))
     // A phase's own `Waits on:` holds that phase, not the spec's start: the
     // sync point the field example turned on (#154 phase 2 on #159 phase 1).
