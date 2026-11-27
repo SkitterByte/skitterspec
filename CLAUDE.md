@@ -9,7 +9,8 @@ loop is **`spec → start → next → commit → complete`**; under PR landing
 Use **`/spec-diff`** to read what a phase changed, and `/spec-connect` or `/spec-live` to try it in a
 browser. `/spec-resume` goes back into a spec that was waiting, and
 `/spec-park` records what it is waiting on. `/spec-tada` and `/spec-todo` recap
-the day and plan the next one across projects.
+the day and plan the next one across projects. `/spec-report-issue` sends a
+skitterspec bug or feature request upstream, through a form you submit.
 
 - **Each phase ends on a review page**, listed as `local`, `network` (LAN) and
   `remote` (tailnet), with a `live:` line saying whether it is also running.

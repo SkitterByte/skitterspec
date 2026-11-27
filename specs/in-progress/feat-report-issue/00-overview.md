@@ -135,7 +135,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Engine verb: target, redaction, URL, duplicates | ✅ | [01-engine-verb.md](01-engine-verb.md) |
-| 2 | Skill, issue forms and triage wiring | ⬜ | [02-skill-and-triage.md](02-skill-and-triage.md) |
+| 2 | Skill, issue forms and triage wiring | 🔄 | [02-skill-and-triage.md](02-skill-and-triage.md) |
 
 ## Open questions
 
@@ -148,3 +148,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   phase 2, because `scripts/docs-claims.test.js` requires every top-level
   command to be named on the site. The duplicate search matches titles only
   (`in:title`), because searching bodies drew noise from spec issues.
+- 2026-11-27 — Phase 2: registering a new skill also touched the README
+  skill tables (common, skitterspec, skitterspec-linear), spec-init's skill
+  list and count, the contract test's count, `docs/linear.html`'s "N skills
+  installed" and this repo's `CLAUDE.md` section, all enforced by tests.
+  `triage` does not exist on the repo yet; `bug` and `enhancement` do.

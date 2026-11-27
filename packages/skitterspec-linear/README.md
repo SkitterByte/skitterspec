@@ -91,6 +91,7 @@ them. Your `specs/` content and live `.core` config are never touched.
 | `/spec-epic-next` | Name the epic member that can start now, to start in a new tab |
 | `/spec-resume` | Go back into a spec in flight, by name or ticket, and act on a message |
 | `/spec-park` | Record what a spec in flight is waiting on: a deploy, a release, a soak |
+| `/spec-report-issue` | Report a skitterspec bug or feature request upstream, through a form you submit |
 | `/spec-land` | Land the branch mid-spec, without finishing it |
 | `/spec-pr` | Push the branch as a draft PR mid-spec, or a ready PR once every phase is done |
 | `/spec-complete` | Verify, land, tear down — in PR mode, after the merge |

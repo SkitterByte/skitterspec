@@ -1,0 +1,16 @@
+name: Feature request
+description: Something skitterspec does not do yet, or gets in the way of.
+labels: [triage, enhancement]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What you wanted to do, and what got in the way.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: skitterspec and provider versions, OS, Node, and the skill involved. `skitterspec report-issue` fills this in.

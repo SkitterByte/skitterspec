@@ -11,6 +11,7 @@ writing specs by hand, so structure and lifecycle stay consistent.
 | `/spec-incident` | Incident: records a live outage while it happens; its fixes are separate linked specs | `in-progress/` |
 | `/no-spec` | Mechanical work with no spec (bump, rename): own branch, worktree, page and land | — |
 | `/spec-idea` | Captures an idea without specing it; `/spec idea:<id>` or `/spec #N` promotes it | — |
+| `/spec-report-issue` | Reports a skitterspec bug or feature request to skitterspec's own issues, through a form the user submits | — |
 | `/spec-review` | Re-validates a spec against the code and refreshes stale parts | unchanged |
 | `/spec-start` | Puts a spec in flight: provisions its branch, then builds phase 1 | `in-progress/` |
 | `/spec-next` | Builds the next phase of the spec this session is in | unchanged |

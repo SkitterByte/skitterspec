@@ -3,5 +3,8 @@
     "owner": "SkitterByte",
     "repo": "skitterspec",
     "project": 2
+  },
+  "intake": {
+    "label": "triage"
   }
 }

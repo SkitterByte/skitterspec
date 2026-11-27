@@ -27,7 +27,7 @@ clobber customised content. Finish with a summary of created vs already-present.
 > **Leave alone**. Non-interactively it only adds what's missing; `--resync` /
 > `--reset` (reset needs `--yes`) drive the stronger actions.
 
-The system is **twenty-one skills**: `spec` (feature, chore or issue), `spec-bug` (bug),
+The system is **twenty-two skills**: `spec` (feature, chore or issue), `spec-bug` (bug),
 `spec-hotfix` (a bug fixed on a released tag),
 `spec-incident` (a live outage, recorded as it happens),
 `no-spec` (work that genuinely has none — off the base branch all the same),
@@ -40,7 +40,8 @@ The system is **twenty-one skills**: `spec` (feature, chore or issue), `spec-bug
 `spec-pr` (share the branch as a draft or ready PR),
 `spec-complete`, `spec-cancel`, `spec-tada` (a ta-da list of what got done),
 `spec-todo` (where you left off, and what is ahead), `spec-idea` (an idea
-parked without a spec),
+parked without a spec), `spec-report-issue` (a skitterspec bug or request,
+sent upstream),
 and this `spec-init`. The lifecycle is `backlog → in-progress → complete / cancelled`,
 with `.core` holding always-apply project rules.
 

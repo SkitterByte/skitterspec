@@ -44,6 +44,7 @@ const SKILLS = {
     'spec-epic-next',
     'spec-resume',
     'spec-park',
+    'spec-report-issue',
     'spec-init',
   ],
   // Phase 3. A provider's skills end the same way as the base's — one shape
@@ -128,7 +129,7 @@ test('the rule is readable, or every guard below is vacuous', () => {
   assert.ok(VOCABULARY.includes('Follow-ups'), `vocabulary: ${VOCABULARY}`)
   assert.ok(VOCABULARY.includes('Why'), `vocabulary: ${VOCABULARY}`)
   assert.strictEqual(VERDICTS.length, 4, `verdicts: ${VERDICTS}`)
-  assert.strictEqual(entries().length, 27, 'all 27 skills are covered')
+  assert.strictEqual(entries().length, 28, 'all 28 skills are covered')
 })
 
 // --- the banner ------------------------------------------------------------
