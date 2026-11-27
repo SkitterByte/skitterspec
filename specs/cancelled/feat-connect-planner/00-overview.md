@@ -117,3 +117,6 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   gap — "nothing exercises planDev/renderRoutes/startProcess" — was wrong and is
   recorded here so it is not repeated: those are all covered on their own. The
   untested thing is the orchestration around them.
+- 2026-11-27 — Cancelled: superseded by epic-live-workbench.
+  feat-drop-spec-connect removes the connect verb this spec would give a
+  planner. Not started; nothing was built.
