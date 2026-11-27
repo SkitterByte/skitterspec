@@ -1,5 +1,23 @@
 # Migration guide
 
+## `/spec-connect` is removed (action required if you used it)
+
+`/spec-live` is now the one way to try a spec on your usual `localhost` ports,
+migrations included (`live.refusedReach: "snapshot"`). A spec's own dev servers
+still run on its own ports through `skitterspec spec-env dev up <spec>`, which
+is also how a hotfix is tried. `skitterspec update` removes the installed
+`.claude/commands/spec-connect.md` (a copy you edited is kept, with the usual
+warning).
+
+| Was | Now |
+|-----|-----|
+| `/spec-connect <spec>` | **`/spec-live <spec>`**, or `spec-env dev up <spec>` for its own ports |
+| `/spec-connect off` | **`/spec-live off`** |
+| `skitterspec spec-env connect` | prints one line pointing at `/spec-live` and exits 0 |
+| `proxy.*` in `env.config.json` | ignored, with one `spec-env` notice. Delete the block |
+| `proxy.host` | **`live.host`** (the old key is still read until `live.host` is set) |
+| `.spec-env/connected`, `.spec-env/proxy.json` | no longer written; delete any left behind |
+
 ## Per-spec Docker stacks are removed (action required if you used them)
 
 `spec-env up`, `bootstrap`, `down` and `prune` no longer start, stop, back up or

@@ -482,7 +482,7 @@ test('the lifecycle entries that change no status carry no tracker seam', () => 
   assert.doesNotMatch(text, /<!--\s*seam:/, 'spec-land moves no spec between buckets')
   // spec-live is a command now; it changes no status either, and a command body
   // has no seam to fill in the first place.
-  for (const cmd of ['spec-connect.md', 'spec-live.md']) {
+  for (const cmd of ['spec-live.md']) {
     const body = fs.readFileSync(path.join(ASSETS, 'commands', cmd), 'utf8')
     assert.doesNotMatch(body, /<!--\s*seam:/, `${cmd} moves no spec between buckets`)
   }

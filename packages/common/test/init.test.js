@@ -330,9 +330,10 @@ test('removes retired folder index files left by an earlier version', async () =
 })
 
 test('registers the env verbs as commands, not skills, and not the retired ones', () => {
-  // spec-connect / spec-live moved to `.claude/commands/`: each pre-executes one
-  // spec-env verb and relays it, so there is no judgment for a skill to carry.
-  assert.ok(COMMANDS.includes('spec-connect.md'), 'spec-connect ships as a command')
+  // spec-live moved to `.claude/commands/`: it pre-executes one spec-env verb
+  // and relays it, so there is no judgment for a skill to carry. spec-connect
+  // followed it there and was then retired (feat-drop-spec-connect).
+  assert.ok(!COMMANDS.includes('spec-connect.md'), 'spec-connect no longer ships')
   assert.ok(COMMANDS.includes('spec-live.md'), 'spec-live ships as a command')
   assert.ok(!SKILLS.includes('spec-connect'), 'spec-connect is no longer a skill')
   assert.ok(!SKILLS.includes('spec-live'), 'spec-live is no longer a skill')

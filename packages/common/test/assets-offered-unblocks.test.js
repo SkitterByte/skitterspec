@@ -113,7 +113,7 @@ test('spec-planning points at it beside the guard it argues with', () => {
 test('STAYS SILENT: the commands keep their verbatim-relay contract', () => {
   // Widening these was considered and rejected: it reintroduces judgment to the
   // surface the skills-vs-commands split exists to keep free of it.
-  for (const name of ['spec-connect.md', 'spec-live.md']) {
+  for (const name of ['spec-live.md']) {
     const text = read('commands', name)
     assert.match(
       text,
@@ -129,7 +129,6 @@ test('STAYS SILENT: the commands keep their verbatim-relay contract', () => {
 
 test('STAYS SILENT: the commands keep their narrow allowed-tools', () => {
   const narrow = {
-    'spec-connect.md': /^allowed-tools: Bash\(\{\{exec\}\} skitterspec spec-env connect:\*\)$/m,
     'spec-live.md': /^allowed-tools: Bash\(\{\{exec\}\} skitterspec spec-env live:\*\)$/m,
   }
   for (const [name, re] of Object.entries(narrow)) {

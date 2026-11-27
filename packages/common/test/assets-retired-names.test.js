@@ -18,7 +18,17 @@ const fs = require('node:fs')
 const path = require('node:path')
 
 const ROOT = path.join(__dirname, '..', '..', '..')
-const RETIRED = [/\/spec-to-main\b/, /spec-live main\b/, /\bconnect main\b/, /allow-main\b/, /mainIsLandingZone/]
+// feat-drop-spec-connect retired `/spec-connect` (and `spec-env connect off`):
+// `/spec-live` is the one way to try a spec on the usual ports.
+const RETIRED = [
+  /\/spec-to-main\b/,
+  /spec-live main\b/,
+  /\bconnect main\b/,
+  /allow-main\b/,
+  /mainIsLandingZone/,
+  /\/spec-connect\b/,
+  /spec-env connect off\b/,
+]
 
 function walk(dir, out = []) {
   if (!fs.existsSync(dir)) return out
@@ -51,7 +61,7 @@ test('no shipped file or site page names a retired command or key', () => {
 test('the scan reads real files and the new names are present', () => {
   assert.ok(SCANNED.length > 50, `scanned ${SCANNED.length} files`)
   const all = SCANNED.filter((f) => fs.existsSync(f)).map((f) => fs.readFileSync(f, 'utf8')).join('\n')
-  for (const name of ['/spec-land', '/spec-pr', '/spec-live off', '/allow-base', 'baseIsLandingZone']) {
+  for (const name of ['/spec-land', '/spec-pr', '/spec-live off', '/allow-base', 'baseIsLandingZone', 'spec-env dev up']) {
     assert.ok(all.includes(name), `${name} is documented somewhere`)
   }
 })

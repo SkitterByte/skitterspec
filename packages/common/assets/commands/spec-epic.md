@@ -17,5 +17,5 @@ back for — it is the last thing printed.
 member's next command: those are typed in that member's own tab. A waiting pass
 it names is picked up there with `/spec-reviewed`.
 
-**Only you can run it**, for `/spec-connect`'s reason: there is no judgement to
+**Only you can run it**, for `/spec-live`'s reason: there is no judgement to
 apply, so no model turn is spent finding one.

@@ -42,7 +42,6 @@ dev servers on reserved ports — and everything below.
 | `/spec-todo` | Where you left off on your last working day, what is open and what is waiting on you |
 | `/spec-idea` | Capture an idea without specing it — in the tracker or `specs/ideas.md` — and list or drop the ones waiting |
 | `/spec-init` | Bootstrap or repair the workflow in a project |
-| `/spec-connect` | Point your canonical `localhost` ports at one spec's stack |
 | `/spec-live` | Check one spec out in the primary checkout, so your running server reloads it |
 | `/allow-base` | Allow writes on the base branch for this session — yours to run, never Claude's |
 | `/allow-project` | Let this session work on another skitterspec project — yours to run, never Claude's |
@@ -137,16 +136,16 @@ A branch `/spec-live` refuses because it changes migrations is pointed at the
 route `live.refusedReach` names — `worktree`, `pr` or `live-confirm` — and
 `/spec-live off` hands the root checkout back, whatever the base is called.
 
-## Testing UI/API worktrees — `/spec-connect`
+## Testing UI/API worktrees — `spec-env dev up`
 
 When your app runs from the root checkout on `localhost`, a worktree's changes are
-unreachable. Add a `dev` block to `specs/.core/env.config.json` listing your host
-dev servers (each `{ name, command, portVar, health?, frontPort? }`); `/spec-start`
-starts them on the spec's reserved ports, and **`/spec-connect <name>`** points
-your canonical `localhost` ports at that spec (via a small bundled reverse proxy —
-no external install), so you test at the exact URL you always use.
-`/spec-connect off` hands the ports back. Exclusive: one spec at a time. See
-`specs/.core/env.config.md` for the `dev`/`proxy` config.
+unreachable there. `/spec-live <name>` is the way to try one at the URL you
+always use: it checks the branch out under your running dev server. To run a
+spec on its own ports instead, add a `dev` block to `specs/.core/env.config.json`
+listing your host dev servers (each `{ name, command, portVar, health?,
+frontPort? }`); `/spec-start` starts them on the spec's reserved ports, and
+`skitterspec spec-env dev up <name>` starts them again later. See
+`specs/.core/env.config.md` for the `dev` and `live` config.
 
 ## Reading the diff — `/spec-diff`
 
@@ -333,16 +332,17 @@ test-first like `/spec-bug`. `/spec-complete` lands it by patch-bumping the tag
 and tagging the branch (your CI/CD deploys the tag — you push it) and
 cherry-picking the fix onto the base branch; `--also <tag>` patches extra release lines
 (test/demo). Hotfixes refuse `/spec-live` (their old-tag branch could break the
-running instance) — test them with `/spec-connect`. Tune the `hotfix` block in
+running instance) — try them on their own ports with
+`skitterspec spec-env dev up <name>`. Tune the `hotfix` block in
 `specs/.core/env.config.md`.
 
-## v3 — slimmer surface + `/spec-connect`
+## v3 — slimmer surface
 
 **3.0** folds provisioning into `/spec-go`, teardown into
 `/spec-complete`·`/spec-cancel`, and grooming into `/spec` — removing the
 `/spec-env`, `/spec-env-down`, and `/spec-ready` skills (the `skitterspec
-spec-env` CLI engine stays). It adds `/spec-connect` and the `dev`/`proxy` config
-blocks. See [MIGRATION.md](../../MIGRATION.md).
+spec-env` CLI engine stays). It adds the `dev` config block, and a connect
+command since retired in favour of `/spec-live`. See [MIGRATION.md](../../MIGRATION.md).
 
 ## v2 — Linear removed from the base
 

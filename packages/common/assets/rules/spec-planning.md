@@ -41,7 +41,7 @@ project's typecheck and test commands are in
 The table lists **skills**, which Claude reads and applies judgment to. These
 are **slash commands that only a person can run**:
 
-- `/spec-connect` and `/spec-live` each pre-run one `spec-env` verb.
+- `/spec-live` pre-runs one `spec-env` verb.
 - `/spec-epic` pre-runs `skitterspec epic status`.
 - `/allow-base`, `/allow-project` and `/spec-skip` lift guards aimed at Claude.
   **Claude must never be able to lift a guard aimed at Claude.**
@@ -88,7 +88,7 @@ in, or else the only provisioned spec. `/spec` writes a new spec in its own
 Under `land.specDocs: "branch"` it rides the feature branch instead. Without
 `env.config.json`, none of this applies.
 
-Workspace modes, `/spec-connect`, the live overlay, spec-docs
+Workspace modes, the live overlay, spec-docs
 landing and staging are detailed in `.claude/skills/spec-start/isolation.md`.
 Read it when a skill sends you there.
 

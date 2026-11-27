@@ -118,7 +118,7 @@ test('STAYS SILENT: the primary checkout being dirty is not offered either', () 
 })
 
 test('STAYS SILENT: the redirections offer nothing, because they are not unblocks', () => {
-  // A hotfix and a migrations branch each send the reader to `/spec-connect`
+  // A hotfix and a migrations branch each send the reader to `spec-env dev up`
   // instead. That is a different route, not a way through this
   // one, so none of them declares an offer.
   const cases = [

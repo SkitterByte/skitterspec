@@ -372,9 +372,9 @@ and get a yes; on **`--plan`**, print it and stop. On
 confirmation run `skitterspec spec-env dev up <name>`. With none configured this
 is a clean no-op.
 
-To reach the spec at your normal `localhost` URL afterwards, the **user** types
-**`/spec-connect <name>`** (`/spec-connect off` hands the ports back). Never
-invoke it yourself.
+They serve the spec on its own port block. To try it at your normal
+`localhost` URL instead, the **user** types **`/spec-live <name>`**
+(`/spec-live off` hands the checkout back). Never invoke it yourself.
 
 ## 6. Build phase 1
 

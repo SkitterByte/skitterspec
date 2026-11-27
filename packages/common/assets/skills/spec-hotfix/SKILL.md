@@ -409,7 +409,8 @@ prod is theirs to trigger. The spec stays in `in-progress`.
 
 - **`/spec-live` is refused for a hotfix** — its branch is built on an old tag, so
   hot-reloading it onto the running dev server could break the shared instance.
-  To test it, the user runs `/spec-connect` (its own isolated stack).
+  To try it, run its own dev servers on its own ports:
+  `skitterspec spec-env dev up <name>`.
 - `Next` points at **`/spec-complete`** to land it. That cuts the configured
   release — `hotfix.releaseWith` (e.g. skittership's
   `node scripts/release-hotfix.cjs --json`) or the built-in tagger's `hotfix.bump`

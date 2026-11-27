@@ -190,7 +190,7 @@ test('/spec-next says an action never clears the gate it armed', () => {
 // list every spec skill points at says so rather than going quiet about it.
 test('/spec-remote-review is not listed as a command, and does not ship', () => {
   const planning = fs.readFileSync(path.join(ASSETS, 'rules', 'spec-planning.md'), 'utf8')
-  assert.match(planning, /`\/spec-connect` and `\/spec-live` each pre-run one `spec-env` verb/)
+  assert.match(planning, /`\/spec-live` pre-runs one `spec-env` verb/)
   assert.doesNotMatch(planning, /spec-remote-review/)
   assert.ok(!fs.existsSync(path.join(ASSETS, 'commands', 'spec-remote-review.md')), 'the command no longer ships')
 })

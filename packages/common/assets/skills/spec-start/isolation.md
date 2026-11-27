@@ -12,8 +12,8 @@ works in the checkout it is standing in.
   in-flight spec under `backlog`. `skitterspec status` reads each worktree's own
   copy.
 - **`checkout`**: the branch is built in the primary checkout, one spec at a
-  time, and the build carries straight on. `/spec-connect` and `/spec-live` do
-  not apply and say so.
+  time, and the build carries straight on. `/spec-live` does not apply and says
+  so.
 
 **Omit the spec name anywhere** and the engine uses the worktree you are
 standing in, or else the only provisioned spec.
@@ -24,8 +24,8 @@ standing in, or else the only provisioned spec.
 are no per-spec Docker stacks, and a `> **Stack:**` header left on an older spec
 is ignored. `/spec-start` starts the host **dev servers** (`dev` in
 `env.config.json`) on the spec's own port block (`ports` in `env.config.json`).
-`/spec-connect <name>` maps that spec onto your normal `localhost` ports, and
-`/spec-connect off` hands them back. Teardown is part of `/spec-complete` and
+`/spec-live <name>` tries that spec on your normal `localhost` ports, and
+`/spec-live off` hands them back. Teardown is part of `/spec-complete` and
 `/spec-cancel`.
 
 The engine is `skitterspec spec-env
@@ -42,8 +42,8 @@ worktree stays until the deploy is out and a second `/spec-complete` runs
 
 ## The live overlay (`/spec-live`)
 
-`/spec-connect` runs a spec's own dev servers. The live overlay instead reuses the
-dev server you already have running. `/spec-live <spec>`, or a bare
+`spec-env dev up` runs a spec's own dev servers on its own ports. The live
+overlay instead reuses the dev server you already have running. `/spec-live <spec>`, or a bare
 `/spec-live`, rebases the branch onto the base (the fetched remote base under PR
 landing), frees it from its worktree, and checks it out
 **in the primary checkout**, so the running server hot-reloads it. The checked-out branch is the

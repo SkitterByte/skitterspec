@@ -19,6 +19,6 @@ page. Nothing else discharges a phase's obligation — not a mid-run `Continue`,
 not an action, not a render.
 
 **Only you can run it.** Like `/allow-base`, this lifts a guard aimed at Claude,
-so Claude must not be able to lift it. `/spec-connect` and `/spec-live` are
+so Claude must not be able to lift it. `/spec-live` is
 user-only for the milder reason that there is no judgement to apply; this one is
 user-only because of who the guard is for.

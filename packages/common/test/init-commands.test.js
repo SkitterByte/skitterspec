@@ -453,9 +453,30 @@ test('resync retires a pristine spec-connect skill left by an older install', as
     const rel = seedRetiredSkill(dir, 'spec-connect', '# old skill\n')
     quietResync(dir)
     assert.ok(!fs.existsSync(path.join(dir, rel)), 'the superseded skill was removed')
-    assert.ok(fs.existsSync(cmdPath(dir, 'spec-connect.md')), 'the command replaced it')
+    assert.ok(!fs.existsSync(cmdPath(dir, 'spec-connect.md')), 'and no command replaced it')
   } finally {
     fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+// feat-drop-spec-connect: the /spec-connect COMMAND is retired too. An upgrade
+// removes the installed copy when it is pristine, and keeps one the user edited.
+test('resync removes a pristine /spec-connect command and keeps an edited one', async () => {
+  for (const edited of [false, true]) {
+    const dir = await installInto()
+    try {
+      const rel = path.join('.claude', 'commands', 'spec-connect.md')
+      const abs = path.join(dir, rel)
+      const body = '!`{{exec}} skitterspec spec-env connect $ARGUMENTS`\n'
+      fs.writeFileSync(abs, edited ? body + 'my notes\n' : body)
+      const m = readManifest(dir)
+      m.files[rel] = sha1(body)
+      writeManifest(dir, m.files)
+      quietResync(dir)
+      assert.strictEqual(fs.existsSync(abs), edited, edited ? 'edited copy kept' : 'pristine copy removed')
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true })
+    }
   }
 })
 

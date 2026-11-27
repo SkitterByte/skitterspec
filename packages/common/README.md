@@ -47,7 +47,6 @@ the operator can run them.
 
 | Command | Action |
 |---------|--------|
-| `/spec-connect` | Point the canonical `localhost` ports at one spec's stack |
 | `/spec-live` | Check one spec out in the primary checkout, so a running dev server reloads it |
 | `/allow-base` | Allow writes on the base branch for this session — yours to run, never Claude's |
 | `/allow-project` | Let this session work on another skitterspec project — yours to run, never Claude's |

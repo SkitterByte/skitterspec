@@ -362,8 +362,8 @@ on the base branch — so nothing could have been tested. The stop is a report:
    change the shared database), never guess the way round it. Read
    `live.refusedReach` from `env.config.json` and name what it says, after
    `/commit`:
-   - `worktree` — run it from the spec's worktree (its path), with
-     `/spec-connect <spec>` where it has a stack;
+   - `worktree` — run it from the spec's worktree (its path), on its own dev
+     ports with `skitterspec spec-env dev up <spec>`;
    - `pr` — `/spec-pr`, a draft PR for the project's pipeline to deploy;
    - `live-confirm` — `/spec-live`, whose refusal offers the recorded bypass
      (`.claude/rules/offered-unblocks.md`);

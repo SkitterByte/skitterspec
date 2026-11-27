@@ -100,7 +100,6 @@ them. Your `specs/` content and live `.core` config are never touched.
 | `/spec-todo` | Where you left off on your last working day, what is open and what is waiting on you |
 | `/spec-idea` | Capture an idea without specing it — in the tracker or `specs/ideas.md` — and list or drop the ones waiting |
 | `/spec-init` | Bootstrap or repair the workflow in a project |
-| `/spec-connect` | Point your canonical `localhost` ports at one spec's stack |
 | `/spec-live` | Check one spec out in the primary checkout, so your running server reloads it |
 | `/allow-base` | Allow writes on the base branch for this session — yours to run, never Claude's |
 | `/allow-project` | Let this session work on another skitterspec project — yours to run, never Claude's |

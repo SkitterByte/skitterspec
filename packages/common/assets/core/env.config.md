@@ -1,10 +1,10 @@
 # `env.config.json` — per-spec isolation config
 
-Opt-in config for per-spec isolation (a git worktree, host dev servers and a
-front-door proxy per in-progress spec).
+Opt-in config for per-spec isolation (a git worktree and host dev servers per
+in-progress spec).
 Provisioning is folded into `/spec-start`, teardown into `/spec-complete` ·
-`/spec-cancel`, traffic diversion is `/spec-connect`, and reading a spec's diff
-is `/spec-diff`; the `skitterspec spec-env
+`/spec-cancel`, trying a spec on your usual ports is `/spec-live`, and reading a
+spec's diff is `/spec-diff`; the `skitterspec spec-env
 <up|bootstrap|nospec|main|project|down|prune|dev|connect|integrate|disposition|handoff|hotfix|live|review|stage|checks|status|resolve|resume|run|base>` CLI is
 the engine beneath them.
 
@@ -224,7 +224,7 @@ through to a documented conservative default; see the field notes below.
   //   health     optional URL polled until it answers before reporting ready;
   //              {portVar}/{port} expand here too. Omit for no health gate.
   //   frontPort  optional canonical origin this process fronts (e.g. 3000 for the
-  //              UI, 8080 for the API) — used by the proxy to route to it.
+  //              UI, 8080 for the API) — the port `live take` probes on `live.host`.
   //   reload     "hot" (default) or "restart". `live take` probes a hot entry's
   //              frontPort and refuses when nothing answers. A "restart" entry —
   //              an API run from Visual Studio or Rider — is never probed: take
@@ -442,8 +442,8 @@ through to a documented conservative default; see the field notes below.
   //
   // `refusedReach` is how THIS project reaches a branch live refuses (it changes
   // migrations) — the refusal, and `/spec-next`'s manual-steps `Next`, name it:
-  //   "worktree"     run it from the spec's worktree against your own database
-  //                  (`/spec-connect <spec>` where it has a stack)
+  //   "worktree"     run it from the spec's worktree against your own database,
+  //                  on its own dev ports (`spec-env dev up <spec>`)
   //   "pr"           share it as a draft PR for a pipeline to deploy (`/spec-pr`)
   //   "live-confirm" let live take it after a confirm: the refusal offers
   //                  `live take <spec> --allow-migrations` once per branch HEAD,
@@ -467,6 +467,10 @@ through to a documented conservative default; see the field notes below.
   //
   //   "snapshot": "pg_dump -Fc appdb > \"$SPEC_ENV_SNAPSHOT\"",
   //   "restore":  "pg_restore --clean -d appdb \"$SPEC_ENV_SNAPSHOT\""
+  //
+  // `host` is where `live take` probes each hot `dev` entry's frontPort, and
+  // the host the review page's `live:` URL names. Default "127.0.0.1". It
+  // replaces the retired `proxy.host`, which is still read when `host` is unset.
   "live": {
     "migrations": [],
     "afterSwitch": [],

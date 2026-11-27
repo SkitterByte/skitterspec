@@ -77,7 +77,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Engine drops connect and the proxy | ✅ | [01-engine.md](01-engine.md) |
-| 2 | Assets and docs point at `/spec-live` | ⬜ | [02-assets-docs.md](02-assets-docs.md) |
+| 2 | Assets and docs point at `/spec-live` | ✅ | [02-assets-docs.md](02-assets-docs.md) |
 
 ## Open questions
 
@@ -92,3 +92,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   deleted; `portsHeld` went with connect. The shipped config examples
   (`env.config.md`, `env.config.json.example`) dropped `proxy` here rather
   than in phase 2, because a test rejects any key the engine ignores.
+- 2026-11-27 — Phase 2: the retired command needed no registration —
+  commands are discovered from the asset folder, so deleting it is what
+  lets `update` prune the pristine copy (and keep an edited one). The
+  MIGRATION entry was written once in the root guide and copied to each
+  package. `connect` stays in the documented `spec-env` verb lists, since
+  the stub is still a verb.

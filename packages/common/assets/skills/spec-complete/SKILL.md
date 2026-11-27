@@ -522,10 +522,7 @@ worktree and branch are being kept, and go straight to sub-step 4. Mention
    Put what you found in the report's `Notes` row.
    Silent when nothing is waiting, which is the usual case.
 
-1. **Disconnect the proxy if this spec is connected.** If `.spec-env/connected`
-   names this spec, run `skitterspec spec-env connect off` first so the
-   canonical ports go back to the primary checkout.
-2. **Stop its host dev servers:** `skitterspec spec-env dev down <name>` (a
+1. **Stop its host dev servers:** `skitterspec spec-env dev down <name>` (a
    no-op when none are running / configured).
 **Standing in the worktree? Leave it before you tear it down.** If this session's
 cwd is inside the spec's own worktree — the normal case in `worktree` mode, since
