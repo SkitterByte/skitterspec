@@ -76,3 +76,4 @@ AssertionError [ERR_ASSERTION]: the provider skill is seeded as its folder
 - 2026-11-27 — Bug reproduced; failing test added (red).
 - 2026-11-27 — Fixed: `localSeedFiles` reads the manifest's records as well as
   the base asset list; test green.
+- 2026-11-27 — Completed; all phases done, tests green.
