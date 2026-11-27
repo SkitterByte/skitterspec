@@ -132,3 +132,5 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   raises no picker (`assets-offered-unblocks.test.js` pins it). The engine's
   refusal prints the snapshot offer as `<label>: <command>`, which the
   operator runs; the reach-naming `Next` in `/spec-next` names it.
+- 2026-11-27 — Completed; all phases done, tests green. Re-read
+  docs/index.html for the impact check and stamped it.
