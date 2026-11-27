@@ -1,16 +1,16 @@
 {
-  "issue": "65b7942b5b09366f8b7b9dd14dcd87bd15acbb53",
+  "issue": "84b78652187d36904aa73a36277b6d45a67102bf",
   "issueFields": {
-    "description": "b3bcc08a707c8cddf3ad5985c28730c6eaa9c808",
+    "description": "36807c1bbd2235b6871bb95a0395d2a2d53890c8",
     "state": "d49a92cbdeee6dc3536e539fa47da98528634fa1",
-    "descriptionStream": "07766a68b353e5414eeeef41927d845eb7cd9755"
+    "descriptionStream": "9294746d30c865b5241173bf5e87284f58b3ad27"
   },
   "subIssues": {
     "#338": "204ce7e2f9f78c44ff010450b7507b757b23dc76",
-    "#339": "b8bf2ee34c72785a4cafb3996582a4aa052a5c88"
+    "#339": "462bb387c0f36b1f4bfaceaa98427061f5d162b0"
   },
   "subIssueStreams": {
     "#338": "c14b9bda7be8df0375e287e081ef1a3740e42743",
-    "#339": "60727588f9e404b162b483db607fc0804bc59fa2"
+    "#339": "dbaeb0b9a9f481e2bbeafcba6ed5ee03ee9208dd"
   }
 }

@@ -2,9 +2,9 @@
 github_issue_id: "#339"
 ---
 
-# Phase 2 — Skill, issue forms and triage wiring 🔄
+# Phase 2 — Skill, issue forms and triage wiring ✅
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** In progress
+> Spec: [00-overview.md](00-overview.md) · **Status:** Done
 
 **Goal:** `/spec-report-issue` ships in every distribution and drafts from
 the allowlist, previews, then opens. Reports land labelled `triage` and show
@@ -35,7 +35,12 @@ up in `/spec --from-issue`.
 
 ## Manual steps
 
-- [ ] Create the `triage` label on SkitterByte/skitterspec (Issues → Labels →
+- [x] Create the `triage` label on SkitterByte/skitterspec (Issues → Labels →
       New label). `bug` and `enhancement` already exist
-- [ ] After landing, file a test report from another project with
-      `/spec-report-issue`. Check that it arrives labelled, then close it
+
+## Notes
+
+After landing, check once: file a test report from another project with
+`/spec-report-issue`, see it arrive labelled `triage`, then close it. GitHub
+reads issue forms from the default branch only, so this cannot run before
+the spec lands.
