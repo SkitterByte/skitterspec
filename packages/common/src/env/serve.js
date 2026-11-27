@@ -1125,12 +1125,18 @@ function serverHooks(dir, config) {
       // epic's own documents at this same address, with verdict buttons, and
       // that page must still be the one a reader gets while the documents are
       // uncommitted. Every other epic address is the epic page.
-      if (isEpic(folder)) {
-        const one = resolveOne(folder)
+      //
+      // A SPECLESS RECORD WINS OVER THE PREFIX (bug-specless-epic-prefix-404).
+      // `isEpic` reads only the name, and `/no-spec epic-parent-snapshots` is a
+      // chore branch with no epic overview: routed to the epic page, it 404'd.
+      // The registry's record is a positive signal, so a name it claims is that
+      // branch's page whatever it starts with.
+      const one = resolveOne(folder)
+      if (isEpic(folder) && !(one && one.specless)) {
         const view = one ? viewFor(dir, config, one, trimmedGit) : null
         if (!view || view.kind !== 'docs') return epicPage(folder)
       }
-      return renderSpecPage(dir, config, resolveOne(folder), opts)
+      return renderSpecPage(dir, config, one, opts)
     },
     receive: (folder, blob) => receivePass(dir, config, resolveOne(folder), blob),
     // The run index, built per request from the run record and the report
