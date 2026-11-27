@@ -5,6 +5,26 @@ What's new for users of skitterspec. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 25.0.0 — 27 Nov 2026
+
+**Highlights:** Per-spec Docker stacks are gone: every spec now gets a plain worktree, and an old docker config key or Stack: worktree + docker header is ignored with a notice instead of starting a stack.
+
+### Env
+- **Action required** — /spec-connect is gone: /spec-live is now the one way to try a spec on your usual ports, and spec-env dev up runs a spec on its own ports. A leftover proxy block in env.config.json is ignored with a notice, and its host is read as live.host until you move it.
+- **Action required** — Per-spec Docker stacks are gone: every spec now gets a plain worktree, and an old docker config key or Stack: worktree + docker header is ignored with a notice instead of starting a stack.
+
+### Epic
+- **Fixed** — An epic no longer counts a member that has a spec worktree but was never started as in flight, so it keeps its lane free and offers /spec-start for it instead of /spec-next.
+
+### Hotfix
+- **Fixed** — A hotfix carried onto your main branch, or onto an extra release tag, now records which hotfix commit it came from, so release tooling can match it even when the patch changed.
+
+### Live
+- **New** — A project can now let /spec-live take a branch that changes migrations: the dev database is snapshotted first and restored when the spec is handed back, so it is left as it was before.
+
+### Review
+- **Fixed** — A /no-spec branch whose name starts with epic- now gets a working review page instead of a 404.
+
 ## 24.1.0 — 27 Nov 2026
 
 **Highlights:** You can report a skitterspec bug or feature request from any project with /spec-report-issue. Claude drafts it, shows exactly what will be shared, and opens a prefilled GitHub form for you to submit, instead of leaving a note to paste elsewhere.
