@@ -5,6 +5,17 @@ What's new for users of skitterspec-github. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 4.1.0 — 27 Nov 2026
+
+**Highlights:** You can report a skitterspec bug or feature request from any project with /spec-report-issue. Claude drafts it, shows exactly what will be shared, and opens a prefilled GitHub form for you to submit, instead of leaving a note to paste elsewhere.
+
+### Install
+- **New** — skitterspec report-issue prepares a bug report or feature request for skitterspec from any project, with your paths and project name removed, and opens a prefilled GitHub form for you to submit.
+- **Fixed** — Worktrees of a local install now get your provider's own skills, such as /spec-push and /spec-status, instead of only the base ones.
+
+### Skills
+- **New** — You can report a skitterspec bug or feature request from any project with /spec-report-issue. Claude drafts it, shows exactly what will be shared, and opens a prefilled GitHub form for you to submit, instead of leaving a note to paste elsewhere.
+
 ## 4.0.0 — 26 Nov 2026
 
 **Highlights:**
