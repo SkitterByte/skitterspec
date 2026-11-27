@@ -37,6 +37,27 @@ config; what it set simply stops doing anything:
 want with `docker volume ls` and `docker volume rm` yourself. A spec that needs a
 database tests against your own dev database, the way `/spec-live` does.
 
+## `@skitterbyte/skitterspec` v24 → v25 (one live workbench: no Docker stacks, no `/spec-connect`)
+
+Two removals, both above:
+[`/spec-connect` is removed](#spec-connect-is-removed-action-required-if-you-used-it) and
+[Per-spec Docker stacks are removed](#per-spec-docker-stacks-are-removed-action-required-if-you-used-them).
+`/spec-live` can also take a migrations branch now, snapshotting the dev
+database first and restoring it on release (`live.refusedReach: "snapshot"`
+with `live.snapshot` and `live.restore`; see `specs/.core/env.config.md`).
+
+## `@skitterbyte/skitterspec-github` v4 → v5 (one live workbench: no Docker stacks, no `/spec-connect`)
+
+The providers ship the base skills and engine, so both removals apply here
+too: [`/spec-connect` is removed](#spec-connect-is-removed-action-required-if-you-used-it) and
+[Per-spec Docker stacks are removed](#per-spec-docker-stacks-are-removed-action-required-if-you-used-them).
+
+## `@skitterbyte/skitterspec-azure-boards` v4 → v5 (one live workbench: no Docker stacks, no `/spec-connect`)
+
+The providers ship the base skills and engine, so both removals apply here
+too: [`/spec-connect` is removed](#spec-connect-is-removed-action-required-if-you-used-it) and
+[Per-spec Docker stacks are removed](#per-spec-docker-stacks-are-removed-action-required-if-you-used-them).
+
 ## PR-mode verbs, and no command says `main` (action required)
 
 Four names are gone, with no alias. `skitterspec update` retires the old skill
