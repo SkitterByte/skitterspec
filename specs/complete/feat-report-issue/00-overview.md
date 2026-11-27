@@ -156,3 +156,5 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-11-27 — Phase 2: `triage` label created. The test-report step moved
   to a post-landing check in the phase Notes, because issue forms only work
   from the default branch.
+- 2026-11-27 — Completed; all phases done, tests green. The test report
+  from another project is a post-landing check (phase 2 Notes).
