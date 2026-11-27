@@ -134,7 +134,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Engine verb: target, redaction, URL, duplicates | ⬜ | [01-engine-verb.md](01-engine-verb.md) |
+| 1 | Engine verb: target, redaction, URL, duplicates | ✅ | [01-engine-verb.md](01-engine-verb.md) |
 | 2 | Skill, issue forms and triage wiring | ⬜ | [02-skill-and-triage.md](02-skill-and-triage.md) |
 
 ## Open questions
@@ -144,3 +144,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-11-27 — Spec created.
+- 2026-11-27 — Phase 1: the `docs/reference.html` row moved forward from
+  phase 2, because `scripts/docs-claims.test.js` requires every top-level
+  command to be named on the site. The duplicate search matches titles only
+  (`in:title`), because searching bodies drew noise from spec issues.

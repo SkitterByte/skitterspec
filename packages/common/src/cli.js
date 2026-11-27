@@ -451,6 +451,12 @@ Usage:
                                 add <text>        capture one; first line is the title
                                 list              what is waiting (--count, --json)
                                 drop <id>         discard one (--reason <why>)
+  skitterspec report-issue    Send a bug or feature request to skitterspec's own
+                              issues: --kind bug|feature --title <t>
+                              --body-file <f> [--skill <name>]. Prints the
+                              redacted report, likely duplicates and a
+                              prefilled form URL; --open opens it. Nothing is
+                              filed until you press Submit. --json.
   skitterspec gating <cmd>    Release-gating check (opt-in; needs
                               specs/.core/gating.config.json). Subcommands:
                                 check [spec]      report specs with no recorded gating
@@ -9229,6 +9235,11 @@ async function run(argv) {
 
   if (cmd === 'idea') {
     process.exitCode = await require('./ideacmd.js').ideaCommand(rest)
+    return
+  }
+
+  if (cmd === 'report-issue') {
+    process.exitCode = await require('./report-issue.js').reportIssueCommand(rest)
     return
   }
 
