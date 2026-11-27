@@ -98,3 +98,5 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   MIGRATION entry was written once in the root guide and copied to each
   package. `connect` stays in the documented `spec-env` verb lists, since
   the stub is still a verb.
+- 2026-11-27 — Completed; all phases done, tests green. Re-read the four
+  provider docs pages for the impact check and stamped them.
