@@ -55,7 +55,7 @@ back. Fixes made while live commit straight onto the branch, and
   lifecycle skill invokes it.
 - It **refuses** a branch that touches migrations, which would change the
   shared database. `live.refusedReach` names how this project reaches one. Under
-  `live.refusedReach: \"snapshot\"`, the migrations refusal instead offers to
+  `live.refusedReach: "snapshot"`, the migrations refusal instead offers to
   snapshot the database before the take, and every hand-back restores it.
 - `live.afterSwitch` entries (`{ run, when }`) run in the primary checkout after
   taking and after releasing. The engine runs them itself.
