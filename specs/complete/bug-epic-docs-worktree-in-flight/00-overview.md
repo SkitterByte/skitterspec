@@ -82,3 +82,5 @@ leaves both lanes free. Run with
 
 - 2026-11-27 — Bug reproduced; failing test added (red).
 - 2026-11-27 — Fixed: a worktree copy in `backlog` files the member there; test green.
+- 2026-11-27 — Completed; tests green. `reference.html` covers `epic.js`. It
+  was re-read, found still true, and stamped.
