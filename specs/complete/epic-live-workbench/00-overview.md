@@ -76,3 +76,6 @@ derives the order from their `Waits on:` headers.
 
 - 2026-11-27 — Spec created. It grew out of "live with migrations under PR
   landing", widened when the Docker stacks were dropped.
+- 2026-11-27 — Completed; all three members landed: feat-drop-docker-stacks,
+  feat-live-db-snapshot, feat-drop-spec-connect. feat-connect-planner (#17)
+  was cancelled as superseded.
