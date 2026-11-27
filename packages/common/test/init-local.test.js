@@ -434,6 +434,69 @@ test('localSeedFiles lists skill folders and the per-machine files, and nothing 
   }
 })
 
+// bug-local-seed-provider-skills: the skills call the BASE engine, whose asset
+// list knows none of a provider's skills, while a provider's install records
+// them in the manifest. Simulated here by adding a provider skill to a base
+// install's primary checkout and manifest, exactly as the provider's init wrote.
+const addManifestEntries = (dir, rels) => {
+  const file = path.join(dir, 'specs', '.core', '.skitterspec-manifest.json')
+  const m = JSON.parse(fs.readFileSync(file, 'utf8'))
+  m.distribution = '@skitterbyte/skitterspec-azure-boards'
+  for (const r of rels) m.files[r] = '0'.repeat(40)
+  fs.writeFileSync(file, JSON.stringify(m, null, 2))
+}
+
+test('localSeedFiles seeds every skill the manifest records, whichever package owns it', async () => {
+  const dir = repo()
+  const wt = `${dir}-wt`
+  try {
+    await localInit(dir)
+    const skill = path.join(dir, '.claude', 'skills', 'spec-push')
+    fs.mkdirSync(skill, { recursive: true })
+    fs.writeFileSync(path.join(skill, 'SKILL.md'), '# spec-push\n')
+    addManifestEntries(dir, ['.claude/skills/spec-push/SKILL.md', '.claude/skills/spec-gone/SKILL.md'])
+    const seeds = localSeedFiles(dir)
+    assert.ok(seeds.includes('.claude/skills/spec-push'), 'the provider skill is seeded as its folder')
+    assert.ok(seeds.includes('.claude/skills/spec'), 'the base skills still are')
+    assert.strictEqual(new Set(seeds).size, seeds.length, 'no path twice')
+    git(dir, 'add', 'specs')
+    git(dir, 'commit', '-q', '-m', 'specs')
+    git(dir, 'worktree', 'add', '-q', wt, '-b', 'feat/x')
+    const steps = seeds.map((file) => ({ kind: 'seed', file, mode: 'symlink' }))
+    const res = runBootstrap(steps, { cwd: wt, mainRoot: dir, write: () => {} })
+    assert.ok(res.ok, 'a stale manifest entry never fails the bootstrap')
+    assert.ok(fs.existsSync(path.join(wt, '.claude', 'skills', 'spec-push', 'SKILL.md')))
+    const stale = res.results.find((r) => r.step.file === '.claude/skills/spec-gone')
+    assert.strictEqual(stale && stale.outcome, 'skipped', 'the stale entry is skipped, and said')
+    assert.match(stale.line, /not in the root checkout/)
+  } finally {
+    try {
+      git(dir, 'worktree', 'remove', '--force', wt)
+    } catch {
+      /* already gone */
+    }
+    cleanup(wt)
+    cleanup(dir)
+  }
+})
+
+test('a base-only local install seeds exactly its managed set', async () => {
+  const dir = repo()
+  try {
+    await localInit(dir)
+    const { managedTargets } = require('../src/init.js')
+    const managed = new Set(
+      managedTargets(dir).map((t) => (t.relPath.startsWith('.claude/skills/') ? path.posix.dirname(t.relPath) : t.relPath)),
+    )
+    const extra = localSeedFiles(dir).filter(
+      (p) => !managed.has(p) && !['CLAUDE.local.md', '.claude/settings.local.json'].includes(p) && !p.endsWith('.skitterspec-manifest.json') && p !== '.claude/rules/project-conventions.md',
+    )
+    assert.deepStrictEqual(extra, [], 'stays silent: the manifest adds nothing the base does not already seed')
+  } finally {
+    cleanup(dir)
+  }
+})
+
 test('worktreeSteps seeds the local install first and never twice', () => {
   const spec = { slug: 'x', branch: 'feat/x', projectName: 'p', worktreePath: '/wt' }
   const config = { seedFiles: { mode: 'symlink', files: ['.env', 'CLAUDE.local.md'] }, setup: [] }

@@ -1495,9 +1495,22 @@ function localExcludes(dir) {
 // THE MANIFEST IS SEEDED because it is what records the scope: without it a
 // worktree's `update` read team and wrote the block into the tracked CLAUDE.md
 // and the hooks into a new .claude/settings.json (bug-local-scope-worktree).
+//
+// THE MANIFEST'S OWN RECORDS ARE SEEDED TOO (bug-local-seed-provider-skills).
+// The skills call the base engine, whose asset list knows nothing of the
+// provider that wrote this install — so a provider's /spec-push and the rest
+// never reached a worktree. The manifest records every path the installing
+// distribution manages, whichever package that was: a positive signal. An
+// entry whose source has gone from the primary checkout costs nothing here —
+// `runSeed` skips it and says so, never failing the bootstrap.
 function localSeedFiles(dir) {
-  if (readManifest(dir).scope !== 'local') return []
-  return [...localManagedPaths(dir), CONVENTIONS_FILE.replace(/\\/g, '/'), '.claude/settings.local.json', 'CLAUDE.local.md', MANIFEST_FILE.replace(/\\/g, '/')]
+  const manifest = readManifest(dir)
+  if (manifest.scope !== 'local') return []
+  const recorded = Object.keys(manifest.files).map((p) =>
+    p.startsWith('.claude/skills/') ? p.split('/').slice(0, 3).join('/') : p,
+  )
+  const managed = [...new Set([...localManagedPaths(dir), ...recorded])]
+  return [...managed, CONVENTIONS_FILE.replace(/\\/g, '/'), '.claude/settings.local.json', 'CLAUDE.local.md', MANIFEST_FILE.replace(/\\/g, '/')]
 }
 
 const EXCLUDE_START = '# >>> skitterspec (local install)'
