@@ -21,7 +21,7 @@ const { test } = require('node:test')
 const assert = require('node:assert')
 const net = require('node:net')
 
-const { portsInUse, portsInUseOn } = require('../src/env/proxy.js')
+const { portsInUse, portsInUseOn } = require('../src/env/ports.js')
 
 function squat(port, host) {
   return new Promise((resolve, reject) => {

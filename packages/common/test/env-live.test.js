@@ -223,7 +223,8 @@ test('planTake always refuses a hotfix, regardless of stack', () => {
   const plan = planTake({ ...SPEC, folder: 'hotfix-x', type: 'hotfix', stack: 'worktree' }, {}, okCtx())
   assert.strictEqual(plan.blocked, true)
   assert.match(plan.reason, /hotfix/)
-  assert.match(plan.reason, /spec-connect/)
+  assert.match(plan.reason, /spec-env dev up hotfix-x/)
+  assert.doesNotMatch(plan.reason, /spec-connect/)
 })
 
 test('planTake refuses a branch that changes migrations', () => {

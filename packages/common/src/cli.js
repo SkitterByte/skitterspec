@@ -274,13 +274,7 @@ const { formatTada } = require('./tada/format.js')
 const { LOOKBACK_DAYS, activityTimes, lastActiveDay, readBlockers, buildTodo, formatTodo } = require('./tada/todo.js')
 const { renderTadaPage } = require('./tada/page.js')
 const { startProcess, stopProcess, waitHealthy, readPid, isAlive } = require('./env/supervise.js')
-const {
-  renderRoutes,
-  portsHeld,
-  portsAnswering,
-  portsInUseOn,
-  waitListening,
-} = require('./env/proxy.js')
+const { portsAnswering, portsInUseOn, waitListening } = require('./env/ports.js')
 const {
   mintToken,
   servableSpecs,
@@ -366,7 +360,7 @@ Usage:
                                 dev up <spec>     start host dev servers on the spec's ports
                                 dev down <spec>   stop the spec's host dev servers
                                                   (--plan on either: describe, touch nothing)
-                                connect <spec>    expose a spec on the canonical ports (main = off)
+                                connect           retired — points to /spec-live and dev up
                                 integrate <spec>  plan the land: rebase + fast-forward, or in PR
                                                   mode push + PR (--push, --draft, --strategy);
                                                   --docs: under specDocs "branch", publish only
@@ -7320,21 +7314,6 @@ function repoToken(dir, config) {
   return minted
 }
 
-// The supervised proxy process descriptor (paths relative to the checkout root).
-function proxyProcFor(config, routesFileAbs) {
-  const sdir = stateDirLabel(config)
-  return {
-    name: 'proxy',
-    // `argv` is what runs — node itself, no shell (bug-review-serve-spawn-sh).
-    // `command` is the same thing for a person to read.
-    argv: [process.execPath, path.join(__dirname, 'env', 'proxy.js'), routesFileAbs],
-    command: `node ${shellPath(path.join(__dirname, 'env', 'proxy.js'))} ${shellPath(routesFileAbs)}`,
-    env: {},
-    logFile: `${sdir}/logs/proxy.log`,
-    pidFile: `${sdir}/pids/proxy.pid`,
-  }
-}
-
 // Where a checkout keeps its copy of the daemon, relative to its root: this
 // monorepo developing itself, and a project that installed the package. Naming
 // the distribution here is a path, not provider machinery — `init.js` and
@@ -7901,113 +7880,17 @@ function serveUrl(hostname, { port, token }) {
   return `http://${hostname}:${port}/${token ? token + '/' : ''}`
 }
 
-// Connect the canonical origin to ONE spec (exclusive model): (re)start the
-// bundled proxy pointing at that spec's warm dev servers. `connect off` stops
-// the proxy so the primary checkout owns the canonical ports again.
-async function specEnvConnect(dir, config, specArg) {
-  // Both verbs exist to route around the work living somewhere other than the
-  // checkout you are in — a proxy to a second stack, or a temporary branch swap.
-  // Checkout mode closes that gap permanently, so there is nothing to route.
-  if (config.mode === 'checkout') {
-    process.stdout.write(
-      'spec-env connect: not applicable in checkout mode — the spec is built in the ' +
-        'primary checkout, so your dev server already serves it on the canonical ports.\\n',
-    )
-    return
-  }
-  const sdir = stateDirLabel(config)
-  const abs = (rel) => path.resolve(dir, rel)
-  const routesFile = `${sdir}/proxy.json`
-  const connectedFile = `${sdir}/connected`
-  const proxyProc = proxyProcFor(config, abs(routesFile))
-
-  // DISCONNECT IS NAMED, NOT ASSUMED. A missing spec used to mean `main` — so
-  // the bare form handed the ports BACK, the one verb in the family whose
-  // zero-arg behaviour was the opposite of acting on your spec. It now resolves
-  // like every other verb: the worktree you are standing in, else the sole
-  // provisioned spec, else a refusal that names the candidates.
-  //
-  // This reverses `feat-script-only-commands` Decision 8, deliberately and as
-  // the whole point of the change rather than as a side effect of one — see
-  // `feat-bare-argument-parity`. `off` hands the ports back whatever the base
-  // branch is called, matching `live off` — the word names the act, not a
-  // branch, so it reads true on a `master` or `2026/Q4` repo. Naming the base
-  // branch itself still works (feat-pr-mode-verbs dropped the literal `main`).
-  const base = resolveBaseBranch(config, gitReader(dir))
-  if (specArg === 'off' || specArg === base) {
-    const res = await stopProcess(proxyProc, { rootDir: dir })
-    for (const f of [connectedFile, routesFile]) {
-      try {
-        fs.unlinkSync(abs(f))
-      } catch {
-        /* not connected */
-      }
-    }
-    process.stdout.write(
-      res.stopped
-        ? 'spec-connect: disconnected — the primary checkout owns the canonical ports again.\n'
-        : 'spec-connect: nothing was connected — the primary checkout already owns the ports.\n',
-    )
-    return
-  }
-
-  // Ambiguity REFUSES here rather than degrading. `live` can fall back to its
-  // status report; `connect` has no read-only answer to fall back to, and a
-  // fallback to `main` would reinstate the very inversion above — disconnecting
-  // you at the moment you are least sure what is connected.
-  const spec = resolveSpecWithWorktree(dir, config, specArg)
-  const registry = readRegistry(dir, config)
-  if (!Object.prototype.hasOwnProperty.call(registry.slots, spec.folder)) {
-    process.stdout.write(
-      `spec-connect: ${spec.folder} has no reserved ports yet — ` +
-        `run \`skitterspec spec-env dev up ${spec.folder}\` first.\n`,
-    )
-    return
-  }
-
-  const plan = planDev(spec, registry.slots[spec.folder], config)
-  const routes = renderRoutes(plan.procs)
-  if (!routes.length) {
-    process.stdout.write(
-      'spec-connect: no dev process declares a frontPort — nothing to expose.\n',
-    )
-    return
-  }
-
-  // Stop any proxy we already run (a previous connect), freeing the canonical
-  // ports, then refuse if the primary checkout still holds one of them.
-  await stopProcess(proxyProc, { rootDir: dir })
-  const busy = await portsHeld(routes.map((r) => r.frontPort), config.proxy.host)
-  if (busy.length) {
-    process.stdout.write(
-      `spec-connect: canonical port(s) ${busy.join(', ')} are in use (your root checkout's dev server?).\n` +
-        'Stop it on those ports, then re-run spec-connect.\n',
-    )
-    return
-  }
-
-  fs.mkdirSync(abs(sdir), { recursive: true })
-  fs.writeFileSync(abs(routesFile), JSON.stringify(routes, null, 2) + '\n')
-  const res = startProcess(proxyProc, { cwd: dir, rootDir: dir })
-  fs.writeFileSync(abs(connectedFile), spec.folder + '\n')
-
-  const ready = await waitListening(
-    routes.map((r) => r.frontPort),
-    { host: config.proxy.host },
+// `spec-env connect` is retired (feat-drop-spec-connect): `/spec-live` is the
+// one way to try a spec on the canonical ports, and a spec's own dev servers
+// are reachable on their own ports through `spec-env dev up`. The verb stays as
+// a one-line pointer, exit 0, so a script or habit that still types it is told
+// where to go rather than handed an unknown-verb error.
+function specEnvConnect(specArg) {
+  const spec = specArg && specArg !== 'off' ? specArg : '<spec>'
+  process.stdout.write(
+    'spec-env connect: retired — use `/spec-live` to try a spec on your usual ports, ' +
+      `or \`skitterspec spec-env dev up ${spec}\` for its own dev ports.\n`,
   )
-
-  const out = [
-    `spec-connect: ${spec.folder} → canonical ports (proxy pid ${res.pid})` +
-      (ready ? '' : '  [WARNING: proxy did not come up — see .spec-env/logs/proxy.log]'),
-  ]
-  for (const r of routes) {
-    out.push(
-      `  http://${config.proxy.host}:${r.frontPort}  →  ${r.name} (127.0.0.1:${r.targetPort})`,
-    )
-  }
-  out.push('')
-  out.push('  Disconnect with: skitterspec spec-env connect off')
-  process.stdout.write(out.join('\n') + '\n')
 }
 
 // Dispatch `skitterspec spec-env <sub> [args] [--dir path]`. No-ops with a clear
@@ -8096,7 +7979,7 @@ const LIVE_VERBS = new Set(['status', 'take', 'release', 'abort', 'restore'])
 // the base branch are matched BEFORE the spec-name fallback, so a spec folder
 // that happens to be called `status` cannot silently branch-switch the primary
 // checkout. Such a spec is still reachable — as `live take status`. `off`
-// releases whatever the base branch is called, matching `connect off`; naming
+// releases whatever the base branch is called; naming
 // the base branch itself still works. The literal `main` was dropped with no
 // alias (feat-pr-mode-verbs): it named a branch most rc-flow repos lack.
 function liveGrammar(dir, config, positional) {
@@ -8234,7 +8117,7 @@ async function specEnvLiveTake(dir, config, specArg, flags = {}) {
   const canonicalPorts = hotDev.map((d) => d.frontPort).filter((p) => typeof p === 'number')
   let serverUp = null
   if (canonicalPorts.length) {
-    const up = await portsAnswering(canonicalPorts, config.proxy.host)
+    const up = await portsAnswering(canonicalPorts, config.live.host)
     serverUp = up.length === canonicalPorts.length
   }
 
@@ -8693,7 +8576,7 @@ function liveContext(dir, config, spec, { onBase, primaryBranch }) {
     worktreeExists: Boolean(spec && spec.worktreePath && fs.existsSync(spec.worktreePath)),
     // Null where the project configured no canonical port — there is no URL to
     // name, and inventing one would send the reader to a closed port.
-    url: front ? `http://${(config.proxy && config.proxy.host) || 'localhost'}:${front}` : null,
+    url: front ? `http://${(config.live && config.live.host) || 'localhost'}:${front}` : null,
   }
 }
 
@@ -8924,7 +8807,7 @@ async function specEnvDispatch(sub, dir, config, positional, flags, present, inv
       await specEnvDev(dir, config, positional, flags)
       break
     case 'connect':
-      await specEnvConnect(dir, config, positional[0])
+      specEnvConnect(positional[0])
       break
     case 'integrate':
       specEnvIntegrate(dir, config, positional[0], flags)
@@ -9025,8 +8908,7 @@ async function specEnvDispatch(sub, dir, config, positional, flags, present, inv
           '  in is used, else the sole provisioned spec (several -> it lists them).\n' +
           '  A bare `live` takes that spec when the workbench is free, and prints the\n' +
           '  status report when it cannot tell. `live status` still reports on the\n' +
-          '  whole repo. `live off` / `connect off` (or your base branch) hand the\n' +
-          '  instance and the ports back.\n',
+          '  whole repo. `live off` (or your base branch) hands the instance back.\n',
       )
   }
 }

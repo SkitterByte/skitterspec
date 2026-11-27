@@ -328,7 +328,7 @@ function afterSwitchFor(config, c) {
  */
 function migrationsRefusal(spec, reach, askedToAllow, askedToSnapshot) {
   const head = `${spec.folder}'s branch changes migrations — live overlay is code-only`
-  const fromWorktree = `run it from its worktree (${spec.worktreePath}; \`/spec-connect ${spec.folder}\` where it has a stack)`
+  const fromWorktree = `run it from its worktree (${spec.worktreePath}) on its own dev ports (\`skitterspec spec-env dev up ${spec.folder}\`)`
   const asPr = 'share it as a draft PR for a pipeline to deploy (`/spec-pr`)'
   const unasked =
     (askedToAllow && reach !== 'live-confirm' ? '; --allow-migrations needs `live.refusedReach: "live-confirm"`' : '') +
@@ -482,11 +482,12 @@ function planTake(spec, config, ctx) {
   }
   // 4. A hotfix is built on an old release tag; checking its branch out under the
   //    running dev server risks schema/DB drift breaking the shared instance.
-  //    Always refuse — test it in isolation via /spec-connect.
+  //    Always refuse — try it on its own dev ports instead.
   if (spec.type === 'hotfix') {
     return block(
       `${spec.folder} is a hotfix (built on an old release tag) — live overlay ` +
-        'could break the running instance; use `/spec-connect` to test it in isolation',
+        'could break the running instance; try it on its own dev ports with ' +
+        `\`skitterspec spec-env dev up ${spec.folder}\``,
     )
   }
   // 5. Refuse a branch that changes migrations (would mutate the shared DB).

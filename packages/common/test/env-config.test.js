@@ -172,10 +172,10 @@ test('ignores unknown keys for forward-compat', () => {
 
 test('wrong-typed values are ignored (keep the default)', () => {
   const dir = tmpDir()
-  writeEnvConfig(dir, { ports: { base: 'nope' }, proxy: { enabled: 'yes' } })
+  writeEnvConfig(dir, { ports: { base: 'nope' }, live: { host: 7 } })
   const { config } = loadEnvConfig(dir)
   assert.strictEqual(config.ports.base, 3000)
-  assert.strictEqual(config.proxy.enabled, true)
+  assert.strictEqual(config.live.host, '127.0.0.1')
 })
 
 test('throws a clear error on malformed JSON', () => {
@@ -313,13 +313,34 @@ test('dev drops malformed entries (missing required fields / wrong types)', () =
   assert.ok(!('frontPort' in config.dev[1]))
 })
 
-test('proxy defaults and merges field-by-field', () => {
+test('live.host defaults to loopback and is read from live.host', () => {
   const dir = tmpDir()
-  assert.deepStrictEqual(loadEnvConfig(dir).config.proxy, { enabled: true, host: '127.0.0.1' })
-  writeEnvConfig(dir, { proxy: { enabled: false } })
-  const { config } = loadEnvConfig(dir)
-  assert.strictEqual(config.proxy.enabled, false)
-  assert.strictEqual(config.proxy.host, '127.0.0.1') // untouched default
+  assert.strictEqual(loadEnvConfig(dir).config.live.host, '127.0.0.1')
+  writeEnvConfig(dir, { live: { host: '0.0.0.0' } })
+  assert.strictEqual(loadEnvConfig(dir).config.live.host, '0.0.0.0')
+})
+
+test('the retired proxy block is ignored with a notice; proxy.host falls back to live.host', () => {
+  const dir = tmpDir()
+  writeEnvConfig(dir, { proxy: { enabled: false, host: '192.168.1.5' } })
+  const loaded = loadEnvConfig(dir)
+  assert.strictEqual(loaded.config.proxy, undefined, 'no proxy block on the config')
+  assert.strictEqual(loaded.config.live.host, '192.168.1.5')
+  assert.deepStrictEqual(loaded.deprecated.map((d) => d.key), ['proxy'])
+  assert.match(loaded.deprecated[0].note, /proxy\.host is read as live\.host/)
+  assert.deepStrictEqual(loaded.unknown, [], 'never reported as unknown')
+  // live.host wins when both are set.
+  writeEnvConfig(dir, { proxy: { host: '192.168.1.5' }, live: { host: '10.0.0.2' } })
+  assert.strictEqual(loadEnvConfig(dir).config.live.host, '10.0.0.2')
+})
+
+// Stays silent: the config every project has — no proxy key — raises nothing.
+test('stays silent: a config with no proxy key prints no notice', () => {
+  const dir = tmpDir()
+  writeEnvConfig(dir, { ports: { base: 4000 } })
+  const loaded = loadEnvConfig(dir)
+  assert.deepStrictEqual(loaded.deprecated, [])
+  assert.deepStrictEqual(loaded.unknown, [])
 })
 
 test('DEFAULT_CONFIG is exported and frozen', () => {

@@ -250,126 +250,22 @@ test('stays silent: no specs/in-progress/ directory on disk still resolves', asy
 
 // --- the meanings Decision 8 protects ---------------------------------------
 
-// INVERTED, deliberately. This test used to assert that `connect` with no spec
-// still meant `main` — i.e. that the bare form DISCONNECTED. That was
-// `feat-script-only-commands` Decision 8: zero-arg resolution must never replace
-// an existing meaning, and it named this exact case as the risk ("silently
-// invert `spec-env connect` from 'hand the ports back' to 'seize them'").
-//
-// `feat-bare-argument-parity` supersedes it. That decision was right about a
-// SIDE EFFECT — it guarded a general change from quietly altering two verbs
-// nobody was thinking about. Here the alteration is the whole point, it ships
-// with its own release note, and the word doing the work in Decision 8 is
-// *silently*. The old test is not wrong; it is superseded, which is why this
-// comment exists instead of a deletion.
-// NAMED FOR WHAT IT ASSERTS. This checks RESOLUTION — that a missing spec
-// reaches `resolveSpecWithWorktree` and produces `feat-alpha` — not that
-// anything connected. `specEnvConnect` returns early on the registry-slot check
-// (`has no reserved ports yet`) long before it plans routes or starts the proxy,
-// and this fixture has `docker.enabled: false` and no `dev` block, so no slot is
-// ever allocated and that early return is always where it stops.
-//
-// BLIND SPOT, recorded rather than papered over: nothing in this repo exercises
-// the rest of `specEnvConnect` — planDev, renderRoutes, startProcess, the
-// `connected` file. The only other coverage is one `doesNotMatch(/spec not
-// found/)` in cli-spec-env-dev.test.js. A test called "connects …" would have
-// hidden that gap behind a reassuring name.
-test('`connect` with no spec resolves the sole provisioned spec', async () => {
+// `connect` is retired (feat-drop-spec-connect): every form prints one line
+// pointing at `/spec-live`, exits 0, and touches nothing — no proxy started,
+// no state file written, whatever the spec argument.
+test('`connect` is a stub that points to /spec-live, in every form', async () => {
   const dir = scaffold()
   try {
     addSpec(dir, 'feat-alpha')
     addWorktree(dir, 'feat-alpha')
-    const out = await runQuiet(['spec-env', 'connect', '--dir', dir])
-    assert.match(out, /feat-alpha/, 'resolved the sole spec rather than disconnecting')
-    assert.doesNotMatch(out, /nothing was connected/, 'did not fall back to main')
-  } finally {
-    cleanup(dir)
-  }
-})
-
-test('stays silent: `connect off` still hands the ports back', async () => {
-  // The disconnect form did not move — it just has to be named now.
-  const dir = scaffold()
-  try {
-    addSpec(dir, 'feat-alpha')
-    addWorktree(dir, 'feat-alpha')
-    const out = await runQuiet(['spec-env', 'connect', 'off', '--dir', dir])
-    assert.match(out, /nothing was connected|primary checkout already owns|disconnected/)
-    assert.doesNotMatch(out, /feat-alpha/, 'did not seize the ports')
-  } finally {
-    cleanup(dir)
-  }
-})
-
-test('`connect` with several worktrees refuses and names them', async () => {
-  // No read-only report to degrade to, so this REFUSES rather than falling back
-  // — a fallback to `main` would reinstate the inversion above at exactly the
-  // moment the user is least sure what is connected.
-  const dir = scaffold()
-  try {
-    addSpec(dir, 'feat-alpha')
-    addWorktree(dir, 'feat-alpha')
-    addSpec(dir, 'feat-beta')
-    addWorktree(dir, 'feat-beta')
-    await assert.rejects(
-      () => runQuiet(['spec-env', 'connect', '--dir', dir]),
-      (err) => {
-        assert.match(err.message, /2 specs have worktrees/)
-        assert.match(err.message, /feat-alpha/)
-        assert.match(err.message, /feat-beta/)
-        return true
-      },
-    )
-  } finally {
-    cleanup(dir)
-  }
-})
-
-// `live status` keeps its zero-arg meaning, and that is NOT an oversight now
-// that its sibling above has inverted. A missing spec after an explicit verb is
-// a different question from a missing verb: `live status` was asked for a
-// report, and the repo-wide one is the answer. `feat-bare-argument-parity`
-// changed only the bare form.
-test('`connect` with no spec resolves the worktree you are standing in', async () => {
-  // The strongest signal, and the one that carries this feature in practice:
-  // several worktrees is the normal shape, so "the only one" rarely resolves.
-  const dir = scaffold()
-  const cwd = process.cwd()
-  try {
-    addSpec(dir, 'feat-alpha')
-    const wt = addWorktree(dir, 'feat-alpha')
-    addSpec(dir, 'feat-beta')
-    addWorktree(dir, 'feat-beta')
-    process.chdir(wt)
-    const out = await runQuiet(['spec-env', 'connect', '--dir', dir])
-    assert.match(out, /feat-alpha/, 'named by cwd, not by the ambiguous set')
-    assert.doesNotMatch(out, /feat-beta/)
-  } finally {
-    process.chdir(cwd)
-    cleanup(dir)
-  }
-})
-
-test('stays silent: `connect <base>` disconnects where the base is not main', async () => {
-  // The same courtesy `live` extends: the configured base branch is a disconnect
-  // word, and `off` works in either repo (the literal `main` was dropped).
-  const dir = scaffold()
-  try {
-    fs.writeFileSync(
-      path.join(dir, 'specs', '.core', 'env.config.json'),
-      JSON.stringify({ baseBranch: 'trunk', docker: { enabled: false } }, null, 2),
-    )
-    git(dir, 'add', '-A')
-    git(dir, 'commit', '-q', '-m', 'rename base')
-    git(dir, 'branch', '-M', 'trunk')
-    addSpec(dir, 'feat-alpha')
-    addWorktree(dir, 'feat-alpha')
-
-    for (const word of ['trunk', 'off']) {
-      const out = await runQuiet(['spec-env', 'connect', word, '--dir', dir])
-      assert.match(out, /nothing was connected|primary checkout already owns|disconnected/, word)
-      assert.doesNotMatch(out, /feat-alpha/, `${word} did not seize the ports`)
+    for (const args of [[], ['feat-alpha'], ['off']]) {
+      const out = await runQuiet(['spec-env', 'connect', ...args, '--dir', dir])
+      assert.match(out, /^spec-env connect: retired — use `\/spec-live`/, args.join(' ') || '(bare)')
+      assert.match(out, /spec-env dev up (feat-alpha|<spec>)/)
+      assert.strictEqual(out.trim().split('\n').length, 1, 'one line')
     }
+    assert.ok(!fs.existsSync(path.join(dir, '.spec-env', 'connected')), 'no connected file')
+    assert.ok(!fs.existsSync(path.join(dir, '.spec-env', 'proxy.json')), 'no routes file')
   } finally {
     cleanup(dir)
   }

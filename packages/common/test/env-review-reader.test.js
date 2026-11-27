@@ -24,7 +24,7 @@ const path = require('node:path')
 const { execFileSync } = require('node:child_process')
 
 const { detectReader, resolveReader } = require('../src/env/review.js')
-const { portsInUseOn } = require('../src/env/proxy.js')
+const { portsInUseOn } = require('../src/env/ports.js')
 const { signalGroup } = require('../src/env/supervise.js')
 const { loadEnvConfig } = require('../src/env/config.js')
 const { run } = require('../src/cli.js')

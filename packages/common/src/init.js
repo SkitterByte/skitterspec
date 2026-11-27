@@ -1397,7 +1397,7 @@ function printReport(dir, mode, { diff = false } = {}) {
         ' specs/.core/SETUP.md.\n'
   process.stdout.write(
     '\nDone. Skills resolve as /spec, /spec-start, /spec-next, /spec-complete,' +
-      ' /spec-bug, /spec-review, /spec-init, /spec-connect.\n' +
+      ' /spec-bug, /spec-review, /spec-init, /spec-live.\n' +
       'Next: tailor .claude/rules/spec-planning.md + the CLAUDE.md section to this' +
       " project's stack, then run /spec.\n" +
       isolationNote +

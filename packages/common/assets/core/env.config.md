@@ -234,15 +234,6 @@ through to a documented conservative default; see the field notes below.
   //              "reload": "restart" }
   "dev": [],
 
-  // Front-door proxy for `spec-env connect <spec>` — a small bundled Node
-  // reverse proxy (no external install) that exposes ONE connected spec's
-  // frontPort dev servers on the canonical ports. Exclusive: one target at a
-  // time. `connect off` stops it so the primary checkout owns the ports again.
-  "proxy": {
-    "enabled": true,        // false = the connect command is unavailable
-    "host": "127.0.0.1"     // bind host for the canonical ports
-  },
-
   // Machine-local slot registry (spec → slot index). Resolved against the
   // primary checkout root, shared by all worktrees, gitignored.
   "registry": ".spec-env/registry.json",
@@ -481,7 +472,8 @@ through to a documented conservative default; see the field notes below.
     "afterSwitch": [],
     "refusedReach": null,
     "snapshot": null,
-    "restore": null
+    "restore": null,
+    "host": "127.0.0.1"     // where `live take` probes the canonical dev ports
   },
 
   // Hotfix landing (`spec-env hotfix land` / `/spec-complete` on a Type: Hotfix

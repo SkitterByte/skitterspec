@@ -34,7 +34,6 @@
  *     dev:      [ { name, command, portVar, health?, frontPort?, reload } ],  // host dev
  *               // servers started on the spec's port block (empty = none);
  *               // reload "hot" (default) | "restart" (IDE-hosted, `live` reminds)
- *     proxy:    { enabled, host },  // bundled front-door proxy (spec-env connect)
  *     registry: ".spec-env/registry.json",
  *     branch:   { pattern, identifierField },  // git branch naming (provider-neutral)
  *     spec:     { companionPaths: [ "path", ... ] },  // paths that belong to a
@@ -52,8 +51,9 @@
  *     teardown: { deleteRemoteBranch },
  *     live:     { migrations: [ "glob", ... ],  // migration globs → `live take`
  *               // refuses a branch that changes them (code-only v1)
- *                 afterSwitch: [ "cmd" | { run, when } | { setup: true }, ... ] }
+ *                 afterSwitch: [ "cmd" | { run, when } | { setup: true }, ... ],
  *               // run in the primary checkout after `live take`/`release`
+ *                 host: "127.0.0.1" }  // where `live take` probes the dev ports
  *     hotfix:   { bump, cherryPickMain, targets, releaseWith, releaseBranch, tag }
  *               // `hotfix land`: patch-bump the deploy tag, also cherry-pick
  *               // onto the base branch (main), and onto any extra base tags in
@@ -207,9 +207,6 @@ const DEFAULT_CONFIG = Object.freeze({
   // Host dev servers started on the spec's port block by `spec-env dev up`.
   // Each: { name, command, portVar, health?, frontPort? }. Default: none.
   dev: Object.freeze([]),
-  // Front-door proxy (`spec-env connect`): a bundled Node reverse proxy that
-  // exposes one connected spec's frontPort processes on the canonical ports.
-  proxy: Object.freeze({ enabled: true, host: '127.0.0.1' }),
   registry: '.spec-env/registry.json',
   // Git branch naming, provider-neutral. `pattern` expands {type}/{slug} and,
   // when a tracker provider is linked, {identifier}; `identifierField` names the
@@ -357,7 +354,16 @@ const DEFAULT_CONFIG = Object.freeze({
   // migration, which must never run for a branch that has not landed.
   // `snapshot` and `restore` are shell commands run with `SPEC_ENV_SNAPSHOT`
   // set: the pair that makes `refusedReach: "snapshot"` usable.
-  live: Object.freeze({ migrations: Object.freeze([]), afterSwitch: Object.freeze([]), refusedReach: null, snapshot: null, restore: null }),
+  // `host` is where `live take` probes the canonical dev ports and what the
+  // review page's `live:` URL names.
+  live: Object.freeze({
+    migrations: Object.freeze([]),
+    afterSwitch: Object.freeze([]),
+    refusedReach: null,
+    snapshot: null,
+    restore: null,
+    host: '127.0.0.1',
+  }),
   // Hotfix landing (`spec-env hotfix land`). `bump` is the version-bump strategy
   // for the new deploy tag: "patch" (X.Y.Z -> X.Y.(Z+1)) or "hotfix-suffix"
   // (X.Y.Z -> X.Y.Z-hotfix.N). The loader keeps whatever string it is given and
@@ -431,9 +437,14 @@ const RETIRED_KEYS = new Set(['review.allowRemote'])
 //
 // `docker` configured per-spec Docker stacks (feat-drop-docker-stacks). Its
 // port keys are still read as a fallback for `ports`.
+//
+// `proxy` configured the `spec-env connect` front door (feat-drop-spec-connect).
+// Its `host` is still read as a fallback for `live.host`.
 const DEPRECATED_KEYS = Object.freeze({
   docker:
     'per-spec Docker stacks were removed, so it is ignored; move docker.portBase/portsPerSpec to ports.base/perSpec',
+  proxy:
+    '`spec-env connect` and its proxy were removed, so it is ignored; proxy.host is read as live.host until you move it',
 })
 
 // The deprecated keys a parsed config sets, as `{ key, note }`, top level only —
@@ -482,7 +493,6 @@ function defaults() {
     afterLand: [],
     complete: { checks: [] },
     dev: [],
-    proxy: { ...DEFAULT_CONFIG.proxy },
     registry: DEFAULT_CONFIG.registry,
     branch: { ...DEFAULT_CONFIG.branch },
     spec: { companionPaths: [] },
@@ -494,7 +504,7 @@ function defaults() {
     teardown: { ...DEFAULT_CONFIG.teardown },
     review: { ...DEFAULT_CONFIG.review, reviewers: [] },
     auto: { ...DEFAULT_CONFIG.auto },
-    live: { migrations: [], afterSwitch: [], refusedReach: null, snapshot: null, restore: null },
+    live: { migrations: [], afterSwitch: [], refusedReach: null, snapshot: null, restore: null, host: '127.0.0.1' },
     hotfix: { ...DEFAULT_CONFIG.hotfix, targets: [] },
   }
 }
@@ -761,9 +771,13 @@ function mergeConfig(base, parsed) {
     base.dev = normalizeDev(parsed.dev)
   }
 
-  if (isObject(parsed.proxy)) {
-    assign(base.proxy, parsed.proxy, 'enabled', 'boolean')
-    assign(base.proxy, parsed.proxy, 'host', 'string')
+  // `live.host`, else the retired `proxy.host` it replaced (feat-drop-spec-connect):
+  // a project that pointed the proxy at a LAN address keeps that probe address
+  // until it moves the key, and hears so once through `DEPRECATED_KEYS`.
+  if (isObject(parsed.live) && typeof parsed.live.host === 'string' && parsed.live.host.trim()) {
+    base.live.host = parsed.live.host.trim()
+  } else if (isObject(parsed.proxy) && typeof parsed.proxy.host === 'string' && parsed.proxy.host.trim()) {
+    base.live.host = parsed.proxy.host.trim()
   }
 
   if (isObject(parsed.branch)) {

@@ -76,7 +76,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Engine drops connect and the proxy | ⬜ | [01-engine.md](01-engine.md) |
+| 1 | Engine drops connect and the proxy | ✅ | [01-engine.md](01-engine.md) |
 | 2 | Assets and docs point at `/spec-live` | ⬜ | [02-assets-docs.md](02-assets-docs.md) |
 
 ## Open questions
@@ -86,3 +86,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-11-27 — Spec created as member 3 of epic-live-workbench.
+- 2026-11-27 — Phase 1: cancelled feat-connect-planner (#17) on this
+  branch. `proxy.js` also held the port probes the review server and live
+  use, so they moved to `src/env/ports.js` (with their tests) before it was
+  deleted; `portsHeld` went with connect. The shipped config examples
+  (`env.config.md`, `env.config.json.example`) dropped `proxy` here rather
+  than in phase 2, because a test rejects any key the engine ignores.
