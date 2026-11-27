@@ -457,12 +457,31 @@ through to a documented conservative default; see the field notes below.
   //   "live-confirm" let live take it after a confirm: the refusal offers
   //                  `live take <spec> --allow-migrations` once per branch HEAD,
   //                  and every such take is recorded in .spec-env/live-bypass.json
-  // Unset (the default) lists all three. Any other value reads as unset — never
+  //   "snapshot"     snapshot the database first and restore it on hand-back:
+  //                  the refusal offers `live take <spec> --snapshot` on every
+  //                  take (nothing is weakened, so nothing is recorded)
+  // Unset (the default) lists all four. Any other value reads as unset — never
   // as "live-confirm" — and `live take` says so.
+  //
+  // `snapshot` and `restore` are the two shell commands "snapshot" needs, both
+  // run in the primary checkout with SPEC_ENV_SNAPSHOT set to a path the engine
+  // owns (.spec-env/snapshots/<spec>-<stamp>). Without BOTH, "snapshot" reads as
+  // unset and says why. The snapshot runs before any git command, and a failed
+  // one switches nothing. The restore runs on `/spec-live off`, `live abort`
+  // and the live-aware `integrate`, after the checkout and before
+  // `afterSwitch`. Exit 0 deletes the snapshot. Anything else keeps the
+  // switch and the file, writes .spec-env/live-restore.json, makes `live
+  // status` warn, and `spec-env live restore` retries. Data written while the
+  // spec was live is lost on restore:
+  //
+  //   "snapshot": "pg_dump -Fc appdb > \"$SPEC_ENV_SNAPSHOT\"",
+  //   "restore":  "pg_restore --clean -d appdb \"$SPEC_ENV_SNAPSHOT\""
   "live": {
     "migrations": [],
     "afterSwitch": [],
-    "refusedReach": null
+    "refusedReach": null,
+    "snapshot": null,
+    "restore": null
   },
 
   // Hotfix landing (`spec-env hotfix land` / `/spec-complete` on a Type: Hotfix

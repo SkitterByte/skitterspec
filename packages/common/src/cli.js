@@ -124,6 +124,10 @@ const {
   runAfterSwitch,
   runSnapshot,
   snapshotPathFor,
+  restoreSnapshot,
+  restoreStep,
+  readPendingRestore,
+  pendingRestoreWarning,
   planAbort,
 } = require('./env/live.js')
 const { ensureWorktreeDirTrusted } = require('./env/trust.js')
@@ -3239,6 +3243,14 @@ function specEnvIntegrate(dir, config, specArg, flags = {}) {
         return
       }
     }
+    // Read before the receipt is cleared: a snapshotting take owes a restore.
+    let liveReceipt = null
+    try {
+      liveReceipt = readReceipt(dir, config)
+    } catch {
+      liveReceipt = null
+    }
+    const restore = restoreStep(config, liveReceipt && liveReceipt.spec === spec.folder ? liveReceipt : null)
     const co = runGit(dir, ['checkout', base])
     if (!co.ok) {
       process.stdout.write(`spec-env integrate: could not check out ${base} — ${co.err}\n`)
@@ -3246,8 +3258,12 @@ function specEnvIntegrate(dir, config, specArg, flags = {}) {
     }
     if (fs.existsSync(spec.worktreePath)) runGit(spec.worktreePath, ['switch', spec.branch])
     clearReceipt(dir, config)
+    // Before it lands: the database goes back to base's before base gains the
+    // migrations, so migrate-on-pull applies them as it would for anyone.
+    const restored = restore ? restoreSnapshot(dir, config, restore, dir) : { lines: [] }
     process.stdout.write(
-      `spec-env integrate: ended live session — ${spec.folder} released to its worktree.\n`,
+      `spec-env integrate: ended live session — ${spec.folder} released to its worktree.\n` +
+        restored.lines.map((l) => `${l}\n`).join(''),
     )
   }
 
@@ -8052,17 +8068,21 @@ async function specEnvLive(dir, config, positional, flags) {
     case 'abort':
       await specEnvLiveAbort(dir, config)
       break
+    case 'restore':
+      specEnvLiveRestore(dir, config)
+      break
     default:
       process.stdout.write(
         'Usage: skitterspec spec-env live <spec>|off|<take|release|abort|status> [spec]\n' +
           '       live take <spec> --allow-migrations   (live.refusedReach: "live-confirm" only)\n' +
           '       live take <spec> --offered            spend the migrations bypass offer\n' +
-          '       live take <spec> --snapshot           (live.refusedReach: "snapshot" only)\n',
+          '       live take <spec> --snapshot           (live.refusedReach: "snapshot" only)\n' +
+          '       live restore                          retry a restore that failed on release\n',
       )
   }
 }
 
-const LIVE_VERBS = new Set(['status', 'take', 'release', 'abort'])
+const LIVE_VERBS = new Set(['status', 'take', 'release', 'abort', 'restore'])
 
 // The two front doors every doc names — `/spec-live <spec>` and `/spec-live off`
 // — translated to verbs. They live here rather than in the command because
@@ -8420,6 +8440,8 @@ async function specEnvLiveRelease(dir, config, specArg) {
     primary,
     primaryPath: dir,
     base,
+    // Only THIS spec's receipt can owe this release a restore.
+    receipt: receipt && receipt.spec === spec.folder ? receipt : null,
     clean,
     worktreeExists,
     restartApps: config.dev.filter((d) => d.reload === 'restart').map((d) => d.name),
@@ -8441,7 +8463,12 @@ async function specEnvLiveRelease(dir, config, specArg) {
     return
   }
   if (worktreeExists) runGit(spec.worktreePath, ['switch', spec.branch])
+  // The receipt clears either way: the switch stands. A restore still owed is
+  // carried by its own record (`live-restore.json`) from here.
   clearReceipt(dir, config)
+  // After the checkout, before `afterSwitch` — base's own commands run
+  // against the database base expects.
+  const restored = plan.restore ? restoreSnapshot(dir, config, plan.restore, dir) : { lines: [] }
   // Remembered so a bare resolve from here still names this spec — the session
   // is now standing in the primary checkout, which says nothing on its own.
   writeLastLive(dir, config, { spec: spec.folder, worktree: spec.projectPath })
@@ -8453,6 +8480,7 @@ async function specEnvLiveRelease(dir, config, specArg) {
       // --worktree` checks against `resolve`'s own `worktree:` line.
       `  worktree:  ${spec.projectPath}\n` +
       `  next:      /spec-next --worktree ${shellPath(spec.projectPath)}\n` +
+      restored.lines.map((l) => `${l}\n`).join('') +
       runAfterSwitch(plan.afterSwitch).lines.map((l) => `${l}\n`).join('') +
       plan.warnings.map((w) => `  ! ${w}\n`).join(''),
   )
@@ -8507,11 +8535,39 @@ async function specEnvLiveAbort(dir, config) {
   }
   if (worktreeExists) runGit(worktreePath, ['switch', plan.branch])
   clearReceipt(dir, config)
+  const restored = plan.restore ? restoreSnapshot(dir, config, plan.restore, dir) : { lines: [] }
 
   process.stdout.write(
     `spec-env live abort: recovered — primary back on ${base}` +
       (worktreeExists ? `, ${plan.branch} re-isolated to its worktree` : '') +
-      '.\n',
+      '.\n' +
+      restored.lines.map((l) => `${l}\n`).join(''),
+  )
+}
+
+// Retry a restore that failed on a hand-back. A no-op with nothing pending. An
+// unreadable record names no snapshot to restore, so it is reported and kept —
+// never guessed at, and never deleted.
+function specEnvLiveRestore(dir, config) {
+  const pending = readPendingRestore(dir, config)
+  if (!pending) {
+    process.stdout.write('spec-env live restore: nothing to restore — no restore is pending.\n')
+    return
+  }
+  if (pending.unreadable) {
+    process.stdout.write(
+      `spec-env live restore: blocked — .spec-env/live-restore.json is unreadable (${pending.error}); ` +
+        'restore by hand from .spec-env/snapshots/, then delete the record.\n',
+    )
+    return
+  }
+  const step = { command: config.live.restore || null, path: pending.path, spec: pending.spec || null }
+  const res = restoreSnapshot(dir, config, step, dir)
+  process.stdout.write(
+    `spec-env live restore: ${res.ok ? 'restored' : 'still pending'}` +
+      (pending.spec ? ` — ${pending.spec}` : '') +
+      '\n' +
+      res.lines.map((l) => `${l}\n`).join(''),
   )
 }
 
@@ -8559,6 +8615,8 @@ function specEnvLiveStatus(dir, config, specArg, flags) {
   }
 
   const receipt = readReceipt(dir, config)
+  const pendingRestore = readPendingRestore(dir, config)
+  const restoreWarning = pendingRestoreWarning(pendingRestore)
   const state = onBase
     ? 'on base — free'
     : `feature in control — not on ${baseBranch}`
@@ -8587,6 +8645,8 @@ function specEnvLiveStatus(dir, config, specArg, flags) {
           // receipt, so the spec is `null` while the checkout is plainly busy.
           inFlight: onBase ? null : receipt && receipt.spec ? String(receipt.spec) : null,
           receipt: receipt || null,
+          // Absent stays absent: a project that never snapshots sees no key.
+          ...(pendingRestore ? { pendingRestore } : {}),
         },
         null,
         2,
@@ -8599,7 +8659,8 @@ function specEnvLiveStatus(dir, config, specArg, flags) {
     'spec-env live:\n' +
       `  primary:   ${branch || '(detached)'}  (${state})\n` +
       `  in-flight: ${inFlight}\n` +
-      `  receipt:   ${summarizeReceipt(receipt)}\n`,
+      `  receipt:   ${summarizeReceipt(receipt)}\n` +
+      (restoreWarning ? `  ! ${restoreWarning}\n` : ''),
   )
 }
 

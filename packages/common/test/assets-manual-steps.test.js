@@ -123,10 +123,10 @@ test('Next names how to reach the work before the steps', () => {
 // feat-pr-mode-verbs: the refused branch used to be sent to /spec-to-main,
 // which in PR mode only opened a draft — nowhere testable. The reach is now
 // the project's answer, and an unset key lists every route rather than one.
-test('a branch live refuses follows live.refusedReach, and unset lists all three', () => {
+test('a branch live refuses follows live.refusedReach, and unset lists all four', () => {
   assert.match(section, /live\.refusedReach/)
-  for (const v of ['worktree', 'pr', 'live-confirm']) assert.match(section, new RegExp('`' + v + '`'))
-  assert.match(section, /\*\*Unset → say live refuses it and why, and list all three\*\*/)
+  for (const v of ['worktree', 'pr', 'live-confirm', 'snapshot']) assert.match(section, new RegExp('`' + v + '`'))
+  assert.match(section, /\*\*Unset → say live refuses it and why, and list all four\*\*/)
   assert.match(section, /never guess the way round it/)
   assert.doesNotMatch(section, /spec-to-main/)
 })

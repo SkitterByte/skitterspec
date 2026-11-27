@@ -419,6 +419,20 @@ test('runSnapshot hands the command SPEC_ENV_SNAPSHOT and reads exit 0 as the on
   }
 })
 
+test('planRelease and planAbort carry a restore only when the receipt names a snapshot', () => {
+  const held = { primary: { onBase: false, branch: 'feat/x' }, primaryPath: '/repo', base: 'main', clean: true, worktreeExists: true }
+  const receipt = { ...FIELDS, snapshot: { path: SNAP_PATH, at: 't' } }
+  const rel = planRelease(SPEC, snapCfg(), { ...held, receipt })
+  assert.deepStrictEqual(rel.restore, { command: 'pg_restore', path: SNAP_PATH, spec: 'feat-x' })
+  const ab = planAbort(snapCfg(), { ...held, receipt, worktreePath: '/wt/x' })
+  assert.deepStrictEqual(ab.restore, rel.restore)
+  // restore removed from the config since the take: still owed, cannot run.
+  assert.strictEqual(planRelease(SPEC, {}, { ...held, receipt }).restore.command, null)
+  // Stays silent: no snapshot on the receipt, no restore at all.
+  assert.strictEqual(planRelease(SPEC, snapCfg(), { ...held, receipt: FIELDS }).restore, null)
+  assert.strictEqual(planAbort(snapCfg(), { ...held, receipt: FIELDS, worktreePath: '/wt/x' }).restore, null)
+})
+
 test('config: snapshot reach needs both commands, else reads as unset with a reason', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-snapreach-'))
   const write = (live) => {

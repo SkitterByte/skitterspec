@@ -116,7 +116,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Config and a snapshotting take | ✅ | [01-snapshot-take.md](01-snapshot-take.md) |
-| 2 | Restore on release, abort and integrate, plus `live restore` | ⬜ | [02-restore.md](02-restore.md) |
+| 2 | Restore on release, abort and integrate, plus `live restore` | ✅ | [02-restore.md](02-restore.md) |
 
 ## Open questions
 
@@ -128,3 +128,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-11-27 — Phase 1: a git failure after a successful snapshot (rebase,
   detach or checkout) removes the snapshot file, since nothing switched and
   the database it copied was never changed.
+- 2026-11-27 — Phase 2: `/spec-live` keeps its verbatim-relay contract and
+  raises no picker (`assets-offered-unblocks.test.js` pins it). The engine's
+  refusal prints the snapshot offer as `<label>: <command>`, which the
+  operator runs; the reach-naming `Next` in `/spec-next` names it.

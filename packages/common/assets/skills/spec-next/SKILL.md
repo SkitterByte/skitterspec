@@ -366,8 +366,10 @@ on the base branch — so nothing could have been tested. The stop is a report:
      `/spec-connect <spec>` where it has a stack;
    - `pr` — `/spec-pr`, a draft PR for the project's pipeline to deploy;
    - `live-confirm` — `/spec-live`, whose refusal offers the recorded bypass
-     (`.claude/rules/offered-unblocks.md`).
-   **Unset → say live refuses it and why, and list all three**; the operator
+     (`.claude/rules/offered-unblocks.md`);
+   - `snapshot` — `/spec-live`, whose refusal offers to snapshot the database
+     first; `/spec-live off` restores it, so data written while live is lost.
+   **Unset → say live refuses it and why, and list all four**; the operator
    knows which one their team uses. A step that needs the work on the base
    branch itself is `/spec-land` in trunk mode, and in PR mode it waits for
    the merge.

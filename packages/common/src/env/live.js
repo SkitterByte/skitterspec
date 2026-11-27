@@ -633,7 +633,27 @@ function planRelease(spec, config, ctx) {
   const commands = [`git -C ${shellPath(c.primaryPath)} checkout ${base}`]
   if (c.worktreeExists) commands.push(`git -C ${shellPath(spec.worktreePath)} switch ${branch}`)
   const warnings = restartReminders(Array.isArray(c.restartApps) ? c.restartApps : [], `on ${base}`)
-  return { ...result, commands, warnings, clears: true, afterSwitch: afterSwitchFor(config, c) }
+  return {
+    ...result,
+    commands,
+    warnings,
+    clears: true,
+    restore: restoreStep(config, c.receipt),
+    afterSwitch: afterSwitchFor(config, c),
+  }
+}
+
+/**
+ * The restore a hand-back owes: runs after the checkout and before
+ * `afterSwitch`, and only when the receipt says a snapshot was taken. The
+ * command is read from the config at hand-back, so `command` is null when
+ * `live.restore` was removed since the take — a restore that cannot run, which
+ * keeps the snapshot rather than dropping it.
+ */
+function restoreStep(config, receipt) {
+  if (!receipt || !receipt.snapshot || !receipt.snapshot.path) return null
+  const command = config && config.live && config.live.restore ? config.live.restore : null
+  return { command, path: receipt.snapshot.path, spec: receipt.spec || null }
 }
 
 // --- abort planner --------------------------------------------------------
@@ -685,7 +705,7 @@ function planAbort(config, ctx) {
   const commands = []
   if (!(c.primary && c.primary.onBase)) commands.push(`git -C ${shellPath(c.primaryPath)} checkout ${base}`)
   if (c.worktreeExists) commands.push(`git -C ${shellPath(c.worktreePath)} switch ${branch}`)
-  return { ...result, commands, clears: true, branch }
+  return { ...result, commands, clears: true, branch, restore: restoreStep(config, c.receipt) }
 }
 
 // --- after-switch runner --------------------------------------------------
@@ -778,6 +798,10 @@ function runAfterSwitch(afterSwitch, spawn = spawnSync) {
  */
 function runSnapshot(step, cwd, spawn = spawnSync) {
   fs.mkdirSync(path.dirname(step.path), { recursive: true })
+  return runWithSnapshot(step, cwd, spawn)
+}
+
+function runWithSnapshot(step, cwd, spawn) {
   const res = spawn(step.command, {
     cwd,
     shell: true,
@@ -792,9 +816,103 @@ function runSnapshot(step, cwd, spawn = spawnSync) {
   return { ok, status, tail }
 }
 
+// --- the pending restore ---------------------------------------------------
+
+// `.spec-env/live-restore.json`, beside the receipt: a restore that did not
+// succeed, kept so `live status` can warn and `live restore` can retry.
+function pendingRestorePath(rootDir, config) {
+  return path.resolve(rootDir, path.dirname(config.registry), 'live-restore.json')
+}
+
+/**
+ * The pending restore. Absent → null. Present but unreadable → `{ unreadable:
+ * true }`, which COUNTS AS PENDING: a record we cannot read may name a snapshot
+ * still owed, and reading it as "nothing pending" would let the next take's
+ * cleanup or a person delete the one copy of the database.
+ */
+function readPendingRestore(rootDir, config) {
+  let raw
+  try {
+    raw = fs.readFileSync(pendingRestorePath(rootDir, config), 'utf-8')
+  } catch (error) {
+    if (error.code === 'ENOENT') return null
+    return { unreadable: true, error: error.message }
+  }
+  try {
+    const parsed = JSON.parse(raw)
+    if (parsed && typeof parsed.path === 'string' && parsed.path) return parsed
+    return { unreadable: true, error: 'no snapshot path recorded' }
+  } catch (error) {
+    return { unreadable: true, error: error.message }
+  }
+}
+
+function writePendingRestore(rootDir, config, record) {
+  const file = pendingRestorePath(rootDir, config)
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  fs.writeFileSync(file, JSON.stringify(record, null, 2) + '\n')
+}
+
+function clearPendingRestore(rootDir, config) {
+  try {
+    fs.unlinkSync(pendingRestorePath(rootDir, config))
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error
+  }
+}
+
+/**
+ * Run a hand-back's restore in `cwd` (the primary checkout, now on base).
+ *
+ * EXIT 0 IS THE ONLY SIGNAL THAT DELETES ANYTHING. Then the snapshot file goes
+ * and any pending record is cleared. Anything else — a non-zero exit, a spawn
+ * error, no `live.restore` configured any more — keeps the file and writes the
+ * pending record, and NEVER undoes the switch (as `afterSwitch` never does).
+ *
+ * @param {object} step  a planner's `restore` ({ command, path, spec })
+ * @returns {{ ok: boolean, lines: string[] }}
+ */
+function restoreSnapshot(rootDir, config, step, cwd, { spawn = spawnSync, at = new Date().toISOString() } = {}) {
+  const res = step.command
+    ? runWithSnapshot(step, cwd, spawn)
+    : { ok: false, status: 'live.restore is not set', tail: [] }
+  if (res.ok) {
+    fs.rmSync(step.path, { recursive: true, force: true })
+    clearPendingRestore(rootDir, config)
+    return { ok: true, lines: [`  restored:  the database from ${step.path} (snapshot removed)`] }
+  }
+  writePendingRestore(rootDir, config, { spec: step.spec, path: step.path, at, failed: res.status })
+  return {
+    ok: false,
+    lines: [
+      `  ! restore failed (${res.status}) — the switch stands and the snapshot is kept at ${step.path}`,
+      ...res.tail.map((l) => `      ${l}`),
+      '    retry with: skitterspec spec-env live restore',
+    ],
+  }
+}
+
+// The `live status` warning for a pending restore; null when nothing is owed.
+function pendingRestoreWarning(pending) {
+  if (!pending) return null
+  if (pending.unreadable) {
+    return `a restore may be pending — .spec-env/live-restore.json is unreadable (${pending.error}); ` +
+      'snapshots under .spec-env/snapshots/ are kept'
+  }
+  return `a restore is pending for ${pending.spec || 'a released spec'} — the database still holds ` +
+    `its migrations; run \`skitterspec spec-env live restore\` (snapshot: ${pending.path})`
+}
+
 module.exports = {
   runAfterSwitch,
   runSnapshot,
+  restoreStep,
+  restoreSnapshot,
+  pendingRestorePath,
+  readPendingRestore,
+  writePendingRestore,
+  clearPendingRestore,
+  pendingRestoreWarning,
   snapshotPathFor,
   receiptPath,
   renderReceipt,

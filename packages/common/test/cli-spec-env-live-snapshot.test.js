@@ -188,3 +188,139 @@ test('stays silent: a code-only branch takes no snapshot, even on --snapshot', a
     cleanup(dir)
   }
 })
+
+// --- phase 2: every hand-back restores ---------------------------------------
+
+// Writes the primary checkout's branch beside the snapshot, so a test can read
+// both that the restore ran and where the checkout stood when it did.
+const RECORD_RESTORE =
+  `${NODE} -e "require('fs').writeFileSync(process.env.SPEC_ENV_SNAPSHOT + '.restored', ` +
+  `require('child_process').execSync('git symbolic-ref --short HEAD').toString())"`
+const FAIL_RESTORE = `${NODE} -e "console.error('pg_restore: role missing'); process.exit(4)"`
+const pendingFile = (dir) => path.join(dir, '.spec-env', 'live-restore.json')
+
+async function takeWithSnapshot(restore) {
+  const s = scaffold(migrationCopy, { refusedReach: 'snapshot', snapshot: RECORD_BRANCH, restore })
+  await runQuiet(['spec-env', 'live', 'take', 'feat-x', '--snapshot', '--dir', s.dir])
+  const snap = receiptOf(s.dir).snapshot.path
+  assert.ok(fs.existsSync(snap))
+  return { ...s, snap }
+}
+
+test('release restores on base, removes the snapshot and leaves nothing pending', async () => {
+  const { dir, worktree, snap } = await takeWithSnapshot(RECORD_RESTORE)
+  try {
+    const out = await runQuiet(['spec-env', 'live', 'release', '--dir', dir])
+    assert.match(out, /feat-x released/)
+    assert.match(out, /restored: {2}the database from .* \(snapshot removed\)/)
+    assert.strictEqual(fs.readFileSync(`${snap}.restored`, 'utf-8').trim(), 'main', 'ran after the checkout')
+    assert.strictEqual(fs.existsSync(snap), false)
+    assert.strictEqual(fs.existsSync(pendingFile(dir)), false)
+    assert.strictEqual(receiptOf(dir), null)
+    assert.strictEqual(git(worktree, 'symbolic-ref', '--short', 'HEAD'), 'feat/x')
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('a failed restore keeps the switch and the snapshot; status warns until live restore succeeds', async () => {
+  const { dir, snap } = await takeWithSnapshot(FAIL_RESTORE)
+  try {
+    const out = await runQuiet(['spec-env', 'live', 'release', '--dir', dir])
+    assert.match(out, /restore failed \(exit 4\) — the switch stands and the snapshot is kept/)
+    assert.match(out, /pg_restore: role missing/)
+    assert.match(out, /retry with: skitterspec spec-env live restore/)
+    assert.strictEqual(git(dir, 'symbolic-ref', '--short', 'HEAD'), 'main', 'the switch stands')
+    assert.ok(fs.existsSync(snap), 'the snapshot is kept')
+    const pending = JSON.parse(fs.readFileSync(pendingFile(dir), 'utf-8'))
+    assert.strictEqual(pending.spec, 'feat-x')
+    assert.strictEqual(pending.path, snap)
+
+    const status = await runQuiet(['spec-env', 'live', 'status', '--dir', dir])
+    assert.match(status, /! a restore is pending for feat-x/)
+    const json = JSON.parse(await runQuiet(['spec-env', 'live', 'status', '--json', '--dir', dir]))
+    assert.strictEqual(json.pendingRestore.path, snap)
+
+    // Still failing: still pending, file still kept.
+    const again = await runQuiet(['spec-env', 'live', 'restore', '--dir', dir])
+    assert.match(again, /still pending/)
+    assert.ok(fs.existsSync(snap) && fs.existsSync(pendingFile(dir)))
+
+    setLive(dir, { restore: RECORD_RESTORE })
+    const fixed = await runQuiet(['spec-env', 'live', 'restore', '--dir', dir])
+    assert.match(fixed, /spec-env live restore: restored — feat-x/)
+    assert.strictEqual(fs.existsSync(snap), false)
+    assert.strictEqual(fs.existsSync(pendingFile(dir)), false)
+    assert.doesNotMatch(await runQuiet(['spec-env', 'live', 'status', '--dir', dir]), /restore/)
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('abort restores the snapshot a crashed take left behind', async () => {
+  const { dir, snap } = await takeWithSnapshot(RECORD_RESTORE)
+  try {
+    const out = await runQuiet(['spec-env', 'live', 'abort', '--dir', dir])
+    assert.match(out, /recovered — primary back on main/)
+    assert.match(out, /restored: /)
+    assert.strictEqual(fs.readFileSync(`${snap}.restored`, 'utf-8').trim(), 'main')
+    assert.strictEqual(fs.existsSync(snap), false)
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('integrate restores before it lands when it ends a snapshotting take', async () => {
+  const { dir, snap } = await takeWithSnapshot(RECORD_RESTORE)
+  try {
+    const out = await runQuiet(['spec-env', 'integrate', 'feat-x', '--dir', dir])
+    const ended = out.indexOf('ended live session')
+    const restored = out.indexOf('restored: ')
+    assert.ok(ended >= 0 && restored > ended, out)
+    assert.ok(restored < out.indexOf('merge --ff-only'), 'restored before the landing plan')
+    assert.strictEqual(fs.readFileSync(`${snap}.restored`, 'utf-8').trim(), 'main')
+    assert.strictEqual(fs.existsSync(snap), false)
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('an unreadable pending record counts as pending: status warns and live restore keeps it', async () => {
+  const { dir } = scaffold(migrationCopy, { refusedReach: 'snapshot', snapshot: RECORD_BRANCH, restore: RECORD_RESTORE })
+  try {
+    fs.mkdirSync(path.join(dir, '.spec-env'), { recursive: true })
+    fs.writeFileSync(pendingFile(dir), '{not json')
+    assert.match(await runQuiet(['spec-env', 'live', 'status', '--dir', dir]), /! a restore may be pending/)
+    const out = await runQuiet(['spec-env', 'live', 'restore', '--dir', dir])
+    assert.match(out, /blocked — .*unreadable/)
+    assert.ok(fs.existsSync(pendingFile(dir)), 'never deleted')
+  } finally {
+    cleanup(dir)
+  }
+})
+
+// Stays silent: every hand-back without a snapshot is untouched by the feature.
+test('stays silent: a release with no snapshot on the receipt runs no restore', async () => {
+  const { dir } = scaffold(codeOnlyCopy, { refusedReach: 'snapshot', snapshot: RECORD_BRANCH, restore: FAIL_RESTORE })
+  try {
+    await runQuiet(['spec-env', 'live', 'take', 'feat-x', '--dir', dir])
+    const out = await runQuiet(['spec-env', 'live', 'release', '--dir', dir])
+    assert.match(out, /feat-x released/)
+    assert.doesNotMatch(out, /restore/)
+    assert.strictEqual(fs.existsSync(pendingFile(dir)), false)
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('stays silent: live status with no pending record warns nothing; live restore is a no-op', async () => {
+  const dir = codeOnlyCopy()
+  try {
+    const status = await runQuiet(['spec-env', 'live', 'status', '--dir', dir])
+    assert.doesNotMatch(status, /restore|!/)
+    assert.strictEqual('pendingRestore' in JSON.parse(await runQuiet(['spec-env', 'live', 'status', '--json', '--dir', dir])), false)
+    assert.match(await runQuiet(['spec-env', 'live', 'restore', '--dir', dir]), /nothing to restore/)
+  } finally {
+    cleanup(dir)
+  }
+})
