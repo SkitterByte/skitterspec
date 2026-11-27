@@ -88,7 +88,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Engine stops provisioning Docker; config tolerates the old keys | ✅ | [01-engine.md](01-engine.md) |
-| 2 | Assets and docs no longer mention Docker stacks | ⬜ | [02-assets-docs.md](02-assets-docs.md) |
+| 2 | Assets and docs no longer mention Docker stacks | ✅ | [02-assets-docs.md](02-assets-docs.md) |
 
 ## Open questions
 
@@ -102,3 +102,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   `config.js`, not `deprecate.js`. `spec-env prune` is kept as the pidfile
   reap. The example config and `docs/review.html`'s covers moved in phase 1,
   because the tests need them.
+- 2026-11-27 — Phase 2: fixed `spec-env resolve` printing `project:
+  undefined`, a phase 1 miss. Removed the volume-prune sub-step from
+  `/spec-complete` and `/spec-cancel`. Synced the parked providers'
+  `MIGRATION.md` by hand.

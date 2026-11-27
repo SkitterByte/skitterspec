@@ -20,21 +20,19 @@ standing in, or else the only provisioned spec.
 
 ## Per-spec isolation
 
-`/spec-start` gives every in-progress spec its own worktree. Docker is a
-per-spec escalation: `> **Stack:** worktree` (the default) or
-`worktree + docker` when the spec touches the database or stateful services.
-`/spec-start` brings up a namespaced stack only for the latter, and starts the
-host **dev servers** (`dev` in `env.config.json`) on the spec's ports.
+`/spec-start` gives every in-progress spec its own worktree, a plain one: there
+are no per-spec Docker stacks, and a `> **Stack:**` header left on an older spec
+is ignored. `/spec-start` starts the host **dev servers** (`dev` in
+`env.config.json`) on the spec's own port block (`ports` in `env.config.json`).
 `/spec-connect <name>` maps that spec onto your normal `localhost` ports, and
 `/spec-connect off` hands them back. Teardown is part of `/spec-complete` and
-`/spec-cancel`, which drop the spec's test-DB volume and offer to prune orphans
-first.
+`/spec-cancel`.
 
 The engine is `skitterspec spec-env
 <up|bootstrap|nospec|main|project|down|prune|dev|connect|integrate|disposition|handoff|hotfix|live|review|stage|checks|status|resolve|resume|run|base>`.
 `up` plans the fork, and **`bootstrap` runs the worktree's own steps**: seeding
-the gitignored files, the env file, `setup` and the stack. Never reconstruct
-those steps as shell commands.
+the gitignored files, then `setup`. Never reconstruct those steps as shell
+commands.
 
 A **hotfix** is the one spec that does not fork from the base branch. `/spec-hotfix` forks
 from a release tag, and `/spec-complete` lands it through `spec-env hotfix land`
@@ -44,7 +42,7 @@ worktree stays until the deploy is out and a second `/spec-complete` runs
 
 ## The live overlay (`/spec-live`)
 
-`/spec-connect` runs a spec's own dev stack. The live overlay instead reuses the
+`/spec-connect` runs a spec's own dev servers. The live overlay instead reuses the
 dev server you already have running. `/spec-live <spec>`, or a bare
 `/spec-live`, rebases the branch onto the base (the fetched remote base under PR
 landing), frees it from its worktree, and checks it out
@@ -55,8 +53,8 @@ back. Fixes made while live commit straight onto the branch, and
 
 - It is for **testing** a code-only spec, not for starting work, and no
   lifecycle skill invokes it.
-- It **refuses** stateful specs (`Stack: worktree + docker`, or a branch that
-  touches migrations). Use `/spec-connect` and a Docker stack for those.
+- It **refuses** a branch that touches migrations, which would change the
+  shared database. `live.refusedReach` names how this project reaches one.
 - `live.afterSwitch` entries (`{ run, when }`) run in the primary checkout after
   taking and after releasing. The engine runs them itself.
 - The engine is `skitterspec spec-env live <take|release|abort|status>`.
@@ -64,8 +62,8 @@ back. Fixes made while live commit straight onto the branch, and
 ## Authoring a spec off the base branch
 
 With isolation, `/spec` grills first, then runs `spec-env up <name> --docs`,
-moves into that worktree and writes the spec there. `--docs` skips `setup` and
-Docker, so the tree costs one `git worktree add`. `/spec-start` later re-runs
+moves into that worktree and writes the spec there. `--docs` skips `setup`, so
+the tree costs one `git worktree add`. `/spec-start` later re-runs
 `up` without the flag, and the install happens then.
 
 Both committing verdicts on the authoring page (`Commit & Start`, `Commit`)

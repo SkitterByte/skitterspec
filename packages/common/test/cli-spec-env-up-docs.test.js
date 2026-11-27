@@ -178,3 +178,18 @@ test('a docker spec plans its stack in bootstrap, never from the primary checkou
     cleanup(dir)
   }
 })
+
+// `resolve` printed the Docker project name; with it gone, a leftover line
+// would read `project: undefined` (feat-drop-docker-stacks).
+test('STAYS SILENT: resolve prints no Docker project line, text or --json', async () => {
+  const { dir, folder } = scaffold('g', SETUP, 'worktree + docker')
+  try {
+    const out = await runQuiet(['spec-env', 'resolve', folder, '--dir', dir])
+    assert.match(out, /branch:\s+feat\/g/)
+    assert.doesNotMatch(out, /undefined|^project:/m)
+    const json = JSON.parse(await runQuiet(['spec-env', 'resolve', folder, '--dir', dir, '--json']))
+    assert.ok(!('project' in json))
+  } finally {
+    cleanup(dir)
+  }
+})

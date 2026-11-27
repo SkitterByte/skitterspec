@@ -80,13 +80,7 @@ not write the spec until this is resolved.
   6. **Security & multi-tenancy** — authz, tenant scoping, untrusted input.
   7. **Edge cases & failure modes.**
   8. **Testing approach** — what proves each phase correct.
-  9. **Isolation stack** *(only when `specs/.core/env.config.json` exists)* — does
-     this spec touch the DB / stateful services (so its worktree needs a Docker
-     stack), or is a plain worktree enough? Default `worktree`; escalate to
-     `worktree + docker` only when it must. This sets the `> **Stack:**` header
-     that `/spec-start` acts on (it can be escalated later). Skip when isolation
-     isn't enabled — leave the default `worktree`.
-  10. **Release gating** *(only when `specs/.core/gating.config.json` exists)* —
+  9. **Release gating** *(only when `specs/.core/gating.config.json` exists)* —
       should this ship behind a feature flag, or land live?
       **Offer, don't impose**: the user decides and you raise it, so a spec
       never reaches
@@ -96,7 +90,7 @@ not write the spec until this is resolved.
       answer **either way**: a flag name, or `none: <one-line reason>`. "No" is a
       decision and belongs in the header; silence is not. Skip entirely when the
       config is absent — that project does not use flags.
-  11. **Waits outside the repo**: does any phase only make sense once
+  10. **Waits outside the repo**: does any phase only make sense once
       something happens elsewhere? For example, an earlier phase deployed and
       running for logs, another project's release, or a soak of N days. Each
       becomes that phase file's `> **Blocked on:**` line (template below),
@@ -104,7 +98,7 @@ not write the spec until this is resolved.
       before building that phase, and `/spec-resume` is how it goes on. This
       is free text, a condition only a person can judge, which is what sets it
       apart from an epic member's `Waits on:`. With no such wait, write none.
-  12. **Run mode** *(only when `specs/.core/env.config.json` exists)*: should
+  11. **Run mode** *(only when `specs/.core/env.config.json` exists)*: should
       this spec build autonomously, every phase committed with no stop for
       review, or stop on every phase's page? Offer the project's `auto.default`
       (supervised when unset) and ask only whether this spec differs. A
@@ -112,7 +106,7 @@ not write the spec until this is resolved.
       Matching the default writes no line, so the config keeps deciding.
       Recommend `supervised` for anything that touches data, auth or a public
       surface.
-  13. **Open questions** — anything still undecided.
+  12. **Open questions** — anything still undecided.
 
 Stop grilling when there are no unresolved branches that would change the spec.
 Briefly play back the agreed understanding before writing.
@@ -225,8 +219,8 @@ reading silence as success (`.claude/rules/negative-checks.md` rule 1):
 not, say so and write the spec where you are standing instead; a spec in the
 wrong tree is worse than a spec with no worktree.
 
-**`--docs` is what makes this cheap.** It skips the `setup` commands and the
-Docker stack — everything whose only purpose is making a tree *runnable* — so
+**`--docs` is what makes this cheap.** It skips the `setup` commands —
+everything whose only purpose is making a tree *runnable* — so
 provisioning a worktree to write markdown in is a `git worktree add` and nothing
 else. `/spec-start` re-runs `up` over the same worktree without the flag, and the
 setup runs then, at the first moment the tree is used for code.
@@ -285,10 +279,8 @@ the codebase, link rather than duplicate):
 > **Developer:** —
 > **Raised:** <YYYY-MM-DD (today)>
 > **Area:** <comma-separated files/modules this touches>
-> **Stack:** <worktree — or "worktree + docker" if it touches the DB/stateful
-> services; only acted on when isolation is enabled — see Phase A item 9>
 > **Run:** <auto or supervised — only when it differs from the project's
-> `auto.default` (Phase A item 12). Omit the line entirely otherwise>
+> `auto.default` (Phase A item 11). Omit the line entirely otherwise>
 > **Incident:** <incident-<name> — only when this spec is a fix for an open
 > incident spec; the next push links the two as related on the tracker, and
 > `/spec-complete` on the incident counts this spec among its fixes. Omit the
@@ -301,7 +293,7 @@ the codebase, link rather than duplicate):
 > **Gating:** <flag name — or "none: <one-line reason>". Only when release gating
 > is configured; omit the line entirely otherwise. A chore defaults to
 > "none: not user-facing". An empty value or a bare
-> "none" is not a valid outcome — see Phase A item 10>
+> "none" is not a valid outcome — see Phase A item 9>
 
 ## Summary
 
@@ -373,7 +365,7 @@ order). Each phase file uses this template:
 
 > Spec: [00-overview.md](00-overview.md) · **Status:** Not started
 > **Blocked on:** <only when this phase waits on something outside the repo
-> (Phase A item 11) — the condition, plus "(until YYYY-MM-DD)" if dated.
+> (Phase A item 10) — the condition, plus "(until YYYY-MM-DD)" if dated.
 > Omit the line entirely otherwise>
 
 **Goal:** <one line — what this phase delivers and how it's proven>.
@@ -656,22 +648,10 @@ Relay the engine's **stack** — the `local:`, `network:` and `remote:` lines, a
 three, in that order — never the bare `page:` path. `.claude/skills/spec-diff/review-wait.md`
 carries the shape and why every tier is named rather than one being chosen.
 
-## Phase D — record the isolation stack (only if configured)
-
-**Only when `specs/.core/env.config.json` exists** (per-spec isolation is
-enabled), make sure the `> **Stack:**` header reflects the Phase A item 9
-decision — `worktree` (default) or `worktree + docker` when it touches the DB /
-stateful services. Nothing to provision now: `/spec-start` gives every in-progress
-spec its own worktree automatically, and brings up Docker only when the Stack
-says so. Mention the operator can escalate the Stack later (edit the header, or
-run `skitterspec spec-env up <name>` to add Docker to an existing worktree). If
-`env.config.json` is absent, isolation is off — leave the default `worktree` and
-finish as above.
-
-## Phase D2 — record the gating decision (only if configured)
+## Phase D — record the gating decision (only if configured)
 
 **Only when `specs/.core/gating.config.json` exists.** Make sure the
-`> **Gating:**` header carries the Phase A item 10 answer — a flag name, or
+`> **Gating:**` header carries the Phase A item 9 answer — a flag name, or
 `none: <reason>` using the config's `default` wording if it sets one. Nothing is
 provisioned or enforced by this: the header exists so the decision is
 **on the record and reviewable**, and `skitterspec gating check` reports a spec that has

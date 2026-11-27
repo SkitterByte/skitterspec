@@ -88,7 +88,7 @@ in, or else the only provisioned spec. `/spec` writes a new spec in its own
 Under `land.specDocs: "branch"` it rides the feature branch instead. Without
 `env.config.json`, none of this applies.
 
-Workspace modes, Docker stacks, `/spec-connect`, the live overlay, spec-docs
+Workspace modes, `/spec-connect`, the live overlay, spec-docs
 landing and staging are detailed in `.claude/skills/spec-start/isolation.md`.
 Read it when a skill sends you there.
 

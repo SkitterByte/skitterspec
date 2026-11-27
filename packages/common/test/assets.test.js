@@ -285,12 +285,12 @@ test('/spec-complete keeps --keep-env as the opt-out', () => {
   assert.match(step7, /skip sub-steps 1–3/, 'says what it skips')
 })
 
-test('the volume prune still asks, because it reaps other specs\' volumes', () => {
-  // The reasoning that removes the teardown prompt does not reach prune: "this
-  // spec landed cleanly" says nothing about orphans left by other specs.
-  const step7 = skillText('spec-complete').slice(skillText('spec-complete').indexOf('## 7.'))
-  assert.match(step7, /only on their confirmation/i, 'prune keeps its gate')
-  assert.match(step7, /This one still asks/, 'and says why it differs from 1–3')
+// Per-spec Docker stacks were removed (feat-drop-docker-stacks), and with them
+// the test-DB volumes the old sub-step 4 reaped: neither skill runs prune now.
+test('teardown no longer reaps Docker volumes', () => {
+  for (const name of ['spec-complete', 'spec-cancel']) {
+    assert.doesNotMatch(skillText(name), /docker volume rm|spec-env prune/, `${name} runs no volume prune`)
+  }
 })
 
 test('/spec-cancel still offers teardown rather than forcing it', () => {

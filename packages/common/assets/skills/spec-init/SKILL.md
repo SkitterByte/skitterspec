@@ -52,7 +52,7 @@ If this project is adopting per-spec isolation, ask which `mode` belongs in
 at once, one terminal session each) or `checkout` (the branch is built in the
 checkout you are already in; one spec at a time, no hand-off). It is a question
 about how the operator works, not about what the repo contains, so ask rather
-than infer it from whether dev servers or Docker are configured.
+than infer it from whether dev servers are configured.
 
 ## 0b. Release gating (optional, and separate)
 

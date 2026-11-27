@@ -6,7 +6,7 @@ covers:
   - packages/common/src/cli.js
   - packages/common/src/init.js
   - packages/common/bin/**
-verified: 112804953093
+verified: 2761f3ad442f
 -->
 <html lang="en">
 <head>
@@ -607,7 +607,7 @@ verified: 112804953093
       <div class="stage">
         <span class="num">03 · LAND</span>
         <h3><span class="cmdname">/spec-complete</span></h3>
-        <p>Verifies every phase is done and tests pass, lands the branch on your base, then tears the worktree and stack down. Clean exit. On a PR-based project it runs once, after the host merges the pull request <code>/spec-pr</code> opened.</p>
+        <p>Verifies every phase is done and tests pass, lands the branch on your base, then tears the worktree down. Clean exit. On a PR-based project it runs once, after the host merges the pull request <code>/spec-pr</code> opened.</p>
         <div class="foot"><span class="status complete">Complete</span> specs/complete/</div>
       </div>
     </div>
@@ -753,11 +753,11 @@ verified: 112804953093
         <div class="step-rail"><div class="step-num">6</div><div class="step-line"></div></div>
         <div class="step-body">
           <h3><span class="cmd">/spec-complete</span> Land it and tear down <span class="step-where term-w">terminal</span></h3>
-          <p>Verifies every phase is done and green, runs any completion checks you listed under <code>complete.checks</code> (advisory — they report, never block), lands the branch with a local fast-forward onto your base — in PR mode it runs once, after the host merges the pull request <code>/spec-pr</code> opened — tears the worktree and stack down, and moves the spec to <code>specs/complete/</code>. A final push flips the Linear issue to Done — the board reflects reality because reality drove it.</p>
+          <p>Verifies every phase is done and green, runs any completion checks you listed under <code>complete.checks</code> (advisory — they report, never block), lands the branch with a local fast-forward onto your base — in PR mode it runs once, after the host merges the pull request <code>/spec-pr</code> opened — tears the worktree down, and moves the spec to <code>specs/complete/</code>. A final push flips the Linear issue to Done — the board reflects reality because reality drove it.</p>
           <div class="mini-term">
 <div class="l"><span style="color:var(--accent)">›</span> /spec-complete</div>
 <div class="l"><span style="color:var(--ink-faint)">  all phases ✓ · 14 tests green · landed on the base</span></div>
-<div class="l"><span style="color:var(--ink-faint)">  worktree + stack torn down</span></div>
+<div class="l"><span style="color:var(--ink-faint)">  worktree torn down</span></div>
 <div class="l"><span style="color:var(--ink-faint)">  SKI-204 →</span> <span style="color:var(--st-complete)">Complete</span></div>
           </div>
         </div>

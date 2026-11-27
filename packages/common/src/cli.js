@@ -4745,7 +4745,6 @@ function specEnvResolve(dir, config, specArg, flags = {}) {
           slug: r.slug,
           branch: r.branch,
           worktree: r.projectPath,
-          project: r.projectName,
         },
         null,
         2,
@@ -4761,7 +4760,6 @@ function specEnvResolve(dir, config, specArg, flags = {}) {
       `type/slug:  ${r.type} / ${r.slug}\n` +
       `branch:     ${r.branch}\n` +
       `worktree:   ${r.projectPath}\n` +
-      `project:    ${r.projectName}\n` +
       projectLine(config.checkout),
   )
 }

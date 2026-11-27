@@ -14,8 +14,8 @@ On a PR-based project (`land.strategy: "pr"`) the end of the loop is
 mid-spec and readies it once every phase is done, and `/spec-complete` runs
 once, after the merge. See [Trunk or PR?](#trunk-or-pr).
 
-Ships per-spec **isolation** — a git worktree per in-progress spec, Docker on
-demand, host dev servers on reserved ports — and everything below.
+Ships per-spec **isolation** — a git worktree per in-progress spec and host
+dev servers on reserved ports — and everything below.
 
 <!-- commands:start -->
 | | |

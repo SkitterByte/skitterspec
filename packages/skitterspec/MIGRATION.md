@@ -1,5 +1,24 @@
 # Migration guide
 
+## Per-spec Docker stacks are removed (action required if you used them)
+
+`spec-env up`, `bootstrap`, `down` and `prune` no longer start, stop, back up or
+reap a Docker stack. Every spec gets a plain worktree. Nothing refuses an old
+config; what it set simply stops doing anything:
+
+| Was | Now |
+|-----|-----|
+| `docker.*` in `env.config.json` | ignored, with one `spec-env` notice on stderr. Delete the block |
+| `docker.portBase`, `docker.portsPerSpec` | **`ports.base`**, **`ports.perSpec`** (the old keys are still read until `ports` is set) |
+| `> **Stack:** worktree + docker` | read as a plain worktree; `spec-env up` says so once. New specs carry no `Stack:` line |
+| `spec-env down --keep-volumes`, `prune --older-than` | accepted and ignored |
+| `spec-env prune` reaping test-DB volumes | reaps only a stale review-server pidfile |
+| setup tokens `{portOffset}`, `{projectName}` | no longer expanded |
+
+**Volumes a stack already created are left alone.** Remove any you no longer
+want with `docker volume ls` and `docker volume rm` yourself. A spec that needs a
+database tests against your own dev database, the way `/spec-live` does.
+
 ## PR-mode verbs, and no command says `main` (action required)
 
 Four names are gone, with no alias. `skitterspec update` retires the old skill

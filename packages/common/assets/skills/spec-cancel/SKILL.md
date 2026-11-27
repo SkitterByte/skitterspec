@@ -176,8 +176,8 @@ Not because git refuses — it does not. `git worktree remove` **succeeds** on t
 tree you are standing in, and that is the problem: the directory vanishes under
 the shell, `pwd` keeps reporting the path that no longer exists, and every
 command after it dies with `fatal: Unable to read current working directory`.
-The teardown looks fine and everything following it breaks — the report, the
-prune, any check you meant to run. Relocating first costs nothing and is the
+The teardown looks fine and everything following it breaks — the report and
+any check you meant to run. Relocating first costs nothing and is the
 only ordering that survives.
 
 3. `skitterspec spec-env down <name>` — then execute the printed commands to
@@ -234,10 +234,5 @@ only ordering that survives.
    it like the delete above, and run the abandon **before** any remote branch
    delete — closing the PR first is what stops the host complaining about a
    deleted source branch.
-4. `skitterspec spec-env prune` — reap orphaned test-DB volumes that a spec
-   stack created, that belong to no live spec and that no container uses
-   (leftovers from declined/aborted teardowns or manual worktree removal). Show the orphan list and, **only on the user's confirmation**, run
-   the printed `docker volume rm` commands. Non-fatal: if it can't run or the user
-   declines, report and finish cancelling anyway.
 
 If `env.config.json` is absent, skip this entirely — behave exactly as before.

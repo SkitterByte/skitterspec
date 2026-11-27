@@ -106,8 +106,7 @@ is there, else the project folder in this checkout (or the primary checkout's
 install, for a worktree with none), else refuses in one line naming the folder.
 
 **Any project can use skitterspec, whatever it is written in.** The engine
-shells out to `git` and — only for a spec that asks for one — `docker`; it never
-reads your source, your dependencies or your test framework. What it does need
+shells out to `git`; it never reads your source, your dependencies or your test framework. What it does need
 is Node ≥22.13 to run itself.
 
 In a **Node project**, add it as a dev dependency and the local rung finds it:
@@ -277,7 +276,7 @@ gating are out of range by construction.
 **It bakes in the offer, never the mechanism.** Skitterspec never reads your flag
 code; it asks, cites the doc you point it at, and records what you say.
 
-## Per-spec isolation — worktree by default, Docker on demand
+## Per-spec isolation — a worktree per spec
 
 Work several specs in parallel without them stepping on each other. **Adopt it once** with `npx @skitterbyte/skitterspec init --isolation` (or copy
 `specs/.core/env.config.json.example` → `specs/.core/env.config.json`; every field
@@ -301,28 +300,23 @@ Once adopted it's the **default policy**, not a per-spec chore:
   worktree, reading each one's bucket and phase progress from that worktree.
   The base branch still files an in-flight spec under `backlog/`, because its
   move happens on its own branch. Offline, instant, `--json` for scripts.
-- **Docker — a per-spec escalation.** `/spec` records `> **Stack:** worktree`
-  (default) or `worktree + docker` when the spec touches the DB / stateful
-  services. Only an escalated spec gets a **namespaced stack** — a per-spec
-  `COMPOSE_PROJECT_NAME` isolates containers, networks, and **named volumes**, and
-  a `PORT_OFFSET` reserves a distinct port block, so N stacks run at once with no
-  clashes. A worktree-only spec takes **no** slot, port block, or `.env`.
+- **Dev servers — on a port block of their own.** A spec whose host dev servers
+  are started (`dev` in the config) gets a distinct port block from `ports`, so
+  several run at once with no clashes. There are no per-spec Docker stacks; a
+  spec that needs a database tests against your own, through `/spec-live`.
 
-The machine-local slot registry and volume backups live under `/.spec-env/`
-(gitignored). `docker.enabled` in the config is the project **master switch**
-("is Docker escalation available?"), not "always run Docker".
+The machine-local slot registry lives under `/.spec-env/` (gitignored).
 
 **`skitterspec spec-env <verb>` is the engine** underneath all of it — the
 skills are what exercise judgment about when to run which verb. Use it directly
-to escalate Docker onto an existing worktree, re-attach, or tear down:
+to re-attach or tear down:
 
 ```
-skitterspec spec-env up <spec>     # worktree (+ stack iff Stack: worktree + docker)
+skitterspec spec-env up <spec>     # the worktree
                                    #   a PLANNER: it prints the commands, you run them
-skitterspec spec-env down <spec>   # stop stack, drop volumes (backed up first), remove
-                                   #   worktree, free the slot. Guards refuse a dirty or
-                                   #   unpushed-and-unlanded worktree unless --force;
-                                   #   --keep-volumes preserves data
+skitterspec spec-env down <spec>   # remove the worktree, free the slot. Guards refuse
+                                   #   a dirty or unpushed-and-unlanded worktree unless
+                                   #   --force
 skitterspec spec-env resolve       # which spec is this tree, and where is its worktree
 skitterspec spec-env stage [spec]  # which uncommitted paths are this spec's, and which
                                    #   are not — so a commit never sweeps up a sibling
@@ -332,11 +326,10 @@ The `/spec-env` and `/spec-env-down` **skills** were removed in v3: provisioning
 folded into `/spec-start` and teardown into `/spec-complete` · `/spec-cancel`.
 The CLI engine above is what stayed. <!-- history -->
 
-Your `docker-compose.yml` must reference `${PORT_OFFSET}` on each published port
-so services land in the spec's reserved block. Two adoption modes:
+Two adoption modes:
 
 - **Standalone** (`linkLinear: false`) — plain `{type}/{slug}` branch names; pure
-  worktree + Docker. No Linear needed.
+  worktree. No Linear needed.
 - **Linear-linked** (`linkLinear: true` + `specs/.core/linear.config.json`) —
   branch names follow Linear's pattern so pushing fires Linear's GitHub
   automation.

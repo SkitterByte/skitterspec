@@ -40,7 +40,7 @@ as "this project does not use feature flags".
 ## The header it drives
 
 With this file present, every spec `/spec`, `/spec-bug` and `/spec-hotfix` write
-carries a `Gating:` field beside `Stack:` in `00-overview.md`:
+carries a `Gating:` field in `00-overview.md`:
 
 ```
 > **Gating:** search-ranking-v2

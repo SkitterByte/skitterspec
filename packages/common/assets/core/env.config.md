@@ -1,7 +1,7 @@
 # `env.config.json` — per-spec isolation config
 
-Opt-in config for per-spec isolation (git worktree + optional namespaced Docker
-stack + host dev servers + a front-door proxy per in-progress spec).
+Opt-in config for per-spec isolation (a git worktree, host dev servers and a
+front-door proxy per in-progress spec).
 Provisioning is folded into `/spec-start`, teardown into `/spec-complete` ·
 `/spec-cancel`, traffic diversion is `/spec-connect`, and reading a spec's diff
 is `/spec-diff`; the `skitterspec spec-env
@@ -9,11 +9,11 @@ is `/spec-diff`; the `skitterspec spec-env
 the engine beneath them.
 
 **Once this file is present, isolation is the default policy:** `/spec-start` gives
-**every** in-progress spec its own git worktree automatically. Docker is a
-**per- spec escalation** — a spec brings up a stack only when its
-`> **Stack:**` header is `worktree + docker` (set at `/spec` when it touches
-the DB / stateful services). A `worktree`-only spec takes no registry slot, no
-port block, and no `.env`.
+**every** in-progress spec its own git worktree automatically. There are no
+per-spec Docker stacks: they were removed, and a `docker` block or a
+`> **Stack:** worktree + docker` header left over from them is ignored with a
+notice. A spec takes a registry slot and a port block only when `spec-env dev
+up` starts its dev servers.
 
 **Adopt it** with `skitterspec init --isolation` (or copy
 `env.config.json.example` → `env.config.json` here) and edit the values. While
@@ -21,14 +21,14 @@ port block, and no `.env`.
 exactly as it does today.
 
 The loader (`src/env/config.js` → `loadEnvConfig`) merges your file over the
-frozen defaults below and returns `{ config, present, unknown }`;
+frozen defaults below and returns `{ config, present, unknown, deprecated }`;
 `present:false` means no live `env.config.json` was found.
 
 **A key not listed below is ignored — and says so.** Every `spec-env` command
 prints one advisory line per unrecognised key, top-level or nested:
 
 ```
-spec-env: env.config.json — unknown key "docker.portbase" is ignored.
+spec-env: env.config.json — unknown key "ports.bsae" is ignored.
 ```
 
 It is advisory in the strongest sense: the key is dropped exactly as it always
@@ -85,39 +85,13 @@ through to a documented conservative default; see the field notes below.
     "folderPattern": "{slug}" // per-spec worktree dir name.
   },
 
-  // Per-spec Docker stack. COMPOSE_PROJECT_NAME namespaces containers,
-  // networks, and named volumes; PORT_OFFSET shifts the spec's port block.
-  "docker": {
-    // Master switch: "is Docker escalation available on this project?" — NOT
-    // "always run Docker". true = specs MAY escalate (a spec still needs
-    // `Stack: worktree + docker` to actually get a stack); the default stack is
-    // worktree-only. false = every spec is worktree-only and the escalation is
-    // hidden. (Was "always provision Docker" in the pre-Stack engine.)
-    "enabled": true,
-    // Passed as `-f` to `docker compose` on up and down, but ONLY when the file
-    // is actually there — a project whose file has a name docker finds by
-    // itself keeps working untouched. It is also the signal that lets a spec
-    // with no `Stack:` header inherit `enabled` above: the switch is a
-    // project-wide default, the file is evidence there is a stack to bring up.
-    // An explicit header is checked first and never consults it.
-    "composeFile": "docker-compose.yml",
-    "projectNamePattern": "{repoSlug}_{slug}", // → COMPOSE_PROJECT_NAME
-    "portBase": 3000,          // first port of slot 0's block
-    "portsPerSpec": 10,        // block width; slot n → portBase + n*portsPerSpec
-    // Written into the worktree by `spec-env bootstrap`, and passed to compose
-    // as `--env-file`. A Docker spec's worktree steps run in this order:
-    // seedFiles, this env file
-    // (COMPOSE_PROJECT_NAME and PORT_OFFSET appended only where missing, so a
-    // value `setup` or you put there is kept), `setup`, then
-    // `docker compose … up -d` — all from inside the worktree, so the stack
-    // reads this spec's values and not the primary checkout's.
-    // It must be a file of its OWN: if it is also in `seedFiles` as a symlink,
-    // the write is refused rather than send this spec's port block into the
-    // primary checkout's file. Name a different file here (".worktree.env")
-    // and have your compose file read the values from it.
-    "envFile": ".env",
-    "backupCommand": ""        // optional pre-teardown backup (e.g. pg_dump);
-                              // empty = no backup, volumes dropped directly.
+  // The port block each spec's host dev servers start on (`spec-env dev up`):
+  // slot n → base + n*perSpec onwards. These were `docker.portBase` and
+  // `docker.portsPerSpec` while per-spec Docker stacks existed; a config that
+  // still sets those is read as this, with a notice, until `ports` is set.
+  "ports": {
+    "base": 3000,              // first port of slot 0's block
+    "perSpec": 10              // block width
   },
 
   // Gitignored files seeded from the primary checkout into a fresh worktree by
@@ -141,8 +115,6 @@ through to a documented conservative default; see the field notes below.
   // `local.settings.json`, `config/local.yml`.
   // Seeded files are gitignored, so they never make the worktree "dirty" and
   // never block teardown; they vanish with the worktree at `spec-env down`.
-  // On a Docker project, do not seed `docker.envFile` as a symlink — the env
-  // file step refuses to write through one (see `envFile` above).
   // [] (or absent) = seed nothing (current behaviour).
   "seedFiles": {
     "mode": "symlink",
@@ -150,11 +122,11 @@ through to a documented conservative default; see the field notes below.
   },
 
   // Bootstrap commands `spec-env bootstrap <spec>` runs IN the worktree, after
-  // the seeds and the env file and before the stack, on every provision including
+  // the seeds, on every provision including
   // re-attach — so a fresh worktree's dependencies exist and git hooks,
   // typechecks, builds and tests work immediately instead of failing on a
   // missing node_modules. An array, run in order, stopping at the first that
-  // exits non-zero; [] = none. Each string is a shell command; {slug}/{branch}/{worktreePath}/{projectName}/{portOffset}
+  // exits non-zero; [] = none. Each string is a shell command; {slug}/{branch}/{worktreePath}
   // expand (the cwd is already the worktree — the project folder inside it, for a
   // project in a subfolder of its repo — so {worktreePath} is usually
   // redundant). Example: ["pnpm install --frozen-lockfile"].
@@ -181,7 +153,7 @@ through to a documented conservative default; see the field notes below.
   // them (a /spec documents-only land does not). They stop at the first
   // failure, report it as a caveat, and never undo the land or block
   // teardown. Literal strings — tokens are NOT expanded, because they run on
-  // the base branch where a spec's {slug} or {portOffset} mean nothing.
+  // the base branch where a spec's {slug} or {branch} mean nothing.
   //
   // CONDITIONAL ENTRIES. A plain string always runs. An entry may instead be
   // { "run": "<cmd>", "when": ["<glob>", ...] } (a single string `when` is
@@ -241,7 +213,7 @@ through to a documented conservative default; see the field notes below.
   "complete": { "checks": [] },
 
   // Host dev servers `spec-env dev up <spec>` starts on the spec's port block
-  // (for apps that run via `pnpm dev` on the host, not inside the Docker stack).
+  // (for apps that run via `pnpm dev` on the host).
   // An array so UI + API (or more) are supervised independently; [] = none.
   // Each entry:
   //   name       label used in logs/pid files (.spec-env/{logs,pids}/<spec>-<name>).
@@ -803,7 +775,7 @@ C:\Code\LSC App-wt\<spec>\       ← each spec's worktree, beside the repo
   A spec's worktree is a checkout of the whole repo, with the project at the same
   place inside it.
 - **Everything in this file is project-relative**: `setup`, `dev`, seed files,
-  `docker.composeFile` and `docker.envFile`, `registry`, `spec.companionPaths`,
+  `registry`, `spec.companionPaths`,
   and the folder `/spec-start` moves the session into
   (`<worktree>/FF.CSC.Solution`). Git commands run against the worktree.
 - **The review page lists git paths**, so the project's files carry its folder
@@ -825,41 +797,12 @@ C:\Code\LSC App-wt\<spec>\       ← each spec's worktree, beside the repo
 
 - `{repo}` — the repo root's dir basename (e.g. `skitterspec`) — the primary
   checkout's root, which for a project in a subfolder is the folder above it.
-- `{repoSlug}` — `{repo}` lower-cased, non-alphanumerics collapsed to `-`
-  (safe for a `COMPOSE_PROJECT_NAME`).
+- `{repoSlug}` — `{repo}` lower-cased, non-alphanumerics collapsed to `-`.
 - `{slug}` — the spec slug (folder name minus its `feat-`/`bug-`/`hotfix-`/`chore-` prefix).
 
-## Pruning orphaned test-DB volumes
+## `spec-env prune`
 
-`spec-env down` drops the finished spec's own Docker volume, but volumes leak
-when that path is skipped — a declined/guard-aborted teardown, a manual
-`git worktree remove`, or `--keep-volumes`. Over many worktrees these orphaned
-DB volumes pile up and eat disk.
-
-`skitterspec spec-env prune` reconciles the volumes spec stacks created
-against the specs that still have a **worktree** and lists the orphans
-(volumes owned by no live spec) plus the `docker volume rm` commands to remove
-them. It plans only — you run the printed commands — and it frees any stale
-registry slot for a reaped spec.
-
-- **Only a spec stack's volume is ever a candidate.** Its
-  `com.docker.compose.project` label must match `docker.projectNamePattern`
-  (with `{slug}` as the wildcard) — a name prefix is not enough. The primary
-  checkout's own volumes, external and unlabelled or labelled with the base
-  project, are never listed, and nor is any name the base `composeFile`
-  mentions.
-- **Never a volume in use.** Anything a container references, running or
-  stopped, is kept. If docker cannot answer, prune lists nothing and says it
-  cannot tell.
-- **`docker.enabled: false` lists nothing** — no spec there ever had a stack.
-
-- **Liveness = an existing worktree, not the registry** (the registry is what
-  goes stale). A spec with a live worktree — in any bucket, including one checked
-  out only on its branch — is always protected.
-- **No backup.** Unlike `spec-env down`, prune does **not** run
-  `backupCommand`: an orphan is used by no container, so there is no running
-  DB to dump. Add `--older-than <days>`
-  to only reap volumes older than a cutoff (volumes of unknown age are kept).
-- `/spec-complete` and `/spec-cancel` run prune (confirm-first) as their last
-  teardown step, so orphans get swept as specs finish. You can also run it by
-  hand at any time to clear an existing backlog.
+Per-spec Docker stacks, and the test-DB volumes this verb used to reap, were
+removed. `skitterspec spec-env prune` now deletes the review server's pidfile
+when its process is gone, and otherwise says `nothing to prune`. It still
+accepts `--older-than <days>` and ignores it, so an old script keeps working.

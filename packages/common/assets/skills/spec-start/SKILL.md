@@ -367,8 +367,8 @@ the start does not.
 ## 5. Bring the spec's dev servers up — confirm before heavy steps
 
 **Only when the project configures host dev servers** (`env.config.json` → a
-non-empty `dev` array). Show what will start — the commands, the ports, any
-Docker stack — and get a yes; on **`--plan`**, print it and stop. On
+non-empty `dev` array). Show what will start — the commands and the ports —
+and get a yes; on **`--plan`**, print it and stop. On
 confirmation run `skitterspec spec-env dev up <name>`. With none configured this
 is a clean no-op.
 
@@ -379,7 +379,7 @@ invoke it yourself.
 ## 6. Build phase 1
 
 **An epic has no phase 1.** `spec-env up` gives it a documents-only tree (no
-`setup`, no Docker) whether or not `--docs` was passed, because its work is its
+`setup`) whether or not `--docs` was passed, because its work is its
 members'. Skip this step and step 5, and end with the block — but first ask
 what the epic needs started:
 

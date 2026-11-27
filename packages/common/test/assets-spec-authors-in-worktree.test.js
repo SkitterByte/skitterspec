@@ -66,7 +66,7 @@ test('a failed cd writes the spec where the session is, rather than guessing', (
 })
 
 test('--docs is what makes provisioning cheap, and the skill says what it skips', () => {
-  assert.match(SPEC, /skips the `setup` commands and the\s*\n?Docker stack/)
+  assert.match(SPEC, /skips the `setup` commands —/)
   assert.match(SPEC, /`\/spec-start` re-runs `up` over the same worktree without the flag/)
 })
 
