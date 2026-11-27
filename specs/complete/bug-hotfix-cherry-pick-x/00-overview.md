@@ -82,3 +82,4 @@ the e2e test's match on the landed body is `null`.
 
 - 2026-11-27 — Bug reproduced; failing tests added (red).
 - 2026-11-27 — Fixed: every hotfix land cherry-pick (carry, `--also` targets, printed commands) uses `-x`; commit-trailers.md notes the line after `Refs:`; test green
+- 2026-11-27 — Completed; fix done, tests green.
