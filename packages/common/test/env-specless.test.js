@@ -40,7 +40,7 @@ const { VERDICTS, COMMITTING, BUTTON_SETS } = require('../src/env/review.js')
 const CONFIG = {
   registry: '.spec-env/registry.json',
   worktree: { root: '../{repo}-wt', folderPattern: '{slug}' },
-  docker: { projectNamePattern: '{repoSlug}_{slug}', portBase: 3000, portsPerSpec: 10 },
+  ports: { base: 3000, perSpec: 10 },
   branch: { pattern: '{type}/{slug}' },
 }
 

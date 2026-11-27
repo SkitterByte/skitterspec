@@ -15,7 +15,7 @@ const {
   splitPrefix,
   expandTokens,
   repoInfo,
-  readStackField,
+  readLegacyDockerStack,
   readBaseVersionField,
   parseBaseVersion,
 } = require('../src/env/resolve.js')
@@ -199,7 +199,6 @@ test('resolvePrimaryCheckout: not a git repo (null) → falls back to dir', () =
 function baseConfig(overrides = {}) {
   return {
     worktree: { root: '../{repo}-wt', folderPattern: '{slug}' },
-    docker: { projectNamePattern: '{repoSlug}_{slug}', portBase: 3000, portsPerSpec: 10 },
     branch: { pattern: '{type}/{slug}', identifierField: '' },
     ...overrides,
   }
@@ -288,8 +287,8 @@ test('resolveSpec: feat- spec with {type}/{slug} branch fallback', () => {
   assert.strictEqual(r.bucket, 'backlog')
   assert.strictEqual(r.branch, 'feat/linear-hybrid-sync')
   assert.strictEqual(r.worktreeFolder, 'linear-hybrid-sync')
-  // projectName expands {repoSlug}_{slug}
-  assert.strictEqual(r.projectName, `${r.repoSlug}_linear-hybrid-sync`)
+  // no Docker project name is resolved any more (feat-drop-docker-stacks)
+  assert.ok(!('projectName' in r))
   // worktree is a resolved sibling path
   assert.strictEqual(r.worktreePath, path.resolve(dir, `../${r.repo}-wt`, 'linear-hybrid-sync'))
 })
@@ -382,34 +381,25 @@ test('resolveSpec: searchDirs finds a spec that lives only in a worktree', () =>
   assert.strictEqual(r.worktreePath, path.resolve(primary, `../${r.repo}-wt`, 'branch-only'))
 })
 
-// --- Stack field (per-spec Docker escalation) -------------------------------
+// --- Stack field: retired with per-spec Docker stacks ------------------------
 
-const dockerCfg = (enabled) =>
-  baseConfig({ docker: { projectNamePattern: '{repoSlug}_{slug}', portBase: 3000, portsPerSpec: 10, enabled } })
-
-test('readStackField: explicit worktree/docker forms', () => {
-  const wt = scaffold('feat-a', { stack: 'worktree' })
-  const dk = scaffold('feat-b', { stack: 'worktree + docker' })
-  assert.strictEqual(readStackField(path.join(wt, 'specs', 'backlog', 'feat-a'), dockerCfg(true)), 'worktree')
-  assert.strictEqual(readStackField(path.join(dk, 'specs', 'backlog', 'feat-b'), dockerCfg(true)), 'docker')
+test('readLegacyDockerStack: true only for a header that still names docker', () => {
+  const p = (dir, f) => path.join(dir, 'specs', 'backlog', f)
+  assert.strictEqual(readLegacyDockerStack(p(scaffold('feat-b', { stack: 'worktree + docker' }), 'feat-b')), true)
+  assert.strictEqual(readLegacyDockerStack(p(scaffold('feat-a', { stack: 'worktree' }), 'feat-a')), false)
 })
 
-test('readStackField: an explicit worktree suppresses Docker even when available', () => {
-  const wt = scaffold('feat-a', { stack: 'worktree' })
-  assert.strictEqual(readStackField(path.join(wt, 'specs', 'backlog', 'feat-a'), dockerCfg(true)), 'worktree')
+test('STAYS SILENT: no header, or no overview at all, is not a legacy stack', () => {
+  assert.strictEqual(readLegacyDockerStack(path.join(scaffold('feat-a'), 'specs', 'backlog', 'feat-a')), false)
+  assert.strictEqual(readLegacyDockerStack(path.join(os.tmpdir(), 'no-such-spec-dir')), false)
 })
 
-test('readStackField: missing field follows the master switch (legacy behaviour)', () => {
-  const p = (dir) => path.join(dir, 'specs', 'backlog', 'feat-a')
-  assert.strictEqual(readStackField(p(scaffold('feat-a')), dockerCfg(true)), 'docker')
-  assert.strictEqual(readStackField(p(scaffold('feat-a')), dockerCfg(false)), 'worktree')
-})
-
-test('resolveSpec: populates spec.stack from the header', () => {
+test('resolveSpec: every spec is a worktree, and a docker header is only flagged', () => {
   const dir = scaffold('feat-thing', { stack: 'worktree + docker' })
-  assert.strictEqual(resolveSpec('feat-thing', dir, dockerCfg(true)).stack, 'docker')
-  const wt = scaffold('feat-thing', { stack: 'worktree' })
-  assert.strictEqual(resolveSpec('feat-thing', wt, dockerCfg(true)).stack, 'worktree')
+  const r = resolveSpec('feat-thing', dir, baseConfig())
+  assert.strictEqual(r.stack, 'worktree')
+  assert.strictEqual(r.legacyDockerStack, true)
+  assert.strictEqual(resolveSpec('feat-thing', scaffold('feat-thing'), baseConfig()).legacyDockerStack, false)
 })
 
 // --- Hotfix: Base version tag (fork-from-tag provisioning) -------------------

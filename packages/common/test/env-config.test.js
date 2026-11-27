@@ -22,8 +22,8 @@ test('absent config → defaults with present:false (opt-out, no throw)', () => 
   const dir = tmpDir()
   const { config, present } = loadEnvConfig(dir)
   assert.strictEqual(present, false)
-  assert.strictEqual(config.docker.portBase, 3000)
-  assert.strictEqual(config.docker.portsPerSpec, 10)
+  assert.deepStrictEqual(config.ports, { base: 3000, perSpec: 10 })
+  assert.strictEqual(config.docker, undefined)
   assert.strictEqual(config.worktree.root, '../{repo}-wt')
   assert.strictEqual(config.registry, '.spec-env/registry.json')
   assert.strictEqual(config.branch.pattern, '{type}/{slug}')
@@ -88,25 +88,49 @@ test('baseBranchFallback defaults to empty, trims, and drops what cannot be a br
 test('present config → present:true and merged over defaults', () => {
   const dir = tmpDir()
   writeEnvConfig(dir, {
-    docker: { portBase: 4000 },
+    ports: { base: 4000 },
     branch: { pattern: '{identifier}-{slug}', identifierField: 'tracker_id' },
   })
   const { config, present } = loadEnvConfig(dir)
   assert.strictEqual(present, true)
   // overridden
-  assert.strictEqual(config.docker.portBase, 4000)
+  assert.strictEqual(config.ports.base, 4000)
   assert.strictEqual(config.branch.pattern, '{identifier}-{slug}')
   assert.strictEqual(config.branch.identifierField, 'tracker_id')
   // untouched defaults
-  assert.strictEqual(config.docker.portsPerSpec, 10)
-  assert.strictEqual(config.docker.composeFile, 'docker-compose.yml')
+  assert.strictEqual(config.ports.perSpec, 10)
 })
 
-test('backupCommand accepts an explicit empty string', () => {
+// --- docker: retired with per-spec Docker stacks (feat-drop-docker-stacks) ---
+
+test('a leftover docker block is ignored, with one deprecation notice', () => {
   const dir = tmpDir()
-  writeEnvConfig(dir, { docker: { backupCommand: '' } })
-  const { config } = loadEnvConfig(dir)
-  assert.strictEqual(config.docker.backupCommand, '')
+  writeEnvConfig(dir, { docker: { enabled: true, composeFile: 'x.yml', backupCommand: 'pg_dump' } })
+  const { config, unknown, deprecated } = loadEnvConfig(dir)
+  assert.strictEqual(config.docker, undefined)
+  assert.deepStrictEqual(unknown, [], 'never reported as an unknown key')
+  assert.strictEqual(deprecated.length, 1)
+  assert.strictEqual(deprecated[0].key, 'docker')
+  assert.match(deprecated[0].note, /Docker stacks were removed/)
+})
+
+test('docker.portBase/portsPerSpec still set the port block when ports is unset', () => {
+  const dir = tmpDir()
+  writeEnvConfig(dir, { docker: { portBase: 4100, portsPerSpec: 20 } })
+  assert.deepStrictEqual(loadEnvConfig(dir).config.ports, { base: 4100, perSpec: 20 })
+})
+
+test('ports wins over the old docker port keys when both are set', () => {
+  const dir = tmpDir()
+  writeEnvConfig(dir, { docker: { portBase: 4100 }, ports: { base: 5000 } })
+  assert.strictEqual(loadEnvConfig(dir).config.ports.base, 5000)
+})
+
+test('STAYS SILENT: a config with no docker key carries no deprecation', () => {
+  const dir = tmpDir()
+  writeEnvConfig(dir, { ports: { base: 4000 } })
+  assert.deepStrictEqual(loadEnvConfig(dir).deprecated, [])
+  assert.deepStrictEqual(loadEnvConfig(tmpDir()).deprecated, [], 'nor does an absent config')
 })
 
 
@@ -139,19 +163,19 @@ test('STAYS SILENT: guards.baseIsLandingZone is a known key', () => {
 
 test('ignores unknown keys for forward-compat', () => {
   const dir = tmpDir()
-  writeEnvConfig(dir, { wibble: true, docker: { unknown: 'x', portBase: 5000 } })
+  writeEnvConfig(dir, { wibble: true, ports: { unknown: 'x', base: 5000 } })
   const { config } = loadEnvConfig(dir)
-  assert.strictEqual(config.docker.portBase, 5000)
+  assert.strictEqual(config.ports.base, 5000)
   assert.strictEqual(config.wibble, undefined)
-  assert.strictEqual(config.docker.unknown, undefined)
+  assert.strictEqual(config.ports.unknown, undefined)
 })
 
 test('wrong-typed values are ignored (keep the default)', () => {
   const dir = tmpDir()
-  writeEnvConfig(dir, { docker: { portBase: 'nope', enabled: 'yes' } })
+  writeEnvConfig(dir, { ports: { base: 'nope' }, proxy: { enabled: 'yes' } })
   const { config } = loadEnvConfig(dir)
-  assert.strictEqual(config.docker.portBase, 3000)
-  assert.strictEqual(config.docker.enabled, true)
+  assert.strictEqual(config.ports.base, 3000)
+  assert.strictEqual(config.proxy.enabled, true)
 })
 
 test('throws a clear error on malformed JSON', () => {
@@ -300,14 +324,14 @@ test('proxy defaults and merges field-by-field', () => {
 
 test('DEFAULT_CONFIG is exported and frozen', () => {
   assert.ok(Object.isFrozen(DEFAULT_CONFIG))
-  assert.ok(Object.isFrozen(DEFAULT_CONFIG.docker))
+  assert.ok(Object.isFrozen(DEFAULT_CONFIG.ports))
 })
 
 test('merging does not mutate DEFAULT_CONFIG', () => {
   const dir = tmpDir()
-  writeEnvConfig(dir, { docker: { portBase: 9000 } })
+  writeEnvConfig(dir, { ports: { base: 9000 } })
   loadEnvConfig(dir)
-  assert.strictEqual(DEFAULT_CONFIG.docker.portBase, 3000)
+  assert.strictEqual(DEFAULT_CONFIG.ports.base, 3000)
 })
 
 test('live.migrations defaults to [] and normalizes a parsed glob list', () => {

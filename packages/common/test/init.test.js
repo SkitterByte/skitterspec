@@ -730,7 +730,7 @@ test('choosing checkout mode is recorded in the written config', async () => {
   assert.strictEqual(cfg.mode, 'checkout')
   // The rest of the template must survive the rewrite — it is re-serialised, so
   // a careless write could drop keys the operator never chose to lose.
-  assert.ok(cfg.worktree && cfg.docker && cfg.branch, 'other config blocks intact')
+  assert.ok(cfg.worktree && cfg.ports && cfg.branch, 'other config blocks intact')
 })
 
 test('declining isolation writes no config at all, whatever the mode says', async () => {

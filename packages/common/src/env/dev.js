@@ -9,9 +9,9 @@
  * later proxy (Phase 2) routes to it. No side effects: the CLI's `supervise.js`
  * does the spawning/killing; this stays unit-testable with no processes.
  *
- * Port math: process `i` in the slot's block gets `portBase + slot*portsPerSpec
- * + i` (reusing the same block the Docker stack draws from — see registry.js).
- * So host dev servers get a reserved block even on a worktree-only spec.
+ * Port math: process `i` in the slot's block gets `ports.base + slot*ports.perSpec
+ * + i` (the `ports` block — see registry.js).
+ * So every spec with dev servers gets a reserved block of its own.
  *
  * Log/pid files live beside the registry (default `.spec-env/`) and are keyed by
  * the spec **folder** (not the bare slug) so a `feat-foo`/`bug-foo` pair can't

@@ -498,14 +498,14 @@ test('a base-only local install seeds exactly its managed set', async () => {
 })
 
 test('worktreeSteps seeds the local install first and never twice', () => {
-  const spec = { slug: 'x', branch: 'feat/x', projectName: 'p', worktreePath: '/wt' }
+  const spec = { slug: 'x', branch: 'feat/x', worktreePath: '/wt' }
   const config = { seedFiles: { mode: 'symlink', files: ['.env', 'CLAUDE.local.md'] }, setup: [] }
-  const steps = worktreeSteps(spec, null, config, { localSeeds: ['.claude/skills/spec', 'CLAUDE.local.md'] })
+  const steps = worktreeSteps(spec, config, { localSeeds: ['.claude/skills/spec', 'CLAUDE.local.md'] })
   assert.deepStrictEqual(
     steps.map((s) => s.file),
     ['.claude/skills/spec', '.env', 'CLAUDE.local.md'],
   )
-  assert.deepStrictEqual(worktreeSteps(spec, null, config).map((s) => s.file), ['.env', 'CLAUDE.local.md'])
+  assert.deepStrictEqual(worktreeSteps(spec, config).map((s) => s.file), ['.env', 'CLAUDE.local.md'])
 })
 
 for (const mode of ['symlink', 'copy']) {

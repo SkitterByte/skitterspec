@@ -16,8 +16,8 @@ Docker stack, and new specs carry no `Stack:` line. Asset tests prove it.
 - [ ] `skills/spec-start` (SKILL.md, isolation.md), `spec-complete`,
       `spec-cancel`, `no-spec`, `spec-init`, `spec-bug`, `spec-hotfix`: remove
       the Docker stack, `Stack:` escalation and volume and backup wording.
-- [ ] `core/env.config.md` and `env.config.json.example`: remove the `docker`
-      block and document `ports`. `rules/spec-planning.md`: remove "Docker
+- [ ] `core/env.config.md`: remove the `docker` block and document `ports`
+      (`env.config.json.example` already carries `ports`, from phase 1). `rules/spec-planning.md`: remove "Docker
       stacks" from the isolation pointer.
 - [ ] Update `packages/common/README.md` and `packages/skitterspec/README.md`,
       and add a `MIGRATION.md` entry for each published package. The entry

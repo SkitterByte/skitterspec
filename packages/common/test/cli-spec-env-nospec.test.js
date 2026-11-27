@@ -192,7 +192,10 @@ test('status marks it as having no spec, so a reader does not go looking', async
   }
 })
 
-test('STAYS SILENT: a project with no specless branches keeps the registry it had', async () => {
+// `up` no longer allocates a slot (per-spec Docker stacks were removed,
+// feat-drop-docker-stacks; only `spec-env dev up` takes one), so it has no
+// reason to write the registry at all.
+test('STAYS SILENT: up on a project with no specless branches writes no registry', async () => {
   const dir = scaffold({ docker: { enabled: true, portBase: 3000, portsPerSpec: 10 } })
   try {
     addSpec(dir, 'feat-orders')
@@ -201,15 +204,13 @@ test('STAYS SILENT: a project with no specless branches keeps the registry it ha
       '# X\n\n> **Type:** Feature\n> **Stack:** worktree + docker\n',
     )
     await runQuiet(['spec-env', 'up', 'feat-orders', '--dir', dir])
-    const raw = registry(dir)
-    assert.deepStrictEqual(raw, { slots: { 'feat-orders': 0 } })
-    assert.ok(!('specless' in raw), 'the key is absent, not an empty object')
+    assert.ok(!fs.existsSync(path.join(dir, '.spec-env', 'registry.json')), 'no registry written')
   } finally {
     cleanup(dir)
   }
 })
 
-test('a Docker spec provisioned beside a specless branch does not erase it', async () => {
+test('a spec provisioned beside a specless branch does not erase it', async () => {
   // Every registry helper returns a WHOLE registry, so one that forgot the key
   // would delete it on the next write — and the /no-spec branch would become
   // unresolvable with nothing to say why.
@@ -223,7 +224,7 @@ test('a Docker spec provisioned beside a specless branch does not erase it', asy
     )
     await runQuiet(['spec-env', 'up', 'feat-orders', '--dir', dir])
     assert.deepStrictEqual(registry(dir).specless, { 'bump-deps': { branch: 'chore/bump-deps' } })
-    assert.deepStrictEqual(registry(dir).slots, { 'feat-orders': 0 })
+    assert.deepStrictEqual(registry(dir).slots, {})
   } finally {
     cleanup(dir)
   }

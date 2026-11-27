@@ -5,8 +5,8 @@
  * in, while keeping repo IDENTITY anchored on the primary checkout.
  *
  * Those are two different questions and `bug-spec-env-cwd-anchor` answered both
- * with one anchor. Repo identity — `{repo}`, the worktree path, the registry,
- * the docker project name — must be identical from anywhere, and that fix is
+ * with one anchor. Repo identity — `{repo}`, the worktree path, the registry —
+ * must be identical from anywhere, and that fix is
  * correct and stays. But a spec's BUCKET and its `Stack:` / `Base version:`
  * headers are properties of the branch you are on: `/spec-start` moves a spec to
  * `in-progress` on the spec's own branch, so the primary checkout still shows it
@@ -24,7 +24,6 @@ const { resolveSpec } = require('../src/env/resolve.js')
 function baseConfig(overrides = {}) {
   return {
     worktree: { root: '../{repo}-wt', folderPattern: '{slug}' },
-    docker: { projectNamePattern: '{repoSlug}_{slug}', portBase: 3000, portsPerSpec: 10 },
     branch: { pattern: '{type}/{slug}', identifierField: '' },
     ...overrides,
   }
@@ -61,20 +60,16 @@ test('the bucket comes from the checkout the caller is in, not the primary one',
   assert.strictEqual(r.bucket, 'in-progress')
 })
 
-test('Stack: is read from the worktree copy, so an escalation there is seen', () => {
-  // Escalating a spec to docker is documented as "edit the header, or run
-  // spec-env up <name>" — and the edit happens in the worktree, where the work
-  // is. Reading main's copy means `up` brings up no stack.
+test('Stack: is read from the worktree copy, where the header was edited', () => {
   const { primary, worktree } = splitWorld('feat-needs-db', {
     primaryStack: 'worktree',
     worktreeStack: 'worktree + docker',
   })
-  // `readStackField` normalises to 'docker' / 'worktree' rather than echoing the
-  // header, so assert on both roots — that difference IS the bug.
+  // Assert on both roots — that the two differ is what proves which was read.
   const fromWorktree = resolveSpec('feat-needs-db', primary, baseConfig(), { preferDirs: [worktree] })
   const fromPrimary = resolveSpec('feat-needs-db', primary, baseConfig())
-  assert.strictEqual(fromWorktree.stack, 'docker')
-  assert.strictEqual(fromPrimary.stack, 'worktree')
+  assert.strictEqual(fromWorktree.legacyDockerStack, true)
+  assert.strictEqual(fromPrimary.legacyDockerStack, false)
 })
 
 test('Base version: is read from the worktree copy too', () => {
@@ -89,16 +84,15 @@ test('Base version: is read from the worktree copy too', () => {
 
 // --- repo identity must NOT move ---------------------------------------------
 
-// This is the guard on `bug-spec-env-cwd-anchor`'s fix. The worktree path, the
-// docker project name and `{repo}` are repo-level facts and must be identical
+// This is the guard on `bug-spec-env-cwd-anchor`'s fix. The worktree path and
+// `{repo}` are repo-level facts and must be identical
 // from anywhere — only the spec FILE lookup is allowed to prefer the worktree.
-test('worktree path, project name and repo still derive from the primary checkout', () => {
+test('worktree path and repo still derive from the primary checkout', () => {
   const { primary, worktree } = splitWorld('feat-linear-spec-list')
   const r = resolveSpec('feat-linear-spec-list', primary, baseConfig(), { preferDirs: [worktree] })
 
   assert.strictEqual(r.repo, path.basename(primary))
   assert.strictEqual(r.worktreePath, path.resolve(primary, `../${r.repo}-wt`, 'linear-spec-list'))
-  assert.strictEqual(r.projectName, `${r.repoSlug}_linear-spec-list`)
 })
 
 // --- stays silent -------------------------------------------------------------

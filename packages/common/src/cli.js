@@ -208,7 +208,7 @@ const {
   cacheHit,
   asCached,
 } = require('./env/reviewers.js')
-const { planUp, planCheckoutUp, resolveStack, worktreeSteps } = require('./env/provision.js')
+const { planUp, planCheckoutUp, worktreeSteps } = require('./env/provision.js')
 const { runBootstrap, describeStep } = require('./env/bootstrap.js')
 const { classifyDirtyTree, dirtyPaths, specDocsIn, treeReader } = require('./env/classify.js')
 const { isGitCommit } = require('./env/commitcmd.js')
@@ -219,7 +219,6 @@ const {
   clearAllow,
   mainGuardStatus,
 } = require('./env/mainguard.js')
-const { planPrune, liveSlugsForSpecs, reconcileRegistry } = require('./env/prune.js')
 const { planIntegrate, planIntegrateCheckout, planIntegratePr, planIntegrateDocs } = require('./env/integrate.js')
 const { specBranchDocs, preferBranches } = require('./env/specbranches.js')
 const { findTarget, planResume, planReopen, resumeLines, reopenLines, blockingNext } = require('./env/resume.js')
@@ -337,10 +336,10 @@ Usage:
                               there is nothing here to switch on.
   skitterspec spec-env <cmd>  Per-spec isolation engine (opt-in; needs
                               specs/.core/env.config.json). Subcommands:
-                                up <spec>         print the plan to provision a worktree +
-                                                  Docker stack (prints commands; creates nothing)
+                                up <spec>         print the plan to provision a worktree
+                                                  (prints commands; creates nothing)
                                                   --docs: a tree to write documents in — no
-                                                  setup commands, no Docker
+                                                  setup commands
                                                   --plan: write nothing, not even the trust
                                                   entry or the registry record
                                 bootstrap [spec]  run the worktree's seeds, env file, setup
@@ -356,8 +355,8 @@ Usage:
                                                   the project guard — is a write or a lifecycle
                                                   command aimed at another skitterspec project?
                                                   (/allow-project <name> lifts it)
-                                down <spec>       tear down (guards; --keep-volumes, --force)
-                                prune             reap orphaned test-DB volumes (--older-than <days>)
+                                down <spec>       tear down (guards; --force)
+                                prune             reap a stale review-server pidfile
                                 dev up <spec>     start host dev servers on the spec's ports
                                 dev down <spec>   stop the spec's host dev servers
                                                   (--plan on either: describe, touch nothing)
@@ -609,10 +608,9 @@ async function cleanupReleaseTooling(dir, opts) {
  * Print what is provisioned: every spec that owns a git worktree, with its slot
  * and port block when it has one.
  *
- * The worktree — not the slot registry — is what "provisioned" means. `specEnvUp`
- * allocates a slot only when `wantsDocker`, so a `Stack: worktree` spec never
- * enters the registry and a project with `docker.enabled: false` has an
- * permanently empty one. Reading the registry alone reported `no provisioned
+ * The worktree — not the slot registry — is what "provisioned" means. A slot
+ * is allocated only by `spec-env dev up`, so a spec with no dev servers never
+ * enters the registry. Reading the registry alone reported `no provisioned
  * specs` while worktrees were standing.
  *
  * The registry is still read, but only to ANNOTATE a spec that has a slot — it
@@ -720,7 +718,7 @@ function specEnvStatus(dir, config) {
     let ports = ''
     if (slot !== undefined) {
       const off = portOffset(slot, config)
-      ports = `  slot ${slot}  ports ${off}-${off + config.docker.portsPerSpec - 1}`
+      ports = `  slot ${slot}  ports ${off}-${off + config.ports.perSpec - 1}`
     }
     // SAID, not left to be noticed. A `/no-spec` branch appears in this list
     // because it has a worktree like everything else, and a reader who goes
@@ -1465,10 +1463,9 @@ function epicInputs(argv, json, subject) {
   return { dir, config: present ? config : null, base, ...tree, worktrees, branches: specBranchDocs(git, config, base) }
 }
 
-// Plan a provision: allocate the slot, persist the registry, and print the plan
-// the /spec-env skill executes (git worktree add, docker compose up, .env).
-// This creates no worktree and starts no stack — the caller runs the
-// printed commands. Keep the output's verb honest about that.
+// Plan a provision: print the plan the skill executes (the spec commit, git
+// worktree add, then `spec-env bootstrap`). This creates no worktree — the
+// caller runs the printed commands. Keep the output's verb honest about that.
 
 
 // Is this spec new to git? Asked directly, so the commit subject does not depend
@@ -1700,7 +1697,7 @@ function specEnvUpCheckout(dir, config, spec) {
     `  mode:      checkout (branch built in the primary checkout)`,
     `  checkout:  ${plan.checkoutPath}`,
     `  branch:    ${plan.branch}`,
-    '  stack:     checkout-only (no worktree, no docker, no port block)',
+    '  stack:     checkout-only (no worktree)',
   ]
   out.push(...specCommitLines(plan, spec.folder))
   if (plan.commands.length) {
@@ -1964,7 +1961,7 @@ function specEnvNospec(dir, config, name, flags = {}) {
     '',
     `  worktree:  ${spec.projectPath}`,
     `  branch:    ${spec.branch}`,
-    '  stack:     worktree-only (no docker, no port block)',
+    '  stack:     worktree',
     `  recorded:  ${already ? 'already in' : 'added to'} ${config.registry} as a specless branch`,
   ]
   if (trust.reason === 'malformed') {
@@ -2219,50 +2216,20 @@ function specEnvUp(dir, config, specArg, flags = {}) {
   const worktreeRootAbs = path.dirname(spec.worktreePath)
   const trust = ensureWorktreeDirTrusted(dir, worktreeRootAbs, { dryRun: !!flags.plan })
 
-  // Documents mode brings no stack up, so a Docker spec provisioned this way is
-  // a worktree-only run. Asked through `resolveStack`, which `planUp` also
-  // calls, so the slot allocated here and the commands planned there cannot
-  // disagree about whether there is a stack — they did, for a header-less spec.
-  const wantsDocker = resolveStack(spec, config, {
-    docs,
-    composeFilePresent: composeFilePresent(dir, config),
-  }).wantsDocker
-
-  // Slot allocation is Docker-only: a worktree-only spec never touches the
-  // registry (no slot, no port block). Its re-run signal is the worktree already
-  // existing on disk (attach the branch, don't `-b`); a Docker spec's is its slot.
-  //
-  // THE WORKTREE ON DISK COUNTS IN BOTH PATHS, and documents mode is what makes
-  // that necessary rather than merely tidy. A Docker spec provisioned with
-  // `--docs` allocates no slot, so a later `up` without the flag would read the
-  // registry, find nothing, and plan `git worktree add -b <branch>` over a
-  // worktree and a branch that both already exist — a plan that cannot run. The
-  // stronger signal is the honest one either way: a tree on disk is a re-run,
-  // whatever the registry remembers.
-  let slot = null
-  let attached
-  const worktreeOnDisk = fs.existsSync(spec.worktreePath)
-  if (wantsDocker) {
-    const before = readRegistry(dir, config)
-    attached =
-      Object.prototype.hasOwnProperty.call(before.slots, spec.folder) || worktreeOnDisk
-    const alloc = allocateSlot(before, spec.folder)
-    slot = alloc.slot
-    if (!flags.plan) writeRegistry(dir, config, alloc.registry) // the engine's only write (Docker path)
-  } else {
-    attached = worktreeOnDisk
-  }
+  // A re-run is a worktree already on disk: attach the branch, don't `-b`. The
+  // registry is no part of `up` any more — a slot is a dev port block, and only
+  // `spec-env dev up` allocates one.
+  const attached = fs.existsSync(spec.worktreePath)
 
   // The tree gate: the same facts the checkout planner gets, all of them read
   // above — before this command wrote anything of its own into the tree.
-  const plan = planUp(spec, { slot, attached }, config, {
+  const plan = planUp(spec, { attached }, config, {
     clean: upStatus !== null && upStatus.length === 0,
     dirtyPaths: upDirtyPaths,
     specOnFork: upOnFork.onFork,
     specFoundOn: upOnFork.foundOn,
     forkRef: spec.baseRef || spec.forkFrom || currentBranch(upGit) || 'HEAD',
     specUntracked: upSpecUntracked,
-    composeFilePresent: composeFilePresent(dir, config),
   }, { docs })
 
   if (plan.blocked) {
@@ -2283,8 +2250,8 @@ function specEnvUp(dir, config, specArg, flags = {}) {
 
   const out = []
   // `up` is a planner: it prints commands for the caller to run and creates no
-  // worktree or stack itself (the registry slot and the trust entry, both reported
-  // separately below, are its only writes). Say so in the verb — a past-tense
+  // worktree itself (the trust entry, reported separately below, is its only
+  // write). Say so in the verb — a past-tense
   // "(provisioned)" reads as a completed state change, and a caller that believes
   // it skips the commands and works on `main`, which is what isolation exists to
   // prevent.
@@ -2297,12 +2264,12 @@ function specEnvUp(dir, config, specArg, flags = {}) {
   // is the worktree itself unless the project sits in a subfolder of its repo.
   out.push(`  worktree:  ${plan.projectPath}`)
   out.push(`  branch:    ${plan.branch}`)
-  if (plan.slot !== null) {
-    const hi = plan.portOffset + config.docker.portsPerSpec - 1
-    out.push(`  project:   ${plan.projectName}`)
-    out.push(`  slot:      ${plan.slot}  (ports ${plan.portOffset}-${hi})`)
-  } else {
-    out.push('  stack:     worktree-only (no docker, no port block)')
+  out.push('  stack:     worktree')
+  // Said once, here, because `up` is where the header used to act: a spec
+  // written for a Docker stack is provisioned without one, and its reader
+  // should not find out from a missing database.
+  if (spec.legacyDockerStack) {
+    out.push('  note:      Stack: worktree + docker is ignored — per-spec Docker stacks were removed')
   }
   // The loader falls back silently on an unrecognised `mode`, so this line is
   // the operator's only evidence of which mode actually resolved — print it
@@ -2311,7 +2278,7 @@ function specEnvUp(dir, config, specArg, flags = {}) {
   // Said positively and only when asked for, so the absent setup step below
   // reads as a choice rather than as a project with nothing configured.
   if (plan.docs) {
-    out.push('  docs:      documents only — no setup commands, no docker')
+    out.push('  docs:      documents only — no setup commands')
   }
   // PR mode forks from LOCAL base — an origin/<base> fork would fork without a
   // just-landed, not-yet-pushed spec document — so when the remote image is
@@ -2395,8 +2362,7 @@ function specEnvUp(dir, config, specArg, flags = {}) {
  * one step later — `setup` after a lockfile change — costs no re-plan.
  *
  * Refuses BEFORE ACTING, non-zero, when there is nothing to bootstrap yet: no
- * worktree on disk, or a docker spec with no registry slot (its port block
- * would be derived from nothing). Both name `spec-env up`.
+ * worktree on disk. It names `spec-env up`.
  *
  * Specless (`/no-spec`) work runs `setup` only — `nospec` has never seeded and
  * still does not. Checkout mode has no worktree and says so, exit 0: the
@@ -2438,35 +2404,8 @@ function specEnvBootstrap(dir, config, specArg, flags = {}) {
     return
   }
 
-  let steps
-  // A `/no-spec` record — not the authoring record `up --docs` writes for a
-  // spec not yet on disk, which is a spec and plans like one. It seeds and runs
-  // `setup` exactly as a spec does, since a `setup` that reads a seeded `.env`
-  // fails without it; what it never has is a stack, so no slot is consulted.
-  if (spec.specless && !spec.unwritten) {
-    steps = worktreeSteps(spec, null, config, { docs, wantsDocker: false, localSeeds: localSeedFiles(dir) })
-  } else {
-    const compose = composeFilePresent(dir, config)
-    const { wantsDocker } = resolveStack(spec, config, { docs, composeFilePresent: compose })
-    let offset = null
-    if (wantsDocker) {
-      const slots = readRegistry(dir, config).slots || {}
-      if (!Object.prototype.hasOwnProperty.call(slots, name)) {
-        refuse(
-          `${name} wants a Docker stack and has no slot yet — run ` +
-            `\`skitterspec spec-env up ${name}\` first.`,
-        )
-        return
-      }
-      offset = portOffset(slots[name], config)
-    }
-    steps = worktreeSteps(spec, offset, config, {
-      docs,
-      wantsDocker,
-      composeFilePresent: compose,
-      localSeeds: localSeedFiles(dir),
-    })
-  }
+  // A `/no-spec` record plans exactly as a spec does: seeds, then `setup`.
+  const steps = worktreeSteps(spec, config, { docs, localSeeds: localSeedFiles(dir) })
 
   if (flags.plan) {
     if (json) {
@@ -2761,16 +2700,6 @@ function carriedElsewhere(git, base) {
   return true
 }
 
-// A deterministic-enough compact timestamp for backup filenames (CLI-only; the
-// pure planner receives this as input so it stays testable).
-function compactTimestamp() {
-  return new Date()
-    .toISOString()
-    .replace(/[-:]/g, '')
-    .replace(/\.\d+Z$/, '')
-    .replace('T', '-')
-}
-
 // Teardown: evaluate guards, print the plan, free the slot. Idempotent no-op
 // when the spec was never provisioned / already torn down. Deliberately does NOT
 // touch the trusted worktree root in .claude/settings.local.json — that entry is
@@ -2854,7 +2783,7 @@ function specEnvDown(dir, config, specArg, flags) {
     }
     if (clanded) rememberLandedMember(dir, config, spec)
     const dout = [`spec-env down: ${spec.folder}`, '',
-                  '  mode:      checkout (no worktree, no slot, no volumes)',
+                  '  mode:      checkout (no worktree, no slot)',
                   `  branch:    ${dplan.branch}`, '', '  run these:']
     for (const cmd of dplan.commands) dout.push(`    ${cmd}`)
     // Checkout mode has no worktree, but a published page outlives it just the
@@ -2905,8 +2834,6 @@ function specEnvDown(dir, config, specArg, flags) {
   const plan = planDown(spec, config, flags, {
     worktreeState,
     prAbandonCommand: prAbandon,
-    timestamp: compactTimestamp(),
-    composeFilePresent: composeFilePresent(dir, config),
   })
 
   if (plan.blocked) {
@@ -2945,9 +2872,6 @@ function specEnvDown(dir, config, specArg, flags) {
   )
   out.push('')
   out.push(`  worktree:  ${spec.worktreePath}`)
-  out.push(`  volumes:   ${plan.volumesDropped ? 'dropped' : 'kept'}`)
-  if (plan.backupPath) out.push(`  backup:    ${plan.backupPath}`)
-  else if (plan.volumesDropped) out.push('  backup:    none (no docker.backupCommand set)')
   out.push('')
   out.push('  run these:')
   for (const cmd of plan.commands) out.push(`    ${cmd}`)
@@ -2967,85 +2891,6 @@ function specEnvDown(dir, config, specArg, flags) {
   process.stdout.write(out.join('\n') + '\n')
 }
 
-// --- prune: reap orphaned per-spec test-DB volumes -------------------------
-
-// One `docker volume ls` call as lines. Returns { ok, lines }: ok:false means
-// docker is unavailable / errored, which the caller reports as cannot-tell.
-function dockerVolumeLs(filter, format) {
-  try {
-    const out = execFileSync('docker', ['volume', 'ls', '--filter', filter, '--format', format], {
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
-      .toString()
-      .trim()
-    return { ok: true, lines: out ? out.split('\n').map((s) => s.trim()).filter(Boolean) : [] }
-  } catch (error) {
-    const err = (error.stderr && error.stderr.toString().trim()) || error.message
-    return { ok: false, lines: [], err }
-  }
-}
-
-// Volumes compose created, with their project label, each marked `inUse` from
-// docker's own `dangling` filter — referenced by no container, running or
-// stopped. Both queries must answer: a failed `dangling` query leaves use
-// unknown, and an unknown is never a candidate (negative-checks rule 4).
-//
-// THE LABEL IS THE POSITIVE SIGNAL, not the name. An external volume — the
-// primary checkout's `name: ereqs_db_data, external: true` — carries no label and
-// is never listed here, whatever its prefix (bug-prune-reaps-base-volumes).
-function listComposeVolumes() {
-  const labelled = dockerVolumeLs('label=com.docker.compose.project', '{{.Name}}\t{{.Label "com.docker.compose.project"}}')
-  if (!labelled.ok) return labelled
-  const dangling = dockerVolumeLs('dangling=true', '{{.Name}}')
-  if (!dangling.ok) return dangling
-  const unused = new Set(dangling.lines)
-  const volumes = labelled.lines.map((line) => {
-    const [name, project] = line.split('\t')
-    return { name, project: project || null, inUse: !unused.has(name) }
-  })
-  return { ok: true, volumes }
-}
-
-// Every word the primary checkout's compose file contains, as volume names to
-// keep. A text scan rather than a YAML read, and deliberately loose: a name
-// that appears anywhere in the base stack's file — `name: ereqs_db_data`, a
-// comment — is kept. Over-protecting costs a leftover volume; under-protecting
-// cost a dev database. Unreadable is cannot-tell; missing is no names.
-function baseComposeNames(dir, config) {
-  const file = config.docker && config.docker.composeFile
-  if (!file) return { ok: true, names: [] }
-  try {
-    return { ok: true, names: fs.readFileSync(path.join(dir, file), 'utf8').match(/[A-Za-z0-9_.-]+/g) || [] }
-  } catch (error) {
-    if (error.code === 'ENOENT') return { ok: true, names: [] }
-    return { ok: false, names: [], err: `could not read ${file} — ${error.message}` }
-  }
-}
-
-// Map orphan-candidate volume names → creation epoch-ms via `docker volume
-// inspect`. Unknown/unparseable timestamps stay null (the planner keeps them).
-function volumeCreatedAt(names) {
-  const byName = new Map()
-  if (!names.length) return byName
-  try {
-    const out = execFileSync(
-      'docker',
-      ['volume', 'inspect', '--format', '{{.Name}}\t{{.CreatedAt}}', ...names],
-      { stdio: ['ignore', 'pipe', 'pipe'] },
-    )
-      .toString()
-      .trim()
-    for (const line of out.split('\n')) {
-      const [name, created] = line.split('\t')
-      const ms = created ? Date.parse(created.trim()) : NaN
-      if (name) byName.set(name.trim(), Number.isNaN(ms) ? null : ms)
-    }
-  } catch {
-    // Inspect failed wholesale → treat every candidate as unknown-age (kept).
-  }
-  return byName
-}
-
 // Absolute paths of every checkout git knows about (primary + all worktrees).
 
 /**
@@ -3063,10 +2908,9 @@ function volumeCreatedAt(names) {
  * `git worktree list` is the authority for both, and deliberately so. Two
  * nearer-looking signals are wrong here:
  *
- *   - The **slot registry** covers only Docker specs — `specEnvUp` allocates a
- *     slot exclusively when `wantsDocker`, so a `Stack: worktree` spec never
- *     appears in it and a project with `docker.enabled: false` has a permanently
- *     empty registry. Absence there says nothing about provisioning.
+ *   - The **slot registry** covers only specs with dev servers — only
+ *     `spec-env dev up` allocates a slot, so most specs never appear in it.
+ *     Absence there says nothing about provisioning.
  *   - The **`specs/in-progress/` bucket** says a spec is being worked on, not
  *     that it has a worktree — and git does not track an empty directory, so the
  *     bucket disappears the moment it empties.
@@ -3193,9 +3037,8 @@ function resolveSpecWithWorktree(dir, config, specArg) {
   // This spec's OWN worktree is preferred over the primary checkout, not merely a
   // fallback to it. `/spec-start` moves a spec to `in-progress` on the spec's own
   // branch, so the primary checkout goes on reporting `backlog` for the whole
-  // life of the spec — and the same stale file supplies `Stack:` and
-  // `Base version:`, so escalating a spec to docker by editing its header in the
-  // worktree was invisible to `spec-env up`.
+  // life of the spec — and the same stale file supplies `Base version:`, so
+  // editing that header in the worktree was invisible to `spec-env up`.
   //
   // WHAT WOULD FOOL THIS: only this spec's own worktree is promoted, never the
   // other entries in `searchDirs`. Those are other specs' checkouts, and letting
@@ -3223,12 +3066,6 @@ function resolveSpecWithWorktree(dir, config, specArg) {
 // { folder, slug, worktreePath }. `searchDirs` lets resolveSpec locate a spec
 // that was authored on its branch and never committed to the primary checkout.
 
-// Prune: reconcile namespace volumes against specs that still have a worktree and
-// print the `docker volume rm` commands for the orphans. Liveness keys off the
-// worktree, NOT the registry (a declined teardown leaves a stale slot behind), so
-// this correctly reaps those and frees their stale slots. Destructive removal is
-// executed by the caller (skill) after confirmation — the CLI only plans + writes
-// the registry, mirroring `spec-env down`.
 /**
  * Delete a review-server pidfile whose process is gone.
  *
@@ -3251,100 +3088,16 @@ function reapStaleServePid(dir, config) {
   return pid
 }
 
-function specEnvPrune(dir, config, flags) {
-  // Before the docker section, deliberately: a stale pidfile is not docker's
-  // business, and every branch below can return early.
+// Per-spec Docker stacks are gone (feat-drop-docker-stacks), and with them the
+// test-DB volumes this verb used to reap. What is left is the review server's
+// stale pidfile, and silence when there is none: nothing else can leak.
+function specEnvPrune(dir, config) {
   const reapedPid = reapStaleServePid(dir, config)
-  if (reapedPid) {
-    process.stdout.write(
-      `spec-env prune: reaped a stale review-server pidfile (pid ${reapedPid} is gone).\n`,
-    )
-  }
-  // No spec here has ever had a stack: `resolveStack` escalates only under the
-  // master switch, so nothing docker holds can be a spec's. Ask it nothing.
-  if (!config.docker || !config.docker.enabled) {
-    process.stdout.write('spec-env prune: Docker is not in use (docker.enabled: false) — nothing to prune.\n')
-    return
-  }
-  const { repo, repoSlug } = repoInfo(repoRootOf(dir, config))
-
-  const cannotTell = (why) =>
-    process.stdout.write(`spec-env prune: cannot tell which volumes are orphans — ${why}.\nNothing pruned.\n`)
-  const vols = listComposeVolumes()
-  if (!vols.ok) {
-    cannotTell(`could not list docker volumes: ${vols.err || 'docker unavailable'}. Is Docker running?`)
-    return
-  }
-  const base = baseComposeNames(dir, config)
-  if (!base.ok) {
-    cannotTell(base.err)
-    return
-  }
-
-  const worktrees = liveWorktreePaths(gitReader(dir))
-  const specs = allSpecs(dir, config, worktrees, speclessMap(dir, config))
-  const liveSlugs = liveSlugsForSpecs(specs, worktrees)
-
-  const olderThanDays =
-    flags && Number.isFinite(flags.olderThanDays) ? flags.olderThanDays : null
-  let volumes = vols.volumes
-  let now = null
-  if (olderThanDays != null) {
-    const createdAt = volumeCreatedAt(volumes.map((v) => v.name))
-    volumes = volumes.map((v) => ({ ...v, createdAt: createdAt.get(v.name) ?? null }))
-    now = Date.now()
-  }
-
-  const plan = planPrune(volumes, liveSlugs, {
-    repoSlug,
-    repo,
-    projectPattern: config.docker.projectNamePattern,
-    protectNames: base.names,
-    olderThanDays,
-    now,
-  })
-  if (plan.cannotTell) {
-    cannotTell(plan.cannotTell)
-    return
-  }
-
-  if (!plan.orphans.length) {
-    process.stdout.write(
-      `spec-env prune: no orphaned volumes ` +
-        `(${vols.volumes.length} compose volume(s), ${liveSlugs.size} live spec(s) protected).\n`,
-    )
-    return
-  }
-
-  // Reconcile the registry: free the slot of any spec whose volume we're reaping.
-  const registry = readRegistry(dir, config)
-  const { registry: nextRegistry, freed } = reconcileRegistry(registry, plan.orphans, repoSlug)
-  if (freed.length) writeRegistry(dir, config, nextRegistry)
-
-  const ageNote = olderThanDays != null ? ` older than ${olderThanDays}d` : ''
-  const out = []
-  out.push(
-    `spec-env prune: ${plan.orphans.length} orphaned volume(s)${ageNote} ` +
-      `(${liveSlugs.size} live spec(s) protected)`,
+  process.stdout.write(
+    reapedPid
+      ? `spec-env prune: reaped a stale review-server pidfile (pid ${reapedPid} is gone).\n`
+      : 'spec-env prune: nothing to prune.\n',
   )
-  out.push('')
-  out.push('  orphans:')
-  for (const o of plan.orphans) out.push(`    ${o.name}`)
-  if (freed.length) out.push(`  slots freed:  ${freed.join(', ')}`)
-  out.push('  backup:       none (prune does not back up — docker reports no container, running or stopped, using these)')
-  out.push('')
-  out.push('  run these:')
-  for (const cmd of plan.commands) out.push(`    ${cmd}`)
-  // Kept out of `run these:` on purpose — everything above is local and
-  // reversible-ish, while this reaches a shared remote. The skills ask before
-  // running it; a project that never wants to be asked sets
-  // `teardown.deleteRemoteBranch: "always"`, which folds it in above instead.
-  if (plan.remoteCommands && plan.remoteCommands.length) {
-    out.push('')
-    out.push('  remote branch — confirm with the user first:')
-    for (const cmd of plan.remoteCommands) out.push(`    ${cmd}`)
-  }
-  process.stdout.write(out.join('\n') + '\n')
 }
 
 // Integrate: land a spec's worktree branch onto the base branch (rebase + ff).
@@ -8253,16 +8006,6 @@ async function specEnvConnect(dir, config, specArg) {
 //
 // Any failure to look is `undefined` — cannot-tell, which callers route to the
 // branch that does not escalate — never `false`.
-function composeFilePresent(dir, config) {
-  const file = config && config.docker && config.docker.composeFile
-  if (!file) return undefined
-  try {
-    return fs.existsSync(path.join(dir, file))
-  } catch {
-    return undefined
-  }
-}
-
 // Run a mutating git command; return { ok, err } (stderr captured, not swallowed).
 function runGit(cwd, args) {
   try {
@@ -8865,10 +8608,8 @@ async function specEnv(rest) {
   let dir = process.cwd()
   const positional = []
   const flags = {
-    keepVolumes: false,
     force: false,
     also: [],
-    olderThanDays: null,
     branch: false,
     out: null,
     review: null,
@@ -8886,10 +8627,13 @@ async function specEnv(rest) {
   }
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--dir') dir = path.resolve(args[++i])
-    else if (args[i] === '--keep-volumes') flags.keepVolumes = true
+    // Accepted and ignored: they steered the Docker volumes that per-spec
+    // stacks no longer create, and a script still passing one should not have
+    // it read as a spec name (feat-drop-docker-stacks).
+    else if (args[i] === '--keep-volumes') continue
+    else if (args[i] === '--older-than') i++
     else if (args[i] === '--force') flags.force = true
     else if (args[i] === '--also') flags.also.push(args[++i])
-    else if (args[i] === '--older-than') flags.olderThanDays = Number(args[++i])
     else if (args[i] === '--branch') flags.branch = true
     else if (args[i] === '--stop') flags.stop = true
     else if (args[i] === '--rotate-token') flags.rotateToken = true
@@ -8961,7 +8705,7 @@ async function specEnv(rest) {
   const anchor = primaryAnchor(dir, gitReader(dir))
   dir = anchor.dir
 
-  const { config, present, unknown, badReviewers } = loadEnvConfig(dir)
+  const { config, present, unknown, deprecated, badReviewers } = loadEnvConfig(dir)
   attachProject(config, anchor)
   if (!present) {
     process.stdout.write(
@@ -8991,6 +8735,11 @@ async function specEnv(rest) {
       `spec-env: ${ENV_CONFIG_LABEL} — unknown key "${key}" is ignored` +
         (renamed ? `; it was renamed "${renamed}".\n` : '.\n'),
     )
+  }
+  // A retired feature's key, which is tidying rather than a typo: said once,
+  // on the same advisory terms as above.
+  for (const d of deprecated || []) {
+    process.stderr.write(`spec-env: ${ENV_CONFIG_LABEL} — "${d.key}": ${d.note}.\n`)
   }
 
   // The same advisory, for the one place the check above structurally cannot
@@ -9075,7 +8824,7 @@ async function specEnvDispatch(sub, dir, config, positional, flags, present, inv
       specEnvDown(dir, config, positional[0], flags)
       break
     case 'prune':
-      specEnvPrune(dir, config, flags)
+      specEnvPrune(dir, config)
       break
     case 'dev':
       await specEnvDev(dir, config, positional, flags)
@@ -9161,7 +8910,7 @@ async function specEnvDispatch(sub, dir, config, positional, flags, present, inv
       break
     default:
       process.stdout.write(
-        `Usage: skitterspec spec-env <${SPEC_ENV_VERBS.join('|')}> [spec] [--keep-volumes] [--force] [--also <tag>] [--older-than <days>] [--branch] [--out <file>] [--review <json>] [--report <json>] [--run-reviewers] [--notes <json>] [--verdict <word>] [--resolve <json>] [--outcome <text>] [--claim <code>] [--drop <code>] [--buttons <set>] [--json] [--record-primary] [--assert-primary-clean]\n` +
+        `Usage: skitterspec spec-env <${SPEC_ENV_VERBS.join('|')}> [spec] [--force] [--also <tag>] [--branch] [--out <file>] [--review <json>] [--report <json>] [--run-reviewers] [--notes <json>] [--verdict <word>] [--resolve <json>] [--outcome <text>] [--claim <code>] [--drop <code>] [--buttons <set>] [--json] [--record-primary] [--assert-primary-clean]\n` +
         '  review serve [--port <n>] [--host <addr>] [--stop] [--status]  serve every diff locally\n' +
         '  review serve --rotate-token    mint a new URL token; every handed-out link dies\n' +
         '  review allow network [--off]  permit the network and tailnet tiers\n' +

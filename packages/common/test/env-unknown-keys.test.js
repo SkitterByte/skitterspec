@@ -62,10 +62,16 @@ test('a top-level stray and a nested typo are both named', () => {
       open: true,
       registry: '.spec-env/registry.json',
       review: { readr: 'remote', required: false },
-      docker: { portbase: 4000 },
+      ports: { bsae: 4000 },
     }),
-    ['open', 'review.readr', 'docker.portbase'],
+    ['open', 'review.readr', 'ports.bsae'],
   )
+})
+
+// A retired key is a deprecation notice, never an unknown one — and that holds
+// for its whole subtree (feat-drop-docker-stacks).
+test('STAYS SILENT: the retired docker block names no unknown key', () => {
+  assert.deepStrictEqual(collectUnknownKeys({ docker: { enabled: true, portbase: 4000 } }), [])
 })
 
 test('array contents are data, not keys', () => {
@@ -107,6 +113,15 @@ test('every spec-env subcommand says it, on stderr, and still runs', async () =>
   assert.match(err, /unknown key "review\.readr" is ignored/)
   assert.doesNotMatch(out, /unknown key/, 'stdout is for the payload')
   assert.ok(out.length, 'the subcommand still ran')
+})
+
+test('a leftover docker block is said once, on stderr, as a deprecation', async () => {
+  const dir = tmpProject({ docker: { enabled: true, backupCommand: 'pg_dump' } })
+  const { out, err } = await capture(['spec-env', 'status', '--dir', dir])
+
+  assert.strictEqual((err.match(/"docker": per-spec Docker stacks were removed/g) || []).length, 1)
+  assert.doesNotMatch(err, /unknown key "docker/)
+  assert.doesNotMatch(out, /Docker stacks were removed/, 'stdout is for the payload')
 })
 
 test('the advisory never reaches stdout in --json mode', async () => {

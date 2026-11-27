@@ -461,21 +461,14 @@ function planTake(spec, config, ctx) {
   }
   // 4. A hotfix is built on an old release tag; checking its branch out under the
   //    running dev server risks schema/DB drift breaking the shared instance.
-  //    Always refuse, regardless of Stack — test it in isolation via /spec-connect.
+  //    Always refuse — test it in isolation via /spec-connect.
   if (spec.type === 'hotfix') {
     return block(
       `${spec.folder} is a hotfix (built on an old release tag) — live overlay ` +
         'could break the running instance; use `/spec-connect` to test it in isolation',
     )
   }
-  // 5. v1 is code-only: refuse a stateful spec (Stack: worktree + docker)…
-  if (spec.stack === 'docker') {
-    return block(
-      `${spec.folder} is stateful (Stack: worktree + docker) — live overlay is ` +
-        'code-only; use `/spec-connect` for a Docker-backed spec',
-    )
-  }
-  // 6. …and refuse a branch that changes migrations (would mutate the shared DB).
+  // 5. Refuse a branch that changes migrations (would mutate the shared DB).
   //    How such a branch IS reached is the project's answer (`live.refusedReach`),
   //    because teams test migration branches differently — so the refusal names
   //    that answer rather than one guess, and lists all three when none is set.
@@ -498,7 +491,7 @@ function planTake(spec, config, ctx) {
         : undefined,
     )
   }
-  // 7. Verify-only: a dev server must be listening to hot-reload the switch.
+  // 6. Verify-only: a dev server must be listening to hot-reload the switch.
   if (c.serverUp === false) {
     return block(
       `no dev server listening on canonical port(s) ${(c.canonicalPorts || []).join(', ')} — ` +

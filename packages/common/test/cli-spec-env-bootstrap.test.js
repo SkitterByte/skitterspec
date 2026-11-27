@@ -179,7 +179,10 @@ test('stays silent on disk: no worktree is a refusal naming up, and nothing is w
   }
 })
 
-test('a docker spec with no slot is refused before anything runs', async () => {
+// Per-spec Docker stacks were removed (feat-drop-docker-stacks): a spec still
+// headed for one, in a project still carrying the block, bootstraps like any
+// other — seeds, no env file, no stack, and no slot asked for.
+test('stays silent: a legacy docker spec just seeds, with no slot needed', async () => {
   const env = scaffold({
     config: { ...SEEDS, docker: { enabled: true } },
     stack: 'worktree + docker',
@@ -187,9 +190,9 @@ test('a docker spec with no slot is refused before anything runs', async () => {
   })
   try {
     const { out, code } = await runQuiet(['spec-env', 'bootstrap', env.folder, '--dir', env.dir])
-    assert.strictEqual(code, 1)
-    assert.match(out, /wants a Docker stack and has no slot yet/)
-    assert.ok(!fs.existsSync(path.join(env.wt, 'packages')), 'no seed ran')
+    assert.strictEqual(code, 0)
+    assert.doesNotMatch(out, /Docker stack|COMPOSE_PROJECT_NAME|docker compose/)
+    assert.ok(fs.existsSync(path.join(env.wt, 'packages', 'api', '.env')), 'the seed ran')
   } finally {
     cleanup(env.dir)
   }

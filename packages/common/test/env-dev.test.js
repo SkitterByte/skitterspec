@@ -8,7 +8,7 @@ const { planDev, stateDir } = require('../src/env/dev.js')
 // A minimal config like loadEnvConfig produces (only the fields planDev reads).
 function cfg(dev, over = {}) {
   return {
-    docker: { portBase: 3000, portsPerSpec: 10 },
+    ports: { base: 3000, perSpec: 10 },
     registry: '.spec-env/registry.json',
     dev,
     ...over,
@@ -17,7 +17,7 @@ function cfg(dev, over = {}) {
 
 const SPEC = { folder: 'feat-demo', slug: 'demo' }
 
-test('planDev assigns ports base + slot*portsPerSpec + index', () => {
+test('planDev assigns ports base + slot*perSpec + index', () => {
   const config = cfg([
     { name: 'api', command: 'run-api', portVar: 'API_PORT' },
     { name: 'ui', command: 'run-ui', portVar: 'PORT' },

@@ -3,10 +3,9 @@
 /**
  * `runBootstrap` against a real temp directory, with a fake spawn.
  *
- * The filesystem steps — seeds and the env file — are run for real, because
- * their edge cases ARE the filesystem: a dangling link, a file with no trailing
- * newline, a seeded env file that is the primary checkout's own. The spawned
- * steps get a recorder instead, so nothing here needs docker or an installer.
+ * The filesystem steps — the seeds — are run for real, because their edge
+ * cases ARE the filesystem: a dangling link, a missing source. The spawned
+ * steps get a recorder instead, so nothing here needs an installer.
  */
 
 const { test } = require('node:test')
@@ -55,45 +54,32 @@ function run(steps, env, spawn) {
   return { ...result, lines }
 }
 
-const SPEC = { worktreePath: '/wt', slug: 'x', branch: 'feat/x', projectName: 'repo_x' }
-const DOCKER_CONFIG = {
+const SPEC = { worktreePath: '/wt', slug: 'x', branch: 'feat/x' }
+const CONFIG = {
   seedFiles: { mode: 'symlink', files: ['packages/api/.env', 'apps/web/.env'] },
   setup: ['pnpm install --frozen-lockfile'],
-  docker: { enabled: true, envFile: '.worktree.env', composeFile: 'docker-compose.yml' },
 }
 
-test('worktreeSteps: seeds, then the env file, then setup, then the stack', () => {
-  const steps = worktreeSteps(SPEC, 3010, DOCKER_CONFIG, {
-    wantsDocker: true,
-    composeFilePresent: true,
-  })
-  assert.deepStrictEqual(
-    steps.map((s) => s.kind),
-    ['seed', 'seed', 'envFile', 'setup', 'docker'],
-  )
-  assert.deepStrictEqual(steps[2], {
-    kind: 'envFile',
-    file: '.worktree.env',
-    projectName: 'repo_x',
-    offset: 3010,
-  })
-  assert.deepStrictEqual(steps[4].argv, [
-    'docker', 'compose', '-f', 'docker-compose.yml', '--env-file', '.worktree.env',
-    '--project-name', 'repo_x', 'up', '-d',
-  ])
+test('worktreeSteps: seeds, then setup', () => {
+  const steps = worktreeSteps(SPEC, CONFIG)
+  assert.deepStrictEqual(steps.map((s) => s.kind), ['seed', 'seed', 'setup'])
+})
+
+// Per-spec Docker stacks were removed (feat-drop-docker-stacks): a config still
+// carrying the `docker` block plans no env file and no stack.
+test('stays silent: a leftover docker config adds no env file or stack step', () => {
+  const steps = worktreeSteps(SPEC, { ...CONFIG, docker: { enabled: true, envFile: '.worktree.env' } })
+  assert.deepStrictEqual(steps.map((s) => s.kind), ['seed', 'seed', 'setup'])
 })
 
 test('worktreeSteps: --docs keeps the seeds and drops setup', () => {
-  const steps = worktreeSteps(SPEC, null, DOCKER_CONFIG, { docs: true, wantsDocker: false })
+  const steps = worktreeSteps(SPEC, CONFIG, { docs: true })
   assert.deepStrictEqual(steps.map((s) => s.kind), ['seed', 'seed'])
 })
 
-test('a fresh worktree gets its seeds, env file, setup and stack from one call', () => {
+test('a fresh worktree gets its seeds and setup from one call', () => {
   const env = scaffold({ 'packages/api/.env': 'A=1\n', 'apps/web/.env': 'B=2\n' })
-  const steps = worktreeSteps({ ...SPEC, worktreePath: env.wt }, 3010, DOCKER_CONFIG, {
-    wantsDocker: true,
-    composeFilePresent: true,
-  })
+  const steps = worktreeSteps({ ...SPEC, worktreePath: env.wt }, CONFIG)
   const { calls, spawn } = recorder()
   const r = run(steps, env, spawn)
 
@@ -103,37 +89,23 @@ test('a fresh worktree gets its seeds, env file, setup and stack from one call',
     assert.ok(fs.lstatSync(dst).isSymbolicLink(), `${f} is linked`)
     assert.strictEqual(fs.realpathSync(dst), fs.realpathSync(path.join(env.main, f)))
   }
-  assert.strictEqual(
-    fs.readFileSync(path.join(env.wt, '.worktree.env'), 'utf8'),
-    'COMPOSE_PROJECT_NAME=repo_x\nPORT_OFFSET=3010\n',
-  )
   assert.deepStrictEqual(
     calls.map((c) => [c.cmd, c.shell, c.cwd]),
-    [
-      ['pnpm install --frozen-lockfile', true, env.wt],
-      ['docker', false, env.wt],
-    ],
+    [['pnpm install --frozen-lockfile', true, env.wt]],
   )
   assert.match(r.lines.join('\n'), /seeded packages\/api\/\.env →/)
-  assert.match(r.lines.join('\n'), /env file \.worktree\.env: ready/)
 })
 
 test('running it again writes nothing and skips every seed', () => {
   const env = scaffold({ '.env': 'A=1\n' })
-  const steps = [
-    { kind: 'seed', file: '.env', mode: 'copy' },
-    { kind: 'envFile', file: '.worktree.env', projectName: 'p', offset: 3000 },
-  ]
+  const steps = [{ kind: 'seed', file: '.env', mode: 'copy' }]
   run(steps, env, recorder().spawn)
-  const envPath = path.join(env.wt, '.worktree.env')
-  const before = fs.statSync(envPath).mtimeMs
   const copyBefore = fs.statSync(path.join(env.wt, '.env')).mtimeMs
 
   const again = run(steps, env, recorder().spawn)
   assert.strictEqual(again.ok, true)
-  assert.deepStrictEqual(again.results.map((x) => x.outcome), ['skipped', 'skipped'])
+  assert.deepStrictEqual(again.results.map((x) => x.outcome), ['skipped'])
   assert.match(again.lines[0], /seed \.env: exists — skipped/)
-  assert.strictEqual(fs.statSync(envPath).mtimeMs, before, 'env file not rewritten')
   assert.strictEqual(fs.statSync(path.join(env.wt, '.env')).mtimeMs, copyBefore)
 })
 
@@ -162,43 +134,13 @@ test('an existing target, even a dangling link, is left alone', () => {
   assert.strictEqual(fs.readlinkSync(path.join(env.wt, '.env')), path.join(env.root, 'nowhere'))
 })
 
-test('a symlinked env file is refused, nothing is appended, and nothing after it runs', () => {
-  const env = scaffold({ '.env': 'MAIN=1\n' })
-  fs.symlinkSync(path.join(env.main, '.env'), path.join(env.wt, '.env'))
-  const { calls, spawn } = recorder()
-  const r = run(
-    [
-      { kind: 'envFile', file: '.env', projectName: 'p', offset: 3000 },
-      { kind: 'setup', command: 'true' },
-    ],
-    env,
-    spawn,
-  )
-  assert.strictEqual(r.ok, false)
-  assert.strictEqual(r.failedAt, 1)
-  assert.strictEqual(r.results[0].outcome, 'refused')
-  assert.match(r.results[0].line, /is a symlink — docker\.envFile must name a file of its own/)
-  assert.strictEqual(fs.readFileSync(path.join(env.main, '.env'), 'utf8'), 'MAIN=1\n')
-  assert.strictEqual(calls.length, 0)
-})
-
-test('the env file keeps values setup wrote, and fixes a missing trailing newline', () => {
+test('a failing setup stops the run and names the step', () => {
   const env = scaffold({})
-  fs.writeFileSync(path.join(env.wt, '.env'), 'PORT_OFFSET=4200')
-  run([{ kind: 'envFile', file: '.env', projectName: 'p', offset: 3000 }], env, recorder().spawn)
-  assert.strictEqual(
-    fs.readFileSync(path.join(env.wt, '.env'), 'utf8'),
-    'PORT_OFFSET=4200\nCOMPOSE_PROJECT_NAME=p\n',
-  )
-})
-
-test('a failing setup stops before the stack and names the step', () => {
-  const env = scaffold({})
-  const { calls, spawn } = recorder((c) => (c.shell ? 2 : 0))
+  const { calls, spawn } = recorder((c) => (c.cmd === 'pnpm install' ? 2 : 0))
   const r = run(
     [
       { kind: 'setup', command: 'pnpm install' },
-      { kind: 'docker', argv: ['docker', 'compose', 'up', '-d'] },
+      { kind: 'setup', command: 'pnpm build' },
     ],
     env,
     spawn,
@@ -206,7 +148,7 @@ test('a failing setup stops before the stack and names the step', () => {
   assert.strictEqual(r.ok, false)
   assert.strictEqual(r.failedAt, 1)
   assert.match(r.results[0].line, /setup: pnpm install — exit 2/)
-  assert.strictEqual(calls.length, 1, 'docker never ran')
+  assert.strictEqual(calls.length, 1, 'the next step never ran')
 })
 
 test('describeStep says what each step is without shell', () => {
@@ -214,7 +156,7 @@ test('describeStep says what each step is without shell', () => {
     describeStep({ kind: 'seed', file: '.env', mode: 'symlink' }),
     'seed .env (symlink from the primary checkout)',
   )
-  assert.doesNotMatch(describeStep({ kind: 'envFile', file: '.env', projectName: 'p', offset: 1 }), /grep|>>|touch/)
+  assert.strictEqual(describeStep({ kind: 'setup', command: 'pnpm i' }), 'setup: pnpm i')
 })
 
 // --- a machine that cannot create symlinks (chore-windows-ci) ------------------

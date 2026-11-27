@@ -207,10 +207,12 @@ test('planTake refuses when the worktree is missing', () => {
   assert.match(plan.reason, /no worktree/)
 })
 
-test('planTake refuses a stateful (docker) spec', () => {
-  const plan = planTake({ ...SPEC, stack: 'docker' }, {}, okCtx())
-  assert.match(plan.reason, /Stack: worktree \+ docker/)
-  assert.match(plan.reason, /spec-connect/)
+// Per-spec Docker stacks were removed (feat-drop-docker-stacks), so a spec
+// whose header still asks for one is code like any other — the migrations
+// refusal is the stateful guard that remains.
+test('STAYS SILENT: a legacy docker header is not refused for it', () => {
+  const plan = planTake({ ...SPEC, stack: 'docker', legacyDockerStack: true }, {}, okCtx())
+  assert.strictEqual(plan.blocked, false)
 })
 
 test('planTake always refuses a hotfix, regardless of stack', () => {

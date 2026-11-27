@@ -4,9 +4,8 @@
  * Run a worktree's bootstrap steps — the engine half of `spec-env bootstrap`.
  *
  * `planUp` decides WHAT a fresh worktree needs (`worktreeSteps`); this module
- * does it. Seeds and the env file are plain filesystem work, done here with
- * `fs` and no shell at all. `setup` commands and the stack are spawned with the
- * worktree as their cwd.
+ * does it. Seeds are plain filesystem work, done here with `fs` and no shell
+ * at all. `setup` commands are spawned with the worktree as their cwd.
  *
  * WHY THE ENGINE RUNS THEM. These steps used to be printed as shell for the
  * agent to run, and an agent does not copy shell faithfully. A consumer's
@@ -17,11 +16,11 @@
  *
  * Behaviour is the printed commands' behaviour, kept exactly: idempotent, one
  * `seeded …` / `… — skipped` line per seed, a seed missing from the primary
- * checkout is skipped rather than failed, a symlinked env file is refused before
- * anything is written through it, and the run stops at the first failing step.
+ * checkout is skipped rather than failed, and the run stops at the first
+ * failing step.
  *
  * Every side effect goes through `io`, so the tests drive it with a real temp
- * directory and a fake spawn — no docker, no package manager.
+ * directory and a fake spawn — no package manager.
  */
 
 const realFs = require('node:fs')
@@ -33,12 +32,8 @@ function describeStep(step) {
   switch (step.kind) {
     case 'seed':
       return `seed ${step.file} (${step.mode} from the primary checkout)`
-    case 'envFile':
-      return `env file ${step.file} (COMPOSE_PROJECT_NAME, PORT_OFFSET)`
     case 'setup':
       return `setup: ${step.command}`
-    case 'docker':
-      return `docker: ${step.argv.join(' ')}`
     default:
       return `unknown step ${step.kind}`
   }
@@ -97,50 +92,8 @@ function runSeed(step, { cwd, mainRoot, fs, platform = process.platform }) {
 }
 
 /**
- * Make sure the spec's env file sets its project name and port block.
- *
- * Additive: a key is appended only when no line already sets it, so a re-run
- * writes nothing and a file `setup` already wrote to keeps every value it holds
- * — a deliberate `PORT_OFFSET` of its own included.
- *
- * A SYMLINK IS REFUSED, before anything is written. Seeding links gitignored
- * files from the primary checkout, so a seeded env file IS the primary
- * checkout's own, and appending through it would write this spec's port block
- * into the main stack's configuration. The fix is a `docker.envFile` naming a
- * file of its own.
- */
-function runEnvFile(step, { cwd, fs }) {
-  const p = path.join(cwd, step.file)
-  const st = lstatOrNull(fs, p)
-  if (st && st.isSymbolicLink()) {
-    return {
-      outcome: 'refused',
-      line:
-        `env file ${step.file} is a symlink — docker.envFile must name a file of its own, ` +
-        "not a seeded one; refusing to write this spec's port block through it",
-    }
-  }
-  const before = st ? fs.readFileSync(p, 'utf8') : ''
-  let add = ''
-  // A file without a trailing newline would glue the first appended key onto
-  // its last line.
-  const sep = before.length && !before.endsWith('\n') ? '\n' : ''
-  for (const [key, value] of [
-    ['COMPOSE_PROJECT_NAME', step.projectName],
-    ['PORT_OFFSET', step.offset],
-  ]) {
-    if (!new RegExp(`^${key}=`, 'm').test(before)) add += `${key}=${value}\n`
-  }
-  if (!st || add) {
-    fs.mkdirSync(path.dirname(p), { recursive: true })
-    fs.writeFileSync(p, before + (add ? sep + add : ''))
-  }
-  return { outcome: add ? 'written' : 'skipped', line: `env file ${step.file}: ready` }
-}
-
-/**
- * Spawn a setup command (through the shell — it is the project's own command
- * line) or the stack (an argv, no shell).
+ * Spawn a setup command, through the shell — it is the project's own command
+ * line.
  *
  * `stdout` is where the child's own output goes: inherited normally, so an
  * install streams as it runs, and moved to stderr under `--json` so the payload
@@ -148,10 +101,7 @@ function runEnvFile(step, { cwd, fs }) {
  */
 function runSpawned(step, { cwd, spawn, childStdout }) {
   const stdio = ['ignore', childStdout, 'inherit']
-  const res =
-    step.kind === 'setup'
-      ? spawn(step.command, { cwd, shell: true, stdio })
-      : spawn(step.argv[0], step.argv.slice(1), { cwd, stdio })
+  const res = spawn(step.command, { cwd, shell: true, stdio })
   if (res.error) {
     return { outcome: 'failed', line: `${describeStep(step)} — ${res.error.message}` }
   }
@@ -187,12 +137,11 @@ function runBootstrap(steps, io) {
     const step = steps[i]
     // A spawned step announces itself BEFORE it runs, so the streamed output
     // that follows has a heading.
-    if (step.kind === 'setup' || step.kind === 'docker') write(describeStep(step))
+    if (step.kind === 'setup') write(describeStep(step))
     let r
     try {
       if (step.kind === 'seed') r = runSeed(step, ctx)
-      else if (step.kind === 'envFile') r = runEnvFile(step, ctx)
-      else if (step.kind === 'setup' || step.kind === 'docker') r = runSpawned(step, ctx)
+      else if (step.kind === 'setup') r = runSpawned(step, ctx)
       else r = { outcome: 'failed', line: describeStep(step) }
     } catch (err) {
       r = { outcome: 'failed', line: `${describeStep(step)} — ${err.message}` }

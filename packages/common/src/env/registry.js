@@ -6,7 +6,7 @@
  * by all worktrees, machine-local, gitignored) at the config-driven `registry`
  * path (default `.spec-env/registry.json`).
  *
- * Slot `n` → a reserved port block: `portOffset = portBase + n * portsPerSpec`.
+ * Slot `n` → a reserved port block: `portOffset = ports.base + n * ports.perSpec`.
  *
  * The allocation helpers are pure transforms on a registry object so they can be
  * unit-tested with no filesystem; `readRegistry`/`writeRegistry` are the only IO
@@ -97,7 +97,7 @@ function freeSlot(registry, name) {
 
 // Port block base for a slot.
 function portOffset(slot, config) {
-  return config.docker.portBase + slot * config.docker.portsPerSpec
+  return config.ports.base + slot * config.ports.perSpec
 }
 
 /**
@@ -106,7 +106,7 @@ function portOffset(slot, config) {
  *
  * A SEPARATE KEY RATHER THAN A SLOT, and that is the whole design of it. A slot
  * means a reserved port block, which mechanical work does not want; and every
- * consumer of `slots` reads an entry there as "this spec runs a Docker stack".
+ * consumer of `slots` reads an entry there as "this spec has a dev port block".
  * Sharing the map would have made `/no-spec` allocate ports it never binds and
  * appear as a stateful spec in `status`.
  *

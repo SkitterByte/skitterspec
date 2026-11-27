@@ -3,16 +3,10 @@
 /**
  * Pure teardown planner for `spec-env down`.
  *
- * `planDown` evaluates the dirty/unpushed guards, plans an optional config-driven
- * pre-drop backup, and returns the exact commands the `/spec-env-down` skill runs
- * (`docker compose down` [+`--volumes`], `git worktree remove`). It performs no
- * side effects: the caller (the CLI) queries git for `worktreeState` and supplies
- * a `timestamp`, keeping this deterministic and unit-testable with no live
- * git/docker.
- *
- * Volumes are the only destructive action — dropped by default (reclaims disk)
- * unless `--keep-volumes`, and always backed up first when a `backupCommand` is
- * configured.
+ * `planDown` evaluates the dirty/unpushed guards and returns the exact commands
+ * the skills run (`git worktree remove`, the branch delete). It performs no side
+ * effects: the caller (the CLI) queries git for `worktreeState`, keeping this
+ * deterministic and unit-testable with no live git.
  *
  * `commands` is safe for a caller to run BLIND — that is the property the remote
  * delete must not break. A remote branch delete reaches outside this machine, so
@@ -21,23 +15,19 @@
  * project has opted in with `teardown.deleteRemoteBranch: "always"`.
  */
 
-const { expandTokens } = require('./resolve.js')
-const { composeFileArg } = require('./provision.js')
 const { shellPath } = require('./project.js')
 
 /**
- * @param {object} spec  resolved spec: { slug, branch, worktreePath, projectName, ... }
+ * @param {object} spec  resolved spec: { slug, branch, worktreePath, ... }
  * @param {object} config normalised env config.
- * @param {object} flags { keepVolumes, force }
+ * @param {object} flags { force }
  * @param {object} ctx   { worktreeState: { dirty, unpushed, merged, reachableFromTag,
- *                     carried, remoteBranch }, timestamp }
- * @returns {object} { blocked, reason, commands, remoteCommands, backupCommand,
- *                     backupPath, volumesDropped }
+ *                     carried, remoteBranch } }
+ * @returns {object} { blocked, reason, commands, remoteCommands }
  */
 function planDown(spec, config, flags, ctx) {
-  const { worktreeState = {}, timestamp } = ctx || {}
+  const { worktreeState = {} } = ctx || {}
   const force = Boolean(flags && flags.force)
-  const keepVolumes = Boolean(flags && flags.keepVolumes)
 
   // A hotfix lands by tag + cherry-pick, so its branch is never an ancestor of
   // base — but once its head is captured by a tag (the deploy tag from
@@ -95,49 +85,7 @@ function planDown(spec, config, flags, ctx) {
     }
   }
 
-  // Docker teardown only applies to a Docker-escalated spec. A worktree-only spec
-  // (Stack: worktree) has no stack/volumes even when the project master switch is
-  // on — tearing it down is just removing the worktree. A spec resolved without an
-  // explicit stack (legacy/tests) follows the master switch (pre-`Stack` behaviour).
-  //
-  // DELIBERATELY NOT GATED ON THE COMPOSE FILE, where `planUp` is. The two
-  // directions are not symmetric: bringing a stack up without evidence there is
-  // one to bring costs a failed provision, while skipping a `down` costs an
-  // orphaned stack and its volumes, still running, that nothing will come back
-  // for. So `up` needs a positive signal and `down` errs toward cleaning up —
-  // a `down` for a stack that was never started is a no-op (rule 4, pointing
-  // the other way because the harmless branch is the other branch).
-  const stack = spec.stack || (config.docker.enabled ? 'docker' : 'worktree')
-  const wantsDocker = stack === 'docker' && config.docker.enabled
-
   const commands = []
-  const volumesDropped = !keepVolumes && wantsDocker
-
-  // --- optional pre-drop backup (only when volumes are actually dropped) ---
-  let backupCommand = null
-  let backupPath = null
-  if (volumesDropped && config.docker.backupCommand) {
-    backupPath = `.spec-env/backups/${spec.slug}-${timestamp}.dump`
-    backupCommand = expandTokens(config.docker.backupCommand, {
-      backupPath,
-      slug: spec.slug,
-      projectName: spec.projectName,
-      timestamp: String(timestamp),
-    })
-    commands.push(backupCommand)
-  }
-
-  // --- docker compose down (drop volumes unless kept) ---
-  // Run from the primary checkout with no `--env-file`, unlike `up`, and on
-  // purpose: compose finds the stack's containers, networks and volumes by the
-  // project label `--project-name` gives it, so it needs nothing from the env
-  // file — which may already be gone with a half-removed worktree.
-  if (wantsDocker) {
-    const base =
-      `docker compose${composeFileArg(config, ctx ? ctx.composeFilePresent : undefined)}` +
-      ` --project-name ${spec.projectName} down`
-    commands.push(volumesDropped ? `${base} --volumes` : base)
-  }
 
   // --- remove the worktree (force needed if we bypassed a dirty guard) ---
   commands.push(
@@ -249,9 +197,6 @@ function planDown(spec, config, flags, ctx) {
     reason: null,
     commands,
     remoteCommands,
-    backupCommand,
-    backupPath,
-    volumesDropped,
   }
 }
 
@@ -261,16 +206,13 @@ function blocked(reason) {
     reason,
     commands: [],
     remoteCommands: [],
-    backupCommand: null,
-    backupPath: null,
-    volumesDropped: false,
   }
 }
 
 /**
  * Pure teardown planner for CHECKOUT mode.
  *
- * There is no worktree to remove, no slot and no volumes — the only thing a
+ * There is no worktree to remove and no slot — the only thing a
  * finished spec leaves behind is its branch, and the checkout standing on it.
  *
  * Order is load-bearing: git refuses to delete the branch you are on, so the

@@ -28,20 +28,12 @@ function spec(overrides = {}) {
     type: 'feat',
     branch: 'feat/thing',
     worktreePath: '/wt/thing',
-    projectName: 'app_thing',
     ...overrides,
   }
 }
 
 function config(overrides = {}) {
   return {
-    docker: {
-      enabled: true,
-      portBase: 3000,
-      portsPerSpec: 10,
-      envFile: '.env',
-      ...(overrides.docker || {}),
-    },
     open: { command: '', ...(overrides.open || {}) },
     setup: overrides.setup || [],
     seedFiles: overrides.seedFiles || { mode: 'symlink', files: [] },
@@ -53,7 +45,7 @@ const SETUP = ['pnpm install --frozen-lockfile', 'pnpm build']
 test('--docs drops the setup steps', () => {
   const plan = planUp(
     spec(),
-    { slot: null, attached: false },
+    { attached: false },
     config({ setup: SETUP }),
     null,
     { docs: true },
@@ -62,7 +54,7 @@ test('--docs drops the setup steps', () => {
 })
 
 test('without --docs the same project still gets its setup steps', () => {
-  const plan = planUp(spec(), { slot: null, attached: false }, config({ setup: SETUP }))
+  const plan = planUp(spec(), { attached: false }, config({ setup: SETUP }))
   assert.strictEqual(setupOf(plan).length, 2)
   assert.strictEqual(setupOf(plan)[0], 'pnpm install --frozen-lockfile')
 })
@@ -72,7 +64,7 @@ test('--docs keeps the seed steps — they are the cheap half', () => {
   // author may well want `.env` present; what they do not want is the install.
   const plan = planUp(
     spec(),
-    { slot: null, attached: false },
+    { attached: false },
     config({ setup: SETUP, seedFiles: { mode: 'symlink', files: ['.env'] } }),
     null,
     { docs: true },
@@ -80,35 +72,10 @@ test('--docs keeps the seed steps — they are the cheap half', () => {
   assert.deepStrictEqual(plan.steps, [{ kind: 'seed', file: '.env', mode: 'symlink' }])
 })
 
-test('--docs brings no docker up, even for a docker spec in a docker project', () => {
-  const plan = planUp(
-    spec({ stack: 'docker' }),
-    { slot: 1, attached: false },
-    config(),
-    null,
-    { docs: true },
-  )
-  assert.deepStrictEqual(plan.commands, ['git worktree add /wt/thing -b feat/thing'])
-  assert.deepStrictEqual(of(plan, 'docker'), [])
-  assert.strictEqual(plan.slot, null)
-  assert.strictEqual(plan.portOffset, null)
-  assert.strictEqual(plan.envContents, null)
-})
-
-test('the same docker spec without --docs still gets its stack', () => {
-  // The pair above and below is the point: one flag is the only difference.
-  const plan = planUp(spec({ stack: 'docker' }), { slot: 1, attached: false }, config())
-  assert.deepStrictEqual(plan.commands, ['git worktree add /wt/thing -b feat/thing'])
-  assert.deepStrictEqual(of(plan, 'docker')[0].argv, [
-    'docker', 'compose', '--env-file', '.env', '--project-name', 'app_thing', 'up', '-d',
-  ])
-  assert.strictEqual(plan.portOffset, 3010)
-})
-
 test('--docs still forks the branch — it is a worktree, not a dry run', () => {
   const plan = planUp(
     spec(),
-    { slot: null, attached: false },
+    { attached: false },
     config({ setup: SETUP }),
     null,
     { docs: true },
@@ -119,7 +86,7 @@ test('--docs still forks the branch — it is a worktree, not a dry run', () => 
 test('--docs over an existing worktree attaches rather than re-forking', () => {
   const plan = planUp(
     spec(),
-    { slot: null, attached: true },
+    { attached: true },
     config({ setup: SETUP }),
     null,
     { docs: true },
@@ -133,14 +100,14 @@ test('the plan says docs mode POSITIVELY', () => {
   // that also describes a project which configured no setup at all.
   const docsPlan = planUp(
     spec(),
-    { slot: null, attached: false },
+    { attached: false },
     config({ setup: SETUP }),
     null,
     { docs: true },
   )
   assert.strictEqual(docsPlan.docs, true)
 
-  const noSetup = planUp(spec(), { slot: null, attached: false }, config({ setup: [] }))
+  const noSetup = planUp(spec(), { attached: false }, config({ setup: [] }))
   assert.deepStrictEqual(setupOf(noSetup), [])
   assert.strictEqual(noSetup.docs, false, 'no setup configured is not docs mode')
 })
@@ -152,15 +119,15 @@ test('the plan says docs mode POSITIVELY', () => {
 
 test('omitting opts entirely leaves every existing caller byte-identical', () => {
   const withOpts = planUp(
-    spec({ stack: 'docker' }),
-    { slot: 2, attached: false },
+    spec(),
+    { attached: false },
     config({ setup: SETUP, seedFiles: { mode: 'copy', files: ['.env'] } }),
     null,
     {},
   )
   const without = planUp(
-    spec({ stack: 'docker' }),
-    { slot: 2, attached: false },
+    spec(),
+    { attached: false },
     config({ setup: SETUP, seedFiles: { mode: 'copy', files: ['.env'] } }),
   )
   assert.deepStrictEqual(without, withOpts)
@@ -173,7 +140,7 @@ test('a falsy-but-present docs value is not docs mode', () => {
   for (const value of [undefined, null, false, 0, '']) {
     const plan = planUp(
       spec(),
-      { slot: null, attached: false },
+      { attached: false },
       config({ setup: SETUP }),
       null,
       { docs: value },
@@ -183,22 +150,10 @@ test('a falsy-but-present docs value is not docs mode', () => {
   }
 })
 
-test('--docs on a project with docker disabled says nothing about docker', () => {
-  const plan = planUp(
-    spec(),
-    { slot: null, attached: false },
-    config({ docker: { enabled: false } }),
-    null,
-    { docs: true },
-  )
-  assert.deepStrictEqual(plan.commands, ['git worktree add /wt/thing -b feat/thing'])
-  assert.strictEqual(plan.envContents, null)
-})
-
 test('--docs on a project with no setup configured is a no-op, not a refusal', () => {
   const plan = planUp(
     spec(),
-    { slot: null, attached: false },
+    { attached: false },
     config({ setup: [] }),
     null,
     { docs: true },

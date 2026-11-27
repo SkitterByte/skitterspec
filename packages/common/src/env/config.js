@@ -17,8 +17,7 @@
  *               // its own worktree (default), or the primary checkout in place.
  *               // NOTE: unrelated to `seedFiles.mode`, which is symlink|copy.
  *     worktree: { root, folderPattern },
- *     docker:   { enabled, composeFile, projectNamePattern, portBase,
- *                 portsPerSpec, envFile, backupCommand },
+ *     ports:    { base, perSpec },  // each spec's host dev-server port block
  *     seedFiles:{ mode, files } | [ ".env", ... ],  // gitignored files copied/
  *               // symlinked from the main checkout into a fresh worktree before
  *               // setup runs (mode: "symlink" default | "copy"); empty = none
@@ -174,15 +173,11 @@ const DEFAULT_CONFIG = Object.freeze({
   // name) that `skitterspec tada` scopes a report by.
   project: Object.freeze({ name: '', category: '' }),
   worktree: Object.freeze({ root: '../{repo}-wt', folderPattern: '{slug}' }),
-  docker: Object.freeze({
-    enabled: true,
-    composeFile: 'docker-compose.yml',
-    projectNamePattern: '{repoSlug}_{slug}',
-    portBase: 3000,
-    portsPerSpec: 10,
-    envFile: '.env',
-    backupCommand: '',
-  }),
+  // The port block `spec-env dev up` starts a spec's host dev servers on:
+  // spec slot N gets `base + N*perSpec` onwards. These lived under `docker`
+  // until per-spec Docker stacks were removed (feat-drop-docker-stacks); the
+  // old `docker.portBase`/`docker.portsPerSpec` are still read as a fallback.
+  ports: Object.freeze({ base: 3000, perSpec: 10 }),
   // Gitignored files seeded from the main checkout into a fresh worktree by
   // `spec-env up`, right after `git worktree add` and before `setup` runs — so a
   // fresh worktree has the .env / local overrides that setup steps depend on.
@@ -427,6 +422,27 @@ function isObject(value) {
 // (feat-tailnet-remote-tier).
 const RETIRED_KEYS = new Set(['review.allowRemote'])
 
+// Keys RETIRED WITH A NOTICE: still never reported as unknown, for the reason
+// above, but the feature behind them went away and a reader still setting one
+// should hear so once. Dotted path → what happened. The whole subtree is
+// covered, so `docker.enabled` and its siblings raise one line, not seven.
+//
+// `docker` configured per-spec Docker stacks (feat-drop-docker-stacks). Its
+// port keys are still read as a fallback for `ports`.
+const DEPRECATED_KEYS = Object.freeze({
+  docker:
+    'per-spec Docker stacks were removed, so it is ignored; move docker.portBase/portsPerSpec to ports.base/perSpec',
+})
+
+// The deprecated keys a parsed config sets, as `{ key, note }`, top level only —
+// which is all `DEPRECATED_KEYS` holds.
+function collectDeprecatedKeys(parsed) {
+  if (!isObject(parsed)) return []
+  return Object.keys(DEPRECATED_KEYS)
+    .filter((key) => Object.prototype.hasOwnProperty.call(parsed, key))
+    .map((key) => ({ key, note: DEPRECATED_KEYS[key] }))
+}
+
 // Keys RENAMED with no alias, old dotted path → new one. A config still setting
 // the old name is reported as unknown like any other — the old value is not
 // read, so the guard falls back to its default, which is ON — but the report
@@ -439,7 +455,7 @@ function collectUnknownKeys(parsed, known = DEFAULT_CONFIG, prefix = '') {
   const out = []
   for (const key of Object.keys(parsed)) {
     const dotted = prefix ? `${prefix}.${key}` : key
-    if (RETIRED_KEYS.has(dotted)) continue
+    if (RETIRED_KEYS.has(dotted) || Object.prototype.hasOwnProperty.call(DEPRECATED_KEYS, dotted)) continue
     if (!Object.prototype.hasOwnProperty.call(known, key)) {
       out.push(dotted)
       continue
@@ -457,7 +473,7 @@ function defaults() {
     mode: DEFAULT_CONFIG.mode,
     project: { ...DEFAULT_CONFIG.project },
     worktree: { ...DEFAULT_CONFIG.worktree },
-    docker: { ...DEFAULT_CONFIG.docker },
+    ports: { ...DEFAULT_CONFIG.ports },
     seedFiles: { mode: DEFAULT_CONFIG.seedFiles.mode, files: [] },
     setup: [],
     setupTriggers: [],
@@ -488,7 +504,7 @@ function assign(base, parsed, key, type) {
   if (type === 'string') {
     if (typeof v === 'string' && v.trim()) base[key] = v.trim()
   } else if (type === 'string?') {
-    // string that may be intentionally empty (e.g. backupCommand)
+    // string that may be intentionally empty
     if (typeof v === 'string') base[key] = v
   } else if (type === 'boolean') {
     if (typeof v === 'boolean') base[key] = v
@@ -705,14 +721,17 @@ function mergeConfig(base, parsed) {
     assign(base.worktree, parsed.worktree, 'folderPattern', 'string')
   }
 
+  // `docker` is read for its two port keys and nothing else, and only where
+  // `ports` does not say: a config written before the move keeps its dev
+  // servers on the ports they already had. `ports` wins when both are set.
   if (isObject(parsed.docker)) {
-    assign(base.docker, parsed.docker, 'enabled', 'boolean')
-    assign(base.docker, parsed.docker, 'composeFile', 'string')
-    assign(base.docker, parsed.docker, 'projectNamePattern', 'string')
-    assign(base.docker, parsed.docker, 'portBase', 'number')
-    assign(base.docker, parsed.docker, 'portsPerSpec', 'number')
-    assign(base.docker, parsed.docker, 'envFile', 'string')
-    assign(base.docker, parsed.docker, 'backupCommand', 'string?')
+    const { portBase, portsPerSpec } = parsed.docker
+    if (typeof portBase === 'number' && Number.isFinite(portBase)) base.ports.base = portBase
+    if (typeof portsPerSpec === 'number' && Number.isFinite(portsPerSpec)) base.ports.perSpec = portsPerSpec
+  }
+  if (isObject(parsed.ports)) {
+    assign(base.ports, parsed.ports, 'base', 'number')
+    assign(base.ports, parsed.ports, 'perSpec', 'number')
   }
 
   if (Array.isArray(parsed.seedFiles) || isObject(parsed.seedFiles)) {
@@ -930,13 +949,14 @@ function mergeConfig(base, parsed) {
 
 /**
  * Load and normalise `specs/.core/env.config.json` from `dir` (default cwd).
- * Returns `{ config, present, unknown }`:
+ * Returns `{ config, present, unknown, deprecated }`:
  *   - missing file → `{ config: defaults, present: false, unknown: [] }`
  *     (opt-out; never throws)
  *   - present      → `{ config: merged,   present: true,  unknown: [...] }`
  * Malformed JSON → throws a clear Error (callers exit non-zero).
  *
- * `unknown` lists the dotted paths the merge ignored, for a caller to report.
+ * `unknown` lists the dotted paths the merge ignored, for a caller to report;
+ * `deprecated` the retired keys still set, as `{ key, note }`, likewise.
  * It is advisory in the strongest sense: nothing here acts on it, and a config
  * full of strays loads exactly as it always did.
  */
@@ -1049,6 +1069,7 @@ function loadEnvConfig(dir = process.cwd()) {
         config: applyProviderSpecDocs(applyProviderEnvDefaults(base, null), null, dir),
         present: false,
         unknown: [],
+        deprecated: [],
         badReviewers: [],
       }
     }
@@ -1066,6 +1087,7 @@ function loadEnvConfig(dir = process.cwd()) {
     config: withGapPin(applyProviderSpecDocs(applyProviderEnvDefaults(mergeConfig(base, parsed), parsed), parsed, dir), dir),
     present: true,
     unknown: collectUnknownKeys(parsed),
+    deprecated: collectDeprecatedKeys(parsed),
     badReviewers: collectBadReviewers(parsed),
   }
 }

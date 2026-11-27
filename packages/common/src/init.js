@@ -1366,7 +1366,7 @@ function printReport(dir, mode, { diff = false } = {}) {
   const isolationOn = fs.existsSync(path.join(dir, 'specs', '.core', 'env.config.json'))
   const isolationNote = isolationOn
     ? 'Per-spec isolation is ON: every in-progress spec gets its own git worktree' +
-      ' at /spec-start (Docker is a per-spec escalation — set > **Stack:** in the spec).\n'
+      ' at /spec-start.\n'
     : 'Per-spec isolation is opt-in: re-run with --isolation (or copy' +
       ' specs/.core/env.config.json.example → env.config.json) to enable it.\n'
   const gatingOn = fs.existsSync(path.join(dir, 'specs', '.core', 'gating.config.json'))

@@ -14,7 +14,7 @@ const {
   portOffset,
 } = require('../src/env/registry.js')
 
-const CONFIG = { registry: '.spec-env/registry.json', docker: { portBase: 3000, portsPerSpec: 10 } }
+const CONFIG = { registry: '.spec-env/registry.json', ports: { base: 3000, perSpec: 10 } }
 
 function tmpDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-reg-'))
@@ -62,7 +62,7 @@ test('a freed slot is reused by the next allocation', () => {
   assert.strictEqual(slot, 0)
 })
 
-test('portOffset math: portBase + slot * portsPerSpec', () => {
+test('portOffset math: ports.base + slot * ports.perSpec', () => {
   assert.strictEqual(portOffset(0, CONFIG), 3000)
   assert.strictEqual(portOffset(1, CONFIG), 3010)
   assert.strictEqual(portOffset(5, CONFIG), 3050)

@@ -10,7 +10,7 @@
  * is filled from a tracker id when one is configured, else it falls back to
  * `{type}/{slug}`), and expands the config's path/name tokens (`{repo}`,
  * `{repoSlug}`, `{slug}`). Reads files to locate the spec and read frontmatter,
- * but makes no git/docker side effects — deterministic and safe to unit-test with
+ * but makes no git side effects — deterministic and safe to unit-test with
  * fixtures.
  */
 
@@ -376,26 +376,23 @@ function readFrontmatterField(specPath, field) {
 }
 
 /**
- * Read a spec's `> **Stack:** …` blockquote field from 00-overview.md and map it
- * to the isolation stack: any value containing `docker` → `'docker'`, otherwise
- * `'worktree'`. A spec with no field falls back to the project default — which
- * preserves pre-`Stack` behaviour: with Docker available (`docker.enabled`) a
- * legacy spec still gets Docker, else it's worktree-only. The planner ANDs this
- * with the master switch, so an explicit `worktree` always suppresses Docker.
+ * Does a spec's `> **Stack:** …` header still ask for Docker?
+ *
+ * Every spec is a plain worktree now — per-spec Docker stacks were removed
+ * (feat-drop-docker-stacks) — so the header no longer decides anything. It is
+ * read only so `spec-env up` can say, once, that a `worktree + docker` spec is
+ * being provisioned without one. An unreadable overview or a missing header is
+ * false: there is nothing to say about a header nobody wrote.
  */
-function readStackField(specPath, config) {
-  const overview = path.join(specPath, '00-overview.md')
+function readLegacyDockerStack(specPath) {
   let raw
   try {
-    raw = fs.readFileSync(overview, 'utf-8')
+    raw = fs.readFileSync(path.join(specPath, '00-overview.md'), 'utf-8')
   } catch {
-    raw = null
+    return false
   }
-  const m = raw && /^>\s*\*\*Stack:\*\*\s*(.+)$/m.exec(raw)
-  if (m) {
-    return /docker/i.test(m[1]) ? 'docker' : 'worktree'
-  }
-  return config.docker && config.docker.enabled ? 'docker' : 'worktree'
+  const m = /^>\s*\*\*Stack:\*\*\s*(.+)$/m.exec(raw)
+  return Boolean(m && /docker/i.test(m[1]))
 }
 
 /**
@@ -659,7 +656,7 @@ function assertPrimaryOnMain(config, git) {
  * locating the spec folder.
  *
  * **Identity/coordinate tokens still expand against `dir`** (the primary
- * checkout) in every case — `{repo}`, the worktree path, the docker project name
+ * checkout) in every case — `{repo}`, the worktree path
  * and the registry are repo-level facts that must be identical from anywhere.
  * That is `bug-spec-env-cwd-anchor`'s fix and it is deliberately untouched here;
  * only which *file* is read moves.
@@ -726,7 +723,6 @@ function resolveSpecless(name, dir, config, entry = {}) {
     worktreePath: path.resolve(root, worktreeRoot, worktreeFolder),
     projectPath: projectIn(path.resolve(root, worktreeRoot, worktreeFolder), prefixOf(config)),
     prefix: prefixOf(config),
-    projectName: expandTokens(config.docker.projectNamePattern, tokens),
   }
 }
 
@@ -767,7 +763,7 @@ function resolveSpec(specArg, dir, config, opts = {}) {
   const { repo, repoSlug } = repoInfo(root)
   const tokens = { repo, repoSlug, slug }
 
-  const stack = readStackField(found.path, config)
+  const legacyDockerStack = readLegacyDockerStack(found.path)
   // A hotfix forks its worktree from a release tag (its `Base version`) instead
   // of base HEAD; every other type resolves to baseRef:null (fork from HEAD).
   const baseVersion = type === 'hotfix' ? parseBaseVersion(readBaseVersionField(found.path)) : null
@@ -781,7 +777,8 @@ function resolveSpec(specArg, dir, config, opts = {}) {
     path: found.path,
     type,
     slug,
-    stack,
+    stack: 'worktree',
+    legacyDockerStack,
     baseRef,
     baseVersion,
     specless: false,
@@ -794,7 +791,6 @@ function resolveSpec(specArg, dir, config, opts = {}) {
   // Where the project sits inside the worktree — what a session stands in and
   // what project-scoped steps run in. The worktree itself when the prefix is ''.
   const projectPath = projectIn(worktreePath, prefixOf(config))
-  const projectName = expandTokens(config.docker.projectNamePattern, tokens)
 
   return {
     ...spec,
@@ -808,7 +804,6 @@ function resolveSpec(specArg, dir, config, opts = {}) {
     // The project's folder within the repo, as a repo path ('' at the root) —
     // what turns a git path into a project path (env/project.js).
     prefix: prefixOf(config),
-    projectName,
   }
 }
 
@@ -929,7 +924,7 @@ module.exports = {
   readOverview,
   readTicket,
   readFrontmatterField,
-  readStackField,
+  readLegacyDockerStack,
   readBaseVersionField,
   parseBaseVersion,
 }

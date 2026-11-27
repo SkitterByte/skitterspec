@@ -118,12 +118,11 @@ test('STAYS SILENT: the primary checkout being dirty is not offered either', () 
 })
 
 test('STAYS SILENT: the redirections offer nothing, because they are not unblocks', () => {
-  // A hotfix, a stateful spec and a migrations branch each send the reader to
-  // `/spec-connect` instead. That is a different route, not a way through this
+  // A hotfix and a migrations branch each send the reader to `/spec-connect`
+  // instead. That is a different route, not a way through this
   // one, so none of them declares an offer.
   const cases = [
     ['hotfix', { ...SPEC, type: 'hotfix' }, ctx()],
-    ['stateful', { ...SPEC, stack: 'docker' }, ctx()],
     ['migrations', SPEC, ctx({ migrationsHit: true })],
     ['no worktree', SPEC, ctx({ worktreeExists: false })],
     ['no dev server', SPEC, ctx({ serverUp: false })],

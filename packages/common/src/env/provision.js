@@ -3,17 +3,14 @@
 /**
  * Pure provisioning planner for `spec-env up`.
  *
- * Given a resolved spec and its allocated slot, `planUp` returns the commands
+ * Given a resolved spec, `planUp` returns the commands
  * the caller runs from the primary checkout (the spec commit, `git worktree
- * add`) and the worktree steps `spec-env bootstrap` runs afterwards (seeds, the
- * env file, `setup`, the stack) — but performs no side effects itself. The caller (the CLI) reads/allocates the
- * registry and passes the slot; this stays deterministic and unit-testable with
- * no live git/docker.
+ * add`) and the worktree steps `spec-env bootstrap` runs afterwards (seeds and
+ * `setup`) — but performs no side effects itself. This stays deterministic and
+ * unit-testable with no live git.
  */
 
 const { classifyDirtyTree } = require('./classify.js')
-const { portOffset } = require('./registry.js')
-const { renderEnvFile } = require('./render.js')
 const { expandTokens } = require('./resolve.js')
 const { shellPath, prefixOf, projectRelative } = require('./project.js')
 
@@ -181,64 +178,9 @@ function planSpecCommit(spec, ctx, config, { carriesChanges = false } = {}) {
 }
 
 /**
- * The `-f <composeFile>` argument for a `docker compose` invocation.
- *
- * ONLY when the configured file is known to be present, and that condition is
- * the whole point. `docker.composeFile` was read, normalised and validated by
- * the config loader and then never passed to docker at all, so a project naming
- * a non-default file was silently relying on docker's own discovery instead.
- * Passing it unconditionally would fix that project and BREAK the mirror image
- * of it — one whose compose file is `compose.yaml` (a name docker finds by
- * itself) while this key sits at its untouched default of `docker-compose.yml`.
- *
- * So the flag is added on the positive signal and omitted otherwise, which
- * leaves docker's discovery exactly as it is for everyone it was already
- * working for.
- */
-function composeFileArg(config, present) {
-  const file = config && config.docker && config.docker.composeFile
-  return present === true && file ? ` -f ${file}` : ''
-}
-
-/**
- * Does this spec want a Docker stack?
- *
- * ONE function, called by `planUp` and by the `up` command in `cli.js`. They
- * used to each carry their own copy and the copies disagreed: the CLI read
- * `spec.stack === 'docker'` with no fallback, so a header-less spec allocated no
- * registry slot, while the planner fell back to the master switch and emitted
- * `docker compose up -d` anyway — a stack brought up on a port offset derived
- * from a slot that was never allocated.
- *
- * A SPEC WITH NO `Stack:` HEADER NEEDS THE COMPOSE FILE TO BE PRESENT. The
- * master switch alone is not evidence that there is a stack to bring up: it is
- * a project-wide default, and `/spec` has written the header on every spec for
- * some time, so the specs reaching this fallback are legacy or hand-written. The
- * compose file is the positive signal that the escalation would land on
- * something real (`.claude/rules/negative-checks.md` rule 1).
- *
- * WHAT WOULD FOOL THIS, deliberately unhandled: a project whose compose file is
- * generated during `setup` rather than committed. It does not exist when the
- * plan is built, so a header-less spec there resolves to `worktree`. The answer
- * is an explicit `> **Stack:** worktree + docker` header, which is checked first
- * and never consults this at all — so being wrong costs a header, not a stack.
- *
- * `composeFilePresent` undefined means the caller did not look, which is
- * cannot-tell rather than false. It routes to no escalation, the harmless
- * branch: a missing stack surfaces as a header to add, where a spurious one
- * surfaces as `docker compose` failing mid-provision (rule 4).
- */
-function resolveStack(spec, config, { docs = false, composeFilePresent } = {}) {
-  const stack =
-    spec.stack || (config.docker.enabled && composeFilePresent === true ? 'docker' : 'worktree')
-  return { stack, wantsDocker: stack === 'docker' && config.docker.enabled && !docs }
-}
-
-/**
  * The steps that bring a fresh worktree to ready, as data — the list
  * `spec-env bootstrap` runs. In the order each depends on the last: seeds (the
- * env file may be one), the env file, `setup` (which may derive values into
- * it), and only then the stack.
+ * env file may be one), then `setup`.
  *
  * DATA AND NOT SHELL, and that is the reason the verb exists. These steps were
  * printed as POSIX-sh one-liners for the agent to copy, and the copy was never
@@ -249,13 +191,12 @@ function resolveStack(spec, config, { docs = false, composeFilePresent } = {}) {
  * the engine runs itself has no text for anything to rewrite or refuse.
  *
  * `setup` entries stay shell strings: they are the project's own commands,
- * written by the project. The docker step is an argv, run without a shell.
+ * written by the project.
  *
- * Pure: `offset` is the spec's port offset (null without a stack), and every
- * filesystem fact arrives in `opts`.
+ * Pure: every filesystem fact arrives in `opts`.
  */
-function worktreeSteps(spec, offset, config, opts = {}) {
-  const { docs = false, wantsDocker = false, composeFilePresent: compose, localSeeds = [] } = opts
+function worktreeSteps(spec, config, opts = {}) {
+  const { docs = false, localSeeds = [] } = opts
   const seed = config.seedFiles || { mode: 'symlink', files: [] }
   const mode = seed.mode === 'copy' ? 'copy' : 'symlink'
   const tokens = {
@@ -264,10 +205,7 @@ function worktreeSteps(spec, offset, config, opts = {}) {
     worktreePath: spec.projectPath || spec.worktreePath,
     slug: spec.slug,
     branch: spec.branch,
-    projectName: spec.projectName,
-    portOffset: offset === null || offset === undefined ? '' : String(offset),
   }
-  const envFile = (config.docker && config.docker.envFile) || '.env'
   // A local install (`init --local`) keeps skitterspec's own files out of git,
   // so a fresh worktree has none of them; they are seeded first, implicitly from
   // the manifest's scope — nothing in the committed config names them.
@@ -277,34 +215,13 @@ function worktreeSteps(spec, offset, config, opts = {}) {
     file,
     mode,
   }))
-  if (wantsDocker) {
-    steps.push({ kind: 'envFile', file: envFile, projectName: spec.projectName, offset })
-  }
   // Documents mode drops `setup` and nothing else: seeding is cheap and a spec
   // author may well want the gitignored files present, while `setup` is the
-  // expensive half that exists to make the tree run. `wantsDocker` is already
-  // false under `--docs` (`resolveStack`), so the stack drops with it.
+  // expensive half that exists to make the tree run.
   if (!docs) {
     for (const cmd of config.setup || []) {
       steps.push({ kind: 'setup', command: expandTokens(cmd, tokens) })
     }
-  }
-  if (wantsDocker) {
-    const file = composeFileArg(config, compose).trim().split(/\s+/).filter(Boolean)
-    steps.push({
-      kind: 'docker',
-      argv: [
-        'docker',
-        'compose',
-        ...file,
-        '--env-file',
-        envFile,
-        '--project-name',
-        spec.projectName,
-        'up',
-        '-d',
-      ],
-    })
   }
   return steps
 }
@@ -313,58 +230,38 @@ function worktreeSteps(spec, offset, config, opts = {}) {
  * Plan a provisioning run.
  *
  * @param {object} spec  resolved spec (from resolveSpec): { slug, type, branch,
- *                       worktreePath, projectName, ... }
- * @param {object} alloc { slot, attached } — attached:true when the slot already
- *                       existed in the registry (re-run → attach, don't clobber).
+ *                       worktreePath, ... }
+ * @param {object} alloc { attached } — attached:true when the worktree's branch
+ *                       already exists (re-run → attach, don't clobber).
  * @param {object} config normalised env config.
  * @param {object} opts  { docs } — documents mode (see below). Optional.
- * @returns {object} { worktreePath, branch, projectName, slot, portOffset,
- *                     envContents, commands, steps, docs, attached }
+ * @returns {object} { worktreePath, branch, commands, steps, docs, attached }
  *
  * `commands` run from the primary checkout (the spec commit, the fork); `steps`
  * are what `spec-env bootstrap` runs in the worktree afterwards.
  */
 function planUp(spec, alloc, config, ctx, opts = {}) {
-  const { slot, attached } = alloc
+  const { attached } = alloc
 
   // DOCUMENTS MODE — a worktree to write a spec in, not to run code in.
   //
   // `/spec` provisions before it writes the spec folder, so that authoring never
   // touches the base branch. What it needs is a checkout on a branch; what it
-  // does not need is `pnpm install --frozen-lockfile` and a database, to write
-  // markdown. So this mode keeps the fork and drops everything whose only
-  // purpose is making the tree runnable.
+  // does not need is `pnpm install --frozen-lockfile`, to write markdown. So
+  // this mode keeps the fork and drops everything whose only purpose is making
+  // the tree runnable.
   //
   // It is not a lesser provision that has to be undone: `/spec-start` re-runs
   // `up` over the same worktree WITHOUT this flag, and the setup commands run
   // then — at the first moment the tree is used for code.
   const docs = opts.docs === true
 
-  // Per-spec escalation, decided in ONE place (`resolveStack`) so the planner and
-  // the CLI cannot answer it differently — which they did, for exactly the
-  // header-less spec this gate is about.
-  const { wantsDocker } = resolveStack(spec, config, {
-    docs,
-    composeFilePresent: ctx ? ctx.composeFilePresent : undefined,
-  })
-
-  // Slot, port block and `.env` are Docker-only. A worktree-only spec takes none
-  // of them: no registry slot, no PORT_OFFSET, no `.env`.
-  const offset = wantsDocker ? portOffset(slot, config) : null
-  const envContents = wantsDocker
-    ? renderEnvFile({ projectName: spec.projectName, portOffset: offset })
-    : null
-
   // Everything after the fork runs in the worktree, and `spec-env bootstrap`
   // runs it — the steps are data, not shell for a caller to copy.
-  const steps = worktreeSteps(spec, offset, config, {
-    docs,
-    wantsDocker,
-    composeFilePresent: ctx ? ctx.composeFilePresent : undefined,
-  })
+  const steps = worktreeSteps(spec, config, { docs })
 
   const commands = []
-  // Fresh branch → -b; attach an existing branch/slot → plain form (never clobber).
+  // Fresh branch → -b; attach an existing branch → plain form (never clobber).
   // A hotfix forks its fresh branch from a release tag (`spec.baseRef`, e.g.
   // `v33.16.4`) instead of base HEAD — so the fix is built on the exact commit
   // line prod runs. Attaching an existing branch ignores baseRef (already forked).
@@ -405,13 +302,9 @@ function planUp(spec, alloc, config, ctx, opts = {}) {
     worktreePath: spec.worktreePath,
     projectPath: spec.projectPath || spec.worktreePath,
     branch: spec.branch,
-    projectName: spec.projectName,
-    slot: wantsDocker ? slot : null,
-    portOffset: offset,
-    envContents,
     commands: gate.blocked ? [] : [...gate.commands, ...commands],
     // The worktree steps, in the order `spec-env bootstrap` runs them. Documents
-    // mode drops `setup` and the stack and keeps the seeds (`worktreeSteps`).
+    // mode drops `setup` and keeps the seeds (`worktreeSteps`).
     steps: gate.blocked ? [] : steps,
     // Reported so a caller reading `--json` can tell a documents worktree from a
     // full one POSITIVELY, rather than inferring it from what is missing. A step
@@ -491,6 +384,4 @@ module.exports = {
   planCheckoutUp,
   planSpecCommit,
   worktreeSteps,
-  resolveStack,
-  composeFileArg,
 }

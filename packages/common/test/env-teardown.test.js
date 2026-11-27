@@ -11,18 +11,13 @@ function spec(overrides = {}) {
     slug: 'thing',
     branch: 'feat/thing',
     worktreePath: '/wt/thing',
-    projectName: 'app_thing',
     ...overrides,
   }
 }
 
 function config(overrides = {}) {
   return {
-    docker: {
-      enabled: true,
-      backupCommand: '',
-      ...(overrides.docker || {}),
-    },
+    ...(overrides.docker ? { docker: overrides.docker } : {}),
     guards: {
       refuseTeardownIfDirty: true,
       refuseTeardownIfUnpushed: true,
@@ -34,7 +29,7 @@ function config(overrides = {}) {
   }
 }
 
-const CTX = (worktreeState = {}) => ({ worktreeState, timestamp: '20260708-120000' })
+const CTX = (worktreeState = {}) => ({ worktreeState })
 
 test('blocks on a dirty worktree', () => {
   const p = planDown(spec(), config(), {}, CTX({ dirty: true }))
@@ -95,110 +90,30 @@ test('an unpushed hotfix branch NOT yet tagged is still blocked (nothing capture
   assert.match(p.reason, /unpushed/)
 })
 
-test('clean worktree → down --volumes + worktree remove, volumes dropped', () => {
+test('clean worktree → worktree remove + branch delete, and nothing else', () => {
   const p = planDown(spec(), config(), {}, CTX())
   assert.strictEqual(p.blocked, false)
-  assert.strictEqual(p.volumesDropped, true)
-  assert.deepStrictEqual(p.commands, [
-    'docker compose --project-name app_thing down --volumes',
-    'git worktree remove /wt/thing',
-    'git branch -d feat/thing',
-  ])
+  assert.deepStrictEqual(p.commands, ['git worktree remove /wt/thing', 'git branch -d feat/thing'])
 })
 
-// `docker.composeFile` reaches docker on teardown too — the `up` that created
-// the stack named the file, so the `down` that removes it must name the same one.
-test('the configured compose file is passed to down when it is present', () => {
-  const p = planDown(spec(), config({ docker: { composeFile: 'infra/compose.yaml' } }), {}, {
-    ...CTX(),
-    composeFilePresent: true,
-  })
-  assert.strictEqual(
-    p.commands[0],
-    'docker compose -f infra/compose.yaml --project-name app_thing down --volumes',
-  )
-})
-
-// STAYS SILENT: teardown is deliberately NOT gated on the compose file — skipping
-// a `down` would orphan a running stack and its volumes. It still plans the down;
-// it just does not name a file it could not find.
-test('stays silent: a missing compose file still tears the stack down, without -f', () => {
-  const p = planDown(spec(), config({ docker: { composeFile: 'docker-compose.yml' } }), {}, {
-    ...CTX(),
-    composeFilePresent: false,
-  })
-  assert.strictEqual(p.commands[0], 'docker compose --project-name app_thing down --volumes')
-})
-
-test('--keep-volumes → plain down, no backup, volumes kept', () => {
+// Per-spec Docker stacks were removed (feat-drop-docker-stacks): a leftover
+// `docker` config and a legacy header tear down exactly like any other spec.
+test('stays silent: a legacy docker config and header plan no compose, volumes or backup', () => {
   const p = planDown(
-    spec(),
-    config({ docker: { backupCommand: 'pg_dump > {backupPath}' } }),
+    spec({ stack: 'docker', legacyDockerStack: true }),
+    config({ docker: { enabled: true, backupCommand: 'pg_dump > {backupPath}' } }),
     { keepVolumes: true },
     CTX(),
   )
-  assert.strictEqual(p.volumesDropped, false)
-  assert.strictEqual(p.backupCommand, null)
-  assert.deepStrictEqual(p.commands, [
-    'docker compose --project-name app_thing down',
-    'git worktree remove /wt/thing',
-    'git branch -d feat/thing',
-  ])
-})
-
-test('backupCommand set → pre-drop backup command with expanded path', () => {
-  const p = planDown(
-    spec(),
-    config({ docker: { backupCommand: 'pg_dump app > {backupPath}' } }),
-    {},
-    CTX(),
-  )
-  assert.strictEqual(p.backupPath, '.spec-env/backups/thing-20260708-120000.dump')
-  assert.strictEqual(p.backupCommand, 'pg_dump app > .spec-env/backups/thing-20260708-120000.dump')
-  // backup runs BEFORE the down
-  assert.strictEqual(p.commands[0], p.backupCommand)
-  assert.strictEqual(p.commands[1], 'docker compose --project-name app_thing down --volumes')
-})
-
-test('backupCommand unset → no backup command', () => {
-  const p = planDown(spec(), config(), {}, CTX())
-  assert.strictEqual(p.backupCommand, null)
-  assert.strictEqual(p.backupPath, null)
-})
-
-test('docker.enabled:false → no backup, no down, just worktree remove', () => {
-  const p = planDown(
-    spec(),
-    config({ docker: { enabled: false, backupCommand: 'pg_dump > {backupPath}' } }),
-    {},
-    CTX(),
-  )
-  assert.strictEqual(p.volumesDropped, false)
-  assert.strictEqual(p.backupCommand, null)
   assert.deepStrictEqual(p.commands, ['git worktree remove /wt/thing', 'git branch -d feat/thing'])
+  for (const gone of ['backupCommand', 'backupPath', 'volumesDropped']) {
+    assert.ok(!(gone in p), `${gone} is no longer planned`)
+  }
 })
 
 test('guard toggles: dirty allowed when refuseTeardownIfDirty is false', () => {
   const p = planDown(spec(), config({ guards: { refuseTeardownIfDirty: false } }), {}, CTX({ dirty: true }))
   assert.strictEqual(p.blocked, false)
-})
-
-test('worktree-only spec → only worktree remove + branch delete, master switch on', () => {
-  const p = planDown(spec({ stack: 'worktree' }), config(), {}, CTX())
-  assert.strictEqual(p.blocked, false)
-  assert.strictEqual(p.volumesDropped, false)
-  assert.strictEqual(p.backupCommand, null)
-  assert.deepStrictEqual(p.commands, ['git worktree remove /wt/thing', 'git branch -d feat/thing'])
-})
-
-test('docker spec → down --volumes + worktree remove + branch delete (Stack drives it)', () => {
-  const p = planDown(spec({ stack: 'docker' }), config(), {}, CTX())
-  assert.strictEqual(p.volumesDropped, true)
-  assert.deepStrictEqual(p.commands, [
-    'docker compose --project-name app_thing down --volumes',
-    'git worktree remove /wt/thing',
-    'git branch -d feat/thing',
-  ])
 })
 
 test('branch delete stays -d for a branch that has NOT landed', () => {

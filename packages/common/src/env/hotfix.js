@@ -588,7 +588,7 @@ function planBranchHotfixFinish(spec, state) {
   else if (!s.landed) reasons.push(`the fix is not on ${s.releaseBranch} yet — run \`spec-env hotfix land\` (and merge its PR)`)
   if (s.carried === undefined) reasons.push(`cannot tell whether ${s.base} has the fix — the host or remote did not answer`)
   else if (s.carried === false) reasons.push(`${s.base} does not have the fix yet — re-run \`spec-env hotfix land\` to carry it (and merge the carry PR)`)
-  if (s.hasSlot) reasons.push(`${spec.folder} holds a Docker stack — tear it down with \`spec-env down\``)
+  if (s.hasSlot) reasons.push(`${spec.folder} holds a dev port block — tear it down with \`spec-env down\``)
   if (reasons.length) return { blocked: true, reasons, argvs: [] }
   const root = s.mainRepoPath
   return {
@@ -659,9 +659,9 @@ function planHotfixFinish(spec, state) {
   } else if (!shipped && s.head && s.remoteHead !== s.head) {
     reasons.push(`${remote}/${spec.branch} is not at HEAD — push the branch first`)
   }
-  // A Docker stack has volumes and a slot that only `down` knows how to free.
+  // A registry slot (the spec's dev port block) is one only `down` frees.
   if (s.hasSlot) {
-    reasons.push(`${spec.folder} holds a Docker stack — tear it down with \`spec-env down\``)
+    reasons.push(`${spec.folder} holds a dev port block — tear it down with \`spec-env down\``)
   }
   if (reasons.length) return { blocked: true, reasons, releaseTag, argvs: [] }
   const root = s.mainRepoPath

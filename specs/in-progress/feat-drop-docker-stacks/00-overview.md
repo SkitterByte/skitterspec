@@ -87,7 +87,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Engine stops provisioning Docker; config tolerates the old keys | ⬜ | [01-engine.md](01-engine.md) |
+| 1 | Engine stops provisioning Docker; config tolerates the old keys | ✅ | [01-engine.md](01-engine.md) |
 | 2 | Assets and docs no longer mention Docker stacks | ⬜ | [02-assets-docs.md](02-assets-docs.md) |
 
 ## Open questions
@@ -97,3 +97,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-11-27 — Spec created as member 1 of epic-live-workbench.
+- 2026-11-27 — Phase 1: kept the hotfix finish slot guard, reworded as a dev
+  port block, since only `down` frees a slot. Decision 1's notice lives in
+  `config.js`, not `deprecate.js`. `spec-env prune` is kept as the pidfile
+  reap. The example config and `docs/review.html`'s covers moved in phase 1,
+  because the tests need them.

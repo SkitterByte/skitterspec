@@ -73,7 +73,7 @@ test('the engine has no opener left to configure', () => {
   // The positive half of the two above: prose can only stop describing a key
   // that has actually gone, and a key left behind is a key someone re-documents.
   const src = (...p) => fs.readFileSync(path.join(__dirname, '..', 'src', ...p), 'utf8')
-  for (const f of [['env', 'config.js'], ['env', 'render.js'], ['env', 'provision.js'], ['cli.js']]) {
+  for (const f of [['env', 'config.js'], ['env', 'provision.js'], ['cli.js']]) {
     assert.doesNotMatch(src(...f), /openCommand|expandOpenCommand|\.open\b/, `src/${f.join('/')}`)
   }
   const { loadEnvConfig } = require('../src/env/config.js')

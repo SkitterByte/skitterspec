@@ -84,15 +84,12 @@ test('the same spec without --docs keeps its setup step and says nothing about d
 })
 
 /**
- * THE RE-RUN SIGNAL, and the defect documents mode would otherwise have created.
- *
- * Slot allocation is Docker-only, so a Docker spec's re-run used to be detected
- * by its slot being in the registry. Provision that spec with `--docs` and no
- * slot is allocated — so the next `up` without the flag would find an empty
- * registry, conclude "fresh", and plan `git worktree add -b <branch>` over a
- * worktree and branch that both already exist. That plan cannot run.
+ * THE RE-RUN SIGNAL: a worktree on disk. A legacy docker spec once carried a
+ * second signal (its registry slot), and `--docs` allocated none — so the next
+ * `up` would plan `git worktree add -b` over a worktree that already existed.
+ * The worktree is now the only signal, for every spec.
  */
-test('a docker spec provisioned with --docs re-runs as an attach, not a re-fork', async () => {
+test('a legacy docker spec provisioned with --docs re-runs as an attach, not a re-fork', async () => {
   const { dir, folder, worktree } = scaffold(
     'c',
     { docker: { enabled: true, portBase: 3000, portsPerSpec: 10 }, ...SETUP },
@@ -100,7 +97,8 @@ test('a docker spec provisioned with --docs re-runs as an attach, not a re-fork'
   )
   try {
     const docsOut = await runQuiet(['spec-env', 'up', folder, '--dir', dir, '--docs'])
-    assert.match(docsOut, /worktree-only \(no docker/, 'docs mode brought no stack up')
+    assert.match(docsOut, /stack:\s+worktree\n/, 'docs mode brought no stack up')
+    assert.match(docsOut, /Stack: worktree \+ docker is ignored/, 'and said why, once')
 
     // What the printed command would have created, had it been run.
     fs.mkdirSync(worktree, { recursive: true })
@@ -129,8 +127,9 @@ test('a worktree-only spec still attaches on an existing worktree', async () => 
   }
 })
 
-// STAYS-SILENT: a fresh docker spec, never touched by --docs, is unaffected.
-test('a fresh docker spec still allocates its slot and brings the stack up', async () => {
+// Per-spec Docker stacks were removed (feat-drop-docker-stacks): a fresh spec
+// headed for one gets no slot, no stack and a one-line note.
+test('a fresh legacy docker spec gets no slot or stack, and a note saying so', async () => {
   const { dir, folder } = scaffold(
     'e',
     { docker: { enabled: true, portBase: 3000, portsPerSpec: 10 }, ...SETUP },
@@ -138,9 +137,19 @@ test('a fresh docker spec still allocates its slot and brings the stack up', asy
   )
   try {
     const out = await runQuiet(['spec-env', 'up', folder, '--dir', dir])
-    assert.match(out, /slot:\s+0\s+\(ports 3000-3009\)/)
-    assert.match(out, /spec-env bootstrap feat-e\n/)
-    assert.doesNotMatch(out, /docs:/)
+    assert.doesNotMatch(out, /slot:|docker compose|project:/)
+    assert.strictEqual((out.match(/Stack: worktree \+ docker is ignored/g) || []).length, 1)
+    assert.ok(!fs.existsSync(path.join(dir, '.spec-env', 'registry.json')), 'no slot allocated')
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('STAYS SILENT: a worktree-header spec gets no Docker note', async () => {
+  const { dir, folder } = scaffold('f', SETUP)
+  try {
+    const out = await runQuiet(['spec-env', 'up', folder, '--dir', dir])
+    assert.doesNotMatch(out, /note:|Docker/)
   } finally {
     cleanup(dir)
   }
